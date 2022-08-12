@@ -1,0 +1,161 @@
+box.main_window {
+    min-width: 1200px;
+    min-height: 800px;
+    font-weight: 200;
+    font-size: 2rem;
+    line-height: 1.5;
+    margin: 2em;
+    border-spacing: 2em;
+    padding: 0;
+}
+
+stack.main_stack {
+
+}
+
+box.startup_page {
+    padding: 0.5em 4em;
+}
+
+box.startup_page scrolledwindow.description {
+    font-size: 1.1em;
+    min-height: 20em;
+    padding: 1.5em 0;
+}
+
+box.startup_page scrolledwindow.description label {
+    line-height: 1.6;
+}
+
+box.config {
+    border-spacing: 0.4em;
+    font-size: 0.9em;
+}
+
+separator.config {
+    margin: 0.7em 0.5em;
+}
+
+box.selection_page {
+    padding: 2em 4em;
+}
+
+grid.block_selection {
+    border-spacing: 1.25em;
+}
+
+grid.block_selection button {
+    min-height: 2em;
+    padding: 0.3em 1em;
+    font-weight: 350;
+    border-width: 0.1em;
+    border-radius: 2em;
+}
+
+grid.block_selection button.done {
+    color: forestgreen;
+    border-width: 0;
+}
+
+viewport.loading_page {
+    padding: 4em;
+}
+
+viewport.activity_page {
+    padding: 0;
+}
+
+button {
+    border-radius: 2em;
+}
+
+button.start {
+    min-width: 9em;
+    min-height: 2.2em;
+    font-weight: 350;
+    color: forestgreen;
+}
+
+button.submit {
+    min-width: 9em;
+    min-height: 2.2em;
+    font-weight: 350;
+}
+
+button.cancel {
+    min-width: 6.75em;
+    min-height: 2.2em;
+    font-weight: 150;
+    color: #c01c1c;
+}
+
+entry.subject_id {
+    min-width: 9em;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+}
+
+label {
+
+}
+
+label.h1 {
+    font-size: 1.4em;
+    font-weight: 400;
+}
+
+label.h2 {
+    font-size: 1.2em;
+    font-weight: 300;
+}
+
+button label {
+
+}
+
+entry {
+
+}
+
+textview {
+    padding: 0.4em;
+    line-height: 1.0;
+}
+
+scrolledwindow.questions {
+    padding: 1.5em 3em;
+    min-width: 50em;
+    min-height: 20em;
+}
+
+box.question-entry {
+    padding: 0.35em 1em;
+    border-spacing: 0.5em;
+}
+
+box.question-entry label.prompt {
+
+}
+
+box.question-entry .answer {
+    margin: 0 0.5em 0 1em;
+}
+
+box.question-entry scrolledwindow.multi_line {
+
+}
+
+box.question-entry grid.single_choice {
+    border-spacing: 3em 0;
+    line-height: 1.25;
+}
+
+box.question-entry grid.multi_choice {
+    border-spacing: 3em 0;
+    line-height: 1.25;
+}
+
+separator.question-separator {
+    margin-left: 1.75em;
+    margin-right: 1.5em;
+}
