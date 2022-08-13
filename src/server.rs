@@ -437,7 +437,7 @@ impl Application for Server {
 
     #[inline(always)]
     fn scale_factor(&self) -> f64 {
-        1.5 * self.scale_factor as f64
+        self.scale_factor as f64
     }
 }
 
@@ -445,27 +445,27 @@ impl Server {
     fn view_startup(&self) -> Element<'_, <Self as Application>::Message> {
         let controls = Row::new()
             .align_items(Alignment::Center)
-            .spacing(50)
+            .spacing(75)
             .push(
                 Button::new(
                     Text::new("Quit")
-                        .size(28)
+                        .size(40)
                         .horizontal_alignment(Horizontal::Center)
                         .vertical_alignment(Vertical::Center),
                 )
-                .padding([10, 40])
+                .padding([15, 60])
                 .style(style::Cancel)
                 .on_press(ServerMsg::Quit),
             )
             .push({
                 let row = Row::new()
                     .align_items(Alignment::Center)
-                    .spacing(3)
+                    .spacing(5)
                     .height(Length::Shrink)
                     .push(
                         Button::new(
                             svg::Svg::new(svg::Handle::from_memory(ICON_MAGNIFYING_GLASS))
-                                .width(Length::Units(20))
+                                .width(Length::Units(30))
                                 .content_fit(ScaleDown),
                         )
                         .style(style::Transparent)
@@ -475,24 +475,9 @@ impl Server {
                 if self.show_magnification {
                     row.push(
                         Text::new(format!("| x{} ", str_with_precision(self.scale_factor, 1)))
-                            .size(22)
+                            .size(30)
                             .horizontal_alignment(Horizontal::Center),
                     )
-                    .push({
-                        Button::new(
-                            Text::new("A")
-                                .size(12)
-                                .horizontal_alignment(Horizontal::Center)
-                                .vertical_alignment(Vertical::Center),
-                        )
-                        .on_press({
-                            let scale = f32_with_precision(self.scale_factor - 0.2, 1).max(0.8);
-                            ServerMsg::SetScale(scale)
-                        })
-                        .width(Length::Units(20))
-                        .height(Length::Units(20))
-                        .style(style::Select)
-                    })
                     .push({
                         Button::new(
                             Text::new("A")
@@ -501,11 +486,26 @@ impl Server {
                                 .vertical_alignment(Vertical::Center),
                         )
                         .on_press({
+                            let scale = f32_with_precision(self.scale_factor - 0.2, 1).max(0.8);
+                            ServerMsg::SetScale(scale)
+                        })
+                        .width(Length::Units(30))
+                        .height(Length::Units(30))
+                        .style(style::Select)
+                    })
+                    .push({
+                        Button::new(
+                            Text::new("A")
+                                .size(28)
+                                .horizontal_alignment(Horizontal::Center)
+                                .vertical_alignment(Vertical::Center),
+                        )
+                        .on_press({
                             let scale = f32_with_precision(self.scale_factor + 0.2, 1).min(1.2);
                             ServerMsg::SetScale(scale)
                         })
-                        .width(Length::Units(20))
-                        .height(Length::Units(20))
+                        .width(Length::Units(30))
+                        .height(Length::Units(30))
                         .style(style::Select)
                     })
                 } else {
@@ -514,29 +514,29 @@ impl Server {
             })
             .push(
                 Row::new()
-                    .spacing(10)
+                    .spacing(15)
                     .align_items(Alignment::Center)
                     .push(
                         Text::new("Subject ID: ")
-                            .size(24)
+                            .size(36)
                             .horizontal_alignment(Horizontal::Center)
                             .vertical_alignment(Vertical::Center),
                     )
                     .push(
                         TextInput::new("Enter Subject ID", &self.subject, ServerMsg::SetSubject)
-                            .size(24)
-                            .width(Length::Units(200))
-                            .padding([3, 6]),
+                            .size(36)
+                            .width(Length::Units(300))
+                            .padding([5, 9]),
                     ),
             )
             .push({
                 let button = Button::new(
                     Text::new("Start!")
-                        .size(28)
+                        .size(40)
                         .horizontal_alignment(Horizontal::Center)
                         .vertical_alignment(Vertical::Center),
                 )
-                .padding([10, 40])
+                .padding([15, 60])
                 .style(style::Submit);
 
                 if self.subject.is_empty()
@@ -555,11 +555,11 @@ impl Server {
             Column::new()
                 .width(Length::Fill)
                 .align_items(Alignment::Center)
-                .spacing(50)
+                .spacing(75)
                 .push(
                     Container::new(
                         Text::new(self.task.title())
-                            .size(30)
+                            .size(45)
                             .horizontal_alignment(Horizontal::Center),
                     )
                     .align_y(Vertical::Top),
@@ -567,16 +567,16 @@ impl Server {
                 .push(
                     Container::new(Scrollable::new(
                         Text::new(self.task.description())
-                            .width(Length::Units(800))
-                            .size(24)
+                            .width(Length::Units(1200))
+                            .size(36)
                             .horizontal_alignment(Horizontal::Center),
                     ))
                     .height(Length::Fill)
                     .center_y(),
                 )
-                .push(Container::new(controls.height(Length::Units(50))).align_y(Vertical::Bottom)),
+                .push(Container::new(controls.height(Length::Units(75))).align_y(Vertical::Bottom)),
         )
-        .padding(50)
+        .padding(75)
         .width(Length::Fill)
         .height(Length::Fill)
         .center_x()
@@ -586,17 +586,17 @@ impl Server {
 
     fn view_selection(&self) -> Element<'_, <Self as Application>::Message> {
         let content = Column::new()
-            .spacing(30)
+            .spacing(45)
             .align_items(Alignment::Center)
-            .padding([70, 0, 0, 0])
+            .padding([100, 0, 0, 0])
             .push(
                 Container::new(Scrollable::new(style::grid(
                     self.blocks
                         .iter()
                         .enumerate()
                         .map(|(i, (block, done))| {
-                            let button = Button::new(Text::new(block).size(24))
-                                .padding([10, 40])
+                            let button = Button::new(Text::new(block).size(36))
+                                .padding([15, 60])
                                 .on_press(ServerMsg::StartBlock(i));
 
                             if *done {
@@ -607,25 +607,25 @@ impl Server {
                         })
                         .collect(),
                     self.task.config().blocks_per_row() as usize,
-                    25,
-                    25,
+                    40,
+                    40,
                 )))
                 .height(Length::Fill)
                 .center_y(),
             )
             .push(
                 Container::new(
-                    Button::new(Text::new("Back").size(20))
-                        .padding([10, 40])
+                    Button::new(Text::new("Back").size(30))
+                        .padding([15, 60])
                         .style(style::Cancel)
                         .on_press(ServerMsg::GoToStartup),
                 )
-                .height(Length::Units(40))
+                .height(Length::Units(60))
                 .align_y(Vertical::Bottom),
             );
 
         let content = Container::new(content)
-            .padding(50)
+            .padding(75)
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x()
@@ -639,7 +639,7 @@ impl Server {
                         .push(Space::with_height(Length::FillPortion(1)))
                         .push(self.view_status(status).height(Length::FillPortion(14)))
                         .push(Space::with_height(Length::FillPortion(1)))
-                        .width(Length::Units(if status.is_err() { 800 } else { 600 })),
+                        .width(Length::Units(if status.is_err() { 1200 } else { 900 })),
                 )
                 .height(Length::Fill)
                 .width(Length::Fill)
@@ -673,7 +673,7 @@ impl Server {
     }
 
     fn view_loading(&self) -> Element<'_, <Self as Application>::Message> {
-        Container::new(Text::new("...").size(30))
+        Container::new(Text::new("...").size(45))
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x()
@@ -682,7 +682,7 @@ impl Server {
     }
 
     fn view_cleanup(&self) -> Element<'_, <Self as Application>::Message> {
-        Container::new(Text::new("...").size(30))
+        Container::new(Text::new("...").size(45))
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x()
@@ -697,12 +697,12 @@ impl Server {
             Ok(s) => self.view_status_ok(s),
             Err(e) => self.view_status_err(e),
         }
-        .padding_head(5.0)
+        .padding_head(7.5)
         .foot(
             Container::new(
                 Row::new()
-                    .spacing(3)
-                    .padding(5)
+                    .spacing(5)
+                    .padding(8)
                     .align_items(Alignment::Center)
                     .push(
                         button(
@@ -710,8 +710,8 @@ impl Server {
                                 .content_fit(Contain),
                         )
                         .style(style::Transparent)
-                        .width(Length::Units(34))
-                        .height(Length::Units(34))
+                        .width(Length::Units(50))
+                        .height(Length::Units(50))
                         .on_press(ServerMsg::ToClipboard),
                     )
                     .push(
@@ -720,8 +720,8 @@ impl Server {
                                 .content_fit(Contain),
                         )
                         .style(style::Transparent)
-                        .width(Length::Units(34))
-                        .height(Length::Units(34))
+                        .width(Length::Units(50))
+                        .height(Length::Units(50))
                         .on_press(ServerMsg::ClearStatus),
                     ),
             )
@@ -736,8 +736,8 @@ impl Server {
                 "Block \"{}\" ended with status:",
                 self.active_block.map_or("", |i| &self.blocks[i].0)
             ))
-            .size(24),
-            Scrollable::new(Text::new(status).size(24)),
+            .size(36),
+            Scrollable::new(Text::new(status).size(36)),
         );
 
         if status.as_str() == "Success" {
@@ -754,8 +754,8 @@ impl Server {
                 self.active_block.map_or("", |i| &self.blocks[i].0),
                 err.type_()
             ))
-            .size(24),
-            Scrollable::new(Text::new(format!("{err:?}")).size(24)),
+            .size(36),
+            Scrollable::new(Text::new(format!("{err:?}")).size(36)),
         )
         .style(style::Error)
     }

@@ -401,8 +401,8 @@ impl StatefulAction for StatefulQuestion {
 
     fn view(&self, _scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
         let mut content: Column<ServerMsg> = Column::new()
-            .spacing(20)
-            .padding([0, 10])
+            .spacing(30)
+            .padding([0, 15])
             .align_items(Alignment::Start);
 
         for (i, question) in self.list.iter().enumerate() {
@@ -415,7 +415,7 @@ impl StatefulAction for StatefulQuestion {
                 | StatefulQItem::MultiLine { prompt, .. }
                 | StatefulQItem::SingleChoice { prompt, .. }
                 | StatefulQItem::MultiChoice { prompt, .. }
-                | StatefulQItem::Slider { prompt, .. } => Text::new(prompt).size(24),
+                | StatefulQItem::Slider { prompt, .. } => Text::new(prompt).size(36),
             };
 
             let fields = match question {
@@ -423,15 +423,15 @@ impl StatefulAction for StatefulQuestion {
                     TextInput::new("Your answer goes here", input, move |s| {
                         StatefulActionMsg::UpdateString(SHIFT * i, s).wrap()
                     })
-                    .size(24)
-                    .padding([3, 6]),
+                    .size(36)
+                    .padding([5, 9]),
                 ),
                 StatefulQItem::MultiLine { input, .. } => Container::new(
                     TextInput::new("Your answer goes here", input, move |s| {
                         StatefulActionMsg::UpdateString(SHIFT * i, s).wrap()
                     })
-                    .size(24)
-                    .padding([3, 6]),
+                    .size(36)
+                    .padding([5, 9]),
                 ),
                 StatefulQItem::SingleChoice {
                     options,
@@ -447,10 +447,10 @@ impl StatefulAction for StatefulQuestion {
                                 StatefulActionMsg::UpdateBool(SHIFT * i + e, true).wrap()
                             })
                             .style(style::Radio)
-                            .size(20)
+                            .size(30)
                         })
                         .collect();
-                    Container::new(style::grid(options, *columns as usize, 10, 30))
+                    Container::new(style::grid(options, *columns as usize, 15, 45))
                 }
                 StatefulQItem::MultiChoice {
                     options,
@@ -467,7 +467,7 @@ impl StatefulAction for StatefulQuestion {
                             })
                         })
                         .collect();
-                    Container::new(style::grid(options, *columns as usize, 10, 30))
+                    Container::new(style::grid(options, *columns as usize, 15, 45))
                 }
                 StatefulQItem::Slider {
                     range,
@@ -478,11 +478,11 @@ impl StatefulAction for StatefulQuestion {
                 } => Container::new(
                     Row::new()
                         .align_items(Alignment::Center)
-                        .spacing(20)
-                        .padding([0, 100])
+                        .spacing(30)
+                        .padding([0, 150])
                         .push(
                             Text::new(str_with_precision(range.0, *precision))
-                                .size(24)
+                                .size(36)
                                 .vertical_alignment(Vertical::Center),
                         )
                         .push(
@@ -490,46 +490,46 @@ impl StatefulAction for StatefulQuestion {
                                 StatefulActionMsg::UpdateFloat(SHIFT * i, v).wrap()
                             })
                             .step(*step)
-                            .width(Length::Units(250)),
+                            .width(Length::Units(350)),
                         )
                         .push(
                             Text::new(str_with_precision(range.1, *precision))
-                                .size(24)
+                                .size(36)
                                 .vertical_alignment(Vertical::Center),
                         )
                         .push(Space::with_width(Length::Fill))
                         .push(
                             Text::new(str_with_precision(*choice, *precision))
-                                .size(24)
+                                .size(36)
                                 .vertical_alignment(Vertical::Center),
                         ),
                 ),
             }
             .width(Length::Fill)
-            .padding([0, 10])
+            .padding([0, 15])
             .center_x();
 
-            content = content.push(Column::new().spacing(20).push(prompt).push(fields));
+            content = content.push(Column::new().spacing(30).push(prompt).push(fields));
         }
 
         let content = Scrollable::new(content);
         let submit = Button::new(
             Text::new("Submit")
-                .size(24)
+                .size(36)
                 .horizontal_alignment(Horizontal::Center)
                 .vertical_alignment(Vertical::Center),
         )
-        .padding([15, 40])
+        .padding([20, 60])
         .style(style::Submit)
         .on_press(StatefulActionMsg::Update(0x00).wrap());
 
         Ok(Container::new(
             Column::new()
-                .max_width(800)
+                .max_width(1200)
                 .align_items(Alignment::Center)
-                .spacing(25)
+                .spacing(40)
                 .push(content.height(Length::FillPortion(9)))
-                .push(Rule::horizontal(3))
+                .push(Rule::horizontal(5))
                 .push(
                     Container::new(submit)
                         .width(Length::Fill)
@@ -540,7 +540,7 @@ impl StatefulAction for StatefulQuestion {
         )
         .width(Length::Fill)
         .height(Length::Fill)
-        .padding(50)
+        .padding(75)
         .center_x()
         .center_y()
         .into())

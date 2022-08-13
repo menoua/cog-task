@@ -56,7 +56,7 @@ pub const BACKGROUND: Color = Color::from_rgb(
     0x36 as f32 / 255.0,
 );
 
-const BORDER_RADIUS: f32 = 25.0;
+const BORDER_RADIUS: f32 = 35.0;
 
 pub struct Submit;
 impl button::StyleSheet for Submit {
@@ -84,7 +84,7 @@ impl button::StyleSheet for Submit {
 
     fn pressed(&self) -> button::Style {
         button::Style {
-            border_width: 2.0,
+            border_width: 3.0,
             border_color: Color::WHITE,
             ..self.hovered()
         }
@@ -117,7 +117,7 @@ impl button::StyleSheet for Cancel {
 
     fn pressed(&self) -> button::Style {
         button::Style {
-            border_width: 2.0,
+            border_width: 3.0,
             border_color: Color::WHITE,
             ..self.hovered()
         }
@@ -148,7 +148,7 @@ impl button::StyleSheet for Select {
 
     fn pressed(&self) -> button::Style {
         button::Style {
-            border_width: 2.0,
+            border_width: 3.0,
             border_color: Color::WHITE,
             ..self.hovered()
         }
@@ -178,7 +178,7 @@ impl button::StyleSheet for Done {
 
     fn pressed(&self) -> button::Style {
         button::Style {
-            border_width: 2.0,
+            border_width: 3.0,
             border_color: Color::WHITE,
             ..self.hovered()
         }
@@ -208,7 +208,7 @@ impl button::StyleSheet for Transparent {
 
     fn pressed(&self) -> button::Style {
         button::Style {
-            border_width: 2.0,
+            border_width: 3.0,
             border_color: Color::WHITE,
             ..self.hovered()
         }
@@ -238,7 +238,7 @@ impl button::StyleSheet for TransparentCancel {
 
     fn pressed(&self) -> button::Style {
         button::Style {
-            border_width: 2.0,
+            border_width: 3.0,
             border_color: Color::WHITE,
             ..self.hovered()
         }
@@ -251,7 +251,7 @@ impl radio::StyleSheet for Radio {
         radio::Style {
             background: Background::Color(Color::WHITE),
             dot_color: ACTIVE_BLUE,
-            border_width: 2.0,
+            border_width: 3.0,
             border_color: LIGHT_GRAY,
             text_color: Some(Color::BLACK),
         }
@@ -269,7 +269,7 @@ pub struct Status;
 impl card::StyleSheet for Status {
     fn active(&self) -> card::Style {
         card::Style {
-            border_radius: 5.0,
+            border_radius: 7.5,
             head_background: Background::Color(ACTIVE_BLUE),
             head_text_color: Color::WHITE,
             body_background: Background::Color(Color::WHITE),
@@ -284,7 +284,7 @@ pub struct Success;
 impl card::StyleSheet for Success {
     fn active(&self) -> card::Style {
         card::Style {
-            border_radius: 5.0,
+            border_radius: 7.5,
             head_background: Background::Color(FOREST_GREEN),
             head_text_color: Color::WHITE,
             body_background: Background::Color(Color::WHITE),
@@ -299,7 +299,7 @@ pub struct Error;
 impl card::StyleSheet for Error {
     fn active(&self) -> card::Style {
         card::Style {
-            border_radius: 5.0,
+            border_radius: 7.5,
             head_background: Background::Color(CUSTOM_RED),
             head_text_color: Color::WHITE,
             body_background: Background::Color(Color::WHITE),

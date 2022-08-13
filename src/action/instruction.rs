@@ -153,22 +153,22 @@ impl StatefulAction for StatefulInstruction {
 
     fn view(&self, _scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
         let content = Column::new()
-            .spacing(50)
+            .spacing(75)
             .align_items(Alignment::Center)
             .push(
                 Text::new(&self.text)
-                    .size(24)
+                    .size(36)
                     .horizontal_alignment(self.justify.into())
                     .vertical_alignment(Vertical::Center),
             )
-            .max_width(800);
+            .max_width(1200);
 
         Ok(Container::new(if self.persistent {
             content
         } else {
             content.push(
-                Button::new(Text::new("Next").size(24))
-                    .padding([10, 40])
+                Button::new(Text::new("Next").size(36))
+                    .padding([15, 60])
                     .on_press(StatefulActionMsg::Update(0x00).wrap())
                     .style(style::Submit),
             )
