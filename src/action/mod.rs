@@ -1,5 +1,6 @@
 use crate::config::{Config, LogCondition};
 use crate::error;
+use crate::error::Error::{ActionViewError, InvalidNameError};
 use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::{Event, Monitor, SchedulerMsg};
@@ -8,8 +9,6 @@ use iced::pure::Element;
 use iced::Command;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
-use std::thread;
-use std::time::Duration;
 
 pub mod audio;
 pub mod counter;
@@ -23,7 +22,6 @@ pub mod simple;
 pub mod stream;
 pub mod video;
 
-use crate::error::Error::{ActionViewError, InvalidNameError};
 pub use audio::Audio;
 pub use counter::Counter;
 pub use image::{Fixation, Image};
@@ -32,6 +30,8 @@ pub use key_logger::KeyLogger;
 pub use nop::Nop;
 pub use question::Question;
 pub use simple::Simple;
+pub use stream::Stream;
+pub use video::Video;
 
 pub trait Action: Debug {
     #[inline(always)]
@@ -90,12 +90,9 @@ pub trait StatefulAction: Debug {
     #[inline(always)]
     fn start(&mut self) -> Result<Command<ServerMsg>, error::Error> {
         if self.is_visual() {
-            Ok(Command::perform(
-                async {
-                    thread::sleep(Duration::from_millis(10));
-                },
-                |()| SchedulerMsg::Refresh(0).wrap(),
-            ))
+            Ok(Command::perform(async {}, |()| {
+                SchedulerMsg::Refresh(0).wrap()
+            }))
         } else {
             Ok(Command::none())
         }

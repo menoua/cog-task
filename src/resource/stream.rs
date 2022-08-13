@@ -44,15 +44,15 @@ pub fn gst_init() -> Result<(), error::Error> {
     }
 
     gst::init()
+        .map(|r| {
+            GST_INIT.set(()).expect("Tried to init GStreamer twice");
+            r
+        })
         .map_err(|e| {
             VideoDecodingError(format!(
                 "Failed to initialize GStreamer: required because there is a video element \
                 in this block:\n{e:#?}",
             ))
-        })
-        .and_then(|r| {
-            GST_INIT.set(()).expect("Tried to init GStreamer twice");
-            Ok(r)
         })
 }
 
@@ -114,7 +114,7 @@ impl Stream {
                 .unwrap()
         );
 
-        let source = gst_launch(&uri, true)?;
+        let source = gst_launch(&uri, true, None)?;
         let bus = source.bus().unwrap();
 
         let video_sink = video_sink_from_source(&source, false);
@@ -168,6 +168,24 @@ impl Stream {
     #[inline(always)]
     pub fn framerate(&self) -> f64 {
         self.frame_rate
+    }
+
+    /// Get the number of audio channels.
+    #[inline(always)]
+    pub fn channels(&self) -> u16 {
+        self.audio_chan
+    }
+
+    /// Check if stream has a video channel.
+    #[inline(always)]
+    pub fn has_video(&self) -> bool {
+        self.frame_size.iter().sum::<u32>() > 0
+    }
+
+    /// Check if stream has an audio channel.
+    #[inline(always)]
+    pub fn has_audio(&self) -> bool {
+        self.audio_chan > 0
     }
 
     /// Set the volume multiplier of the audio.
@@ -289,10 +307,9 @@ impl Stream {
         }
     }
 
-    pub fn cloned(&self) -> Result<Self, error::Error> {
-        let source = gst_launch(&self.uri, false)?;
+    pub fn cloned(&self, volume: Option<f64>) -> Result<Self, error::Error> {
+        let source = gst_launch(&self.uri, false, volume)?;
         let bus = source.bus().unwrap();
-        source.set_property("mute", false);
 
         let video_sink = video_sink_from_source(&source, true);
         if let Some(sink) = video_sink.as_ref() {
@@ -320,7 +337,7 @@ impl Stream {
     }
 
     pub fn pull_samples(&self) -> Result<(FrameBuffer, f64), error::Error> {
-        let source = gst_launch(&self.uri, true)?;
+        let source = gst_launch(&self.uri, true, None)?;
 
         let video_sink = video_sink_from_source(&source, false);
         if let Some(sink) = video_sink.as_ref() {
@@ -341,9 +358,8 @@ impl Stream {
             ))
         })?;
 
-        let video_sink = video_sink.ok_or(InternalError(
-            "Tried to pull on non-existent video sink".to_owned(),
-        ))?;
+        let video_sink = video_sink
+            .ok_or_else(|| InternalError("Tried to pull on non-existent video sink".to_owned()))?;
 
         let mut frames = vec![];
         let t1 = Instant::now();
@@ -418,13 +434,17 @@ fn gst_pipeline(uri: &str, audio: bool) -> String {
     }
 }
 
-fn gst_launch(uri: &str, audio: bool) -> Result<gst::Bin, error::Error> {
+fn gst_launch(uri: &str, audio: bool, volume: Option<f64>) -> Result<gst::Bin, error::Error> {
     let source = gst::parse_launch(&gst_pipeline(uri, audio)).map_err(|e| {
         VideoDecodingError(format!(
             "Failed to parse gstreamer command for video ({uri:?}):\n{e:#?}"
         ))
     })?;
     let source = source.downcast::<gst::Bin>().unwrap();
+
+    if let Some(volume) = volume {
+        source.set_property("volume", volume);
+    }
 
     source.set_state(gst::State::Paused).map_err(|e| {
         VideoDecodingError(format!(

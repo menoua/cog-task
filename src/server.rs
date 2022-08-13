@@ -238,12 +238,7 @@ impl Application for Server {
                         self.capture_key = true;
                         Command::batch([
                             cmd,
-                            Command::perform(
-                                async {
-                                    thread::sleep(Duration::from_millis(10));
-                                },
-                                |()| SchedulerMsg::Refresh(0).wrap(),
-                            ),
+                            Command::perform(async {}, |()| SchedulerMsg::Refresh(0).wrap()),
                         ])
                     }
                     Err(e) => Command::perform(async move { e }, ServerMsg::CrashBlock),
@@ -383,12 +378,7 @@ impl Application for Server {
                 }
 
                 self.page = Page::Selection;
-                Command::perform(
-                    async {
-                        thread::sleep(Duration::from_millis(10));
-                    },
-                    |()| SchedulerMsg::Refresh(0).wrap(),
-                )
+                Command::perform(async {}, |()| SchedulerMsg::Refresh(0).wrap())
             }
             (Page::Selection, ServerMsg::ToClipboard) => {
                 if let Some(status) = self.status.as_ref() {

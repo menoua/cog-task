@@ -1,7 +1,6 @@
 use crate::action::{Action, StatefulAction, StatefulActionMsg};
 use crate::config::Config;
 use crate::error;
-use crate::error::Error;
 use crate::error::Error::{InternalError, InvalidResourceError, TaskDefinitionError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
@@ -48,9 +47,9 @@ impl Action for Stream {
     }
 
     #[inline(always)]
-    fn init(&self) -> Result<(), Error> {
+    fn init(&self) -> Result<(), error::Error> {
         match self.volume {
-            Some(f) if f < 0.0 || f > 1.0 => Err(TaskDefinitionError(
+            Some(f) if !(0.0..=1.0).contains(&f) => Err(TaskDefinitionError(
                 "Stream volume should be a float number between 0.0 and 1.0".to_owned(),
             )),
             _ => Ok(()),
@@ -66,16 +65,26 @@ impl Action for Stream {
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         match res.fetch(&self.src())? {
             ResourceValue::Stream(stream) => {
+                let mut stream = stream.cloned(self.volume)?;
+
                 let frame = Arc::new(Mutex::new(None));
-                let mut stream = stream.cloned()?;
-                if let Some(volume) = self.volume {
-                    stream.set_volume(volume);
+                if stream.has_video() {
+                    stream.set_sink_callback(frame.clone())?;
+                } else if self.width.is_some() {
+                    return Err(TaskDefinitionError(format!(
+                        "Video-less stream `{id}` should not be supplied a width"
+                    )));
                 }
-                stream.set_sink_callback(frame.clone())?;
+
                 let framerate = stream.framerate();
-                let done = Arc::new(Mutex::new(Ok(stream.eos())));
                 let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
-                let period = Duration::from_secs_f64(0.5 / framerate);
+                let period = if stream.has_video() {
+                    Duration::from_secs_f64(0.5 / framerate)
+                } else {
+                    Duration::from_millis(5)
+                };
+
+                let done = Arc::new(Mutex::new(Ok(stream.eos())));
                 let (tx, rx) = mpsc::channel();
                 let looping = self.looping;
 
@@ -153,7 +162,7 @@ impl StatefulAction for StatefulStream {
 
     #[inline(always)]
     fn is_visual(&self) -> bool {
-        true
+        self.framerate > 0.0
     }
 
     #[inline(always)]
@@ -163,7 +172,11 @@ impl StatefulAction for StatefulStream {
 
     #[inline(always)]
     fn monitors(&self) -> Option<Monitor> {
-        Some(Monitor::Frames(self.framerate))
+        if self.framerate > 0.0 {
+            Some(Monitor::Frames(self.framerate))
+        } else {
+            None
+        }
     }
 
     #[inline(always)]
@@ -179,43 +192,49 @@ impl StatefulAction for StatefulStream {
             ))
         })?;
 
-        Ok(Command::perform(
-            async {
-                thread::sleep(Duration::from_millis(10));
-            },
-            |()| SchedulerMsg::Refresh(0).wrap(),
-        ))
+        let done = self.done.clone();
+        let join_handle = self.join_handle.take().ok_or_else(|| {
+            InternalError(format!(
+                "JoinHandle for action `{}` has died prematurely",
+                self.id,
+            ))
+        })?;
+
+        Ok(Command::batch([
+            Command::perform(async {}, |()| SchedulerMsg::Refresh(0).wrap()),
+            Command::perform(
+                async move {
+                    let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
+                    let period = Duration::from_millis(5);
+
+                    loop {
+                        if join_handle.is_finished() {
+                            *done.lock().unwrap() = match join_handle.join() {
+                                Ok(Ok(_)) => Ok(true),
+                                Ok(Err(e)) => Err(e),
+                                Err(e) => Err(InternalError(format!(
+                                    "Failed to graciously close stream decoder thread:\n{e:#?}"
+                                ))),
+                            };
+                            break;
+                        } else {
+                            sleeper.sleep(period);
+                        }
+                    }
+                },
+                |()| SchedulerMsg::Advance.wrap(),
+            ),
+        ]))
     }
 
     fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<ServerMsg>, error::Error> {
         if let StatefulActionMsg::UpdateEvent(Event::Refresh) = msg {
-            let thread_died = match self.join_handle.as_ref() {
-                None => Err(InternalError(
-                    "Failed to graciously close stream decoder thread:\nJoinHandle is missing"
-                        .to_owned(),
-                ))?,
-                Some(join_handle) => join_handle.is_finished(),
-            };
-            if thread_died {
-                match self.join_handle.take().unwrap().join() {
-                    Ok(Ok(_)) => *self.done.lock().unwrap() = Ok(true),
-                    Ok(Err(e)) => Err(e)?,
-                    Err(e) => Err(InternalError(format!(
-                        "Failed to graciously close stream decoder thread:\n{e:#?}"
-                    )))?,
-                }
-
-                Ok(Command::perform(async {}, |()| {
+            match self.done.lock().unwrap().as_ref() {
+                Ok(true) => Ok(Command::perform(async {}, |()| {
                     SchedulerMsg::Advance.wrap()
-                }))
-            } else {
-                match self.done.lock().unwrap().as_ref() {
-                    Ok(true) => Ok(Command::perform(async {}, |()| {
-                        SchedulerMsg::Advance.wrap()
-                    })),
-                    Ok(false) => Ok(Command::none()),
-                    Err(e) => Err(e.clone()),
-                }
+                })),
+                Ok(false) => Ok(Command::none()),
+                Err(e) => Err(e.clone()),
             }
         } else {
             Ok(Command::none())
