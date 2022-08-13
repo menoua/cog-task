@@ -21,6 +21,8 @@ pub struct Audio {
     src: PathBuf,
     #[serde(default)]
     gain: Option<f32>,
+    #[serde(default)]
+    looping: bool,
 }
 
 impl Action for Audio {
@@ -38,19 +40,22 @@ impl Action for Audio {
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         if let ResourceValue::Audio(src) = res.fetch(&self.src)? {
             let src = src.clone();
-            let sink = io.audio()?;
             let duration = src.total_duration().unwrap();
+            let sink = io.audio()?;
+
             sink.pause();
-            if let Some(gain) = self.gain {
-                sink.append(src.amplify(gain));
-            } else {
-                sink.append(src);
+            match (self.gain, self.looping) {
+                (Some(gain), true) => sink.append(src.amplify(gain).repeat_infinite()),
+                (Some(gain), false) => sink.append(src.amplify(gain)),
+                (None, true) => sink.append(src.repeat_infinite()),
+                (None, false) => sink.append(src),
             }
 
             Ok(Box::new(StatefulAudio {
                 id,
                 done: false,
                 duration,
+                looping: self.looping,
                 time_precision: config.time_precision(),
                 sink: Arc::new(Mutex::new(Some(sink))),
             }))
@@ -67,6 +72,7 @@ pub struct StatefulAudio {
     id: usize,
     done: bool,
     duration: Duration,
+    looping: bool,
     time_precision: TimePrecision,
     sink: Arc<Mutex<Option<Sink>>>,
 }
@@ -100,7 +106,7 @@ impl StatefulAction for StatefulAudio {
 
     #[inline(always)]
     fn is_static(&self) -> bool {
-        false
+        self.looping
     }
 
     #[inline(always)]
@@ -116,50 +122,62 @@ impl StatefulAction for StatefulAudio {
         let sink = self.sink.clone();
         let duration = self.duration;
         let time_precision = self.time_precision;
-        Ok(Command::perform(
-            async move {
-                let playing = if let Some(sink) = sink.lock().unwrap().as_ref() {
-                    sink.play();
-                    true
-                } else {
-                    false
-                };
 
-                // wait for the exact duration of the audio (note that the actual audio might
-                // take longer to finish playing due to IO delay, etc.), leaving what remains
-                // to be played in a serial or parallel mode depending on time_precision conf
-                let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
-                if playing {
-                    let target_time = Instant::now() + duration;
-                    sleeper.sleep(target_time - Instant::now());
-                }
+        if self.looping {
+            if let Some(sink) = sink.lock().unwrap().as_ref() {
+                sink.play();
+                Ok(Command::none())
+            } else {
+                Ok(Command::perform(async {}, |()| {
+                    SchedulerMsg::Advance.wrap()
+                }))
+            }
+        } else {
+            Ok(Command::perform(
+                async move {
+                    let playing = if let Some(sink) = sink.lock().unwrap().as_ref() {
+                        sink.play();
+                        true
+                    } else {
+                        false
+                    };
 
-                match time_precision {
-                    TimePrecision::RespectIntervals => {
-                        if let Some(sink) = sink.lock().unwrap().take() {
-                            sink.detach();
-                        }
+                    // wait for the exact duration of the audio (note that the actual audio might
+                    // take longer to finish playing due to IO delay, etc.), leaving what remains
+                    // to be played in a serial or parallel mode depending on time_precision conf
+                    let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
+                    if playing {
+                        let target_time = Instant::now() + duration;
+                        sleeper.sleep(target_time - Instant::now());
                     }
-                    TimePrecision::RespectBoundaries => {
-                        let mut done = false;
-                        let step = Duration::from_micros(50);
-                        while !done {
-                            if let Some(sink) = sink.lock().unwrap().as_ref() {
-                                if sink.empty() {
-                                    done = true;
+
+                    match time_precision {
+                        TimePrecision::RespectIntervals => {
+                            if let Some(sink) = sink.lock().unwrap().take() {
+                                sink.detach();
+                            }
+                        }
+                        TimePrecision::RespectBoundaries => {
+                            let mut done = false;
+                            let step = Duration::from_micros(50);
+                            while !done {
+                                if let Some(sink) = sink.lock().unwrap().as_ref() {
+                                    if sink.empty() {
+                                        done = true;
+                                    } else {
+                                        sleeper.sleep(step);
+                                    }
                                 } else {
-                                    sleeper.sleep(step);
+                                    done = true;
                                 }
-                            } else {
-                                done = true;
                             }
                         }
                     }
-                }
-                SchedulerMsg::Advance
-            },
-            SchedulerMsg::wrap,
-        ))
+                    SchedulerMsg::Advance
+                },
+                SchedulerMsg::wrap,
+            ))
+        }
     }
 }
 
