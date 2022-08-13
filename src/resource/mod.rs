@@ -149,6 +149,7 @@ impl ResourceMap {
                     Some(pair) => pair,
                 };
                 let path = path.with_extension(extn);
+                let extn = if mode.is_empty() { extn } else { mode };
                 let data = match extn {
                     "txt" => {
                         let text = std::fs::read_to_string(&path).map_err(|e| {
@@ -165,16 +166,11 @@ impl ResourceMap {
                     "wav" | "flac" | "ogg" => {
                         Ok(ResourceValue::Audio(audio_from_file(&path, &config)?))
                     }
-                    "avi" | "gif" | "mkv" | "mov" | "mp4" | "mpg" | "webm"
-                        if mode == "cache" || mode == "stream" =>
-                    {
-                        if mode == "cache" {
-                            let (frames, framerate) = video_from_file(&path, &config)?;
-                            Ok(ResourceValue::Video(frames, framerate))
-                        } else {
-                            Ok(ResourceValue::Stream(stream_from_file(&path, &config)?))
-                        }
+                    "avi" | "gif" | "mkv" | "mov" | "mp4" | "mpg" | "webm" => {
+                        let (frames, framerate) = video_from_file(&path, &config)?;
+                        Ok(ResourceValue::Video(frames, framerate))
                     }
+                    "stream" => Ok(ResourceValue::Stream(stream_from_file(&path, &config)?)),
                     _ => Err(ResourceLoadError(format!(
                         "Invalid extension `{extn}` with mode `{mode}` for data file `{src:?}`"
                     ))),

@@ -1,4 +1,5 @@
 use crate::action::question::Question;
+use crate::action::stream::Stream;
 use crate::action::video::Video;
 use crate::action::{
     Action, Audio, Counter, ExtAction, Fixation, Image, Instruction, KeyLogger, Nop, Simple,
@@ -77,6 +78,7 @@ impl<'de> Visitor<'de> for ExtActionVisitor {
             "nop" => Some(boxed::<Nop>(&fields)),
             "question" => Some(boxed::<Question>(&fields)),
             "simple" => Some(boxed::<Simple>(&fields)),
+            "stream" => Some(boxed::<Stream>(&fields)),
             "video" => Some(boxed::<Video>(&fields)),
             _ => None,
         };

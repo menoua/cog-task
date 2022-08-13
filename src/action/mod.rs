@@ -20,6 +20,7 @@ pub mod key_logger;
 pub mod nop;
 pub mod question;
 pub mod simple;
+pub mod stream;
 pub mod video;
 
 use crate::error::Error::{ActionViewError, InvalidNameError};
