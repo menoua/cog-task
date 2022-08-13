@@ -1,5 +1,6 @@
 pub mod audio;
 pub mod image;
+pub mod stream;
 pub mod text;
 pub mod video;
 
@@ -13,6 +14,7 @@ use crate::config::Config;
 use crate::env::Env;
 use crate::error;
 use crate::error::Error::ResourceLoadError;
+use crate::resource::stream::{stream_from_file, Stream};
 use crate::task::block::Block;
 use iced::pure::widget::{image as img, svg};
 use rodio::buffer::SamplesBuffer;
@@ -24,13 +26,16 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::Arc;
 
+pub type FrameBuffer = Arc<Vec<img::Handle>>;
+pub type AudioBuffer = Buffered<SamplesBuffer<i16>>;
+
 pub enum ResourceValue {
     Text(Arc<String>),
     Image(Arc<img::Handle>),
     Svg(Arc<svg::Handle>),
-    Audio(Buffered<SamplesBuffer<i16>>),
-    Video(Arc<Vec<img::Handle>>, f64),
-    Stream(video::Handle),
+    Audio(AudioBuffer),
+    Video(FrameBuffer, f64),
+    Stream(Stream),
 }
 
 impl Debug for ResourceValue {
@@ -56,12 +61,12 @@ impl Debug for ResourceValue {
             ResourceValue::Video(frames, fps) => {
                 write!(f, "[Cached video ({} frames @ {}fps)]", frames.len(), fps,)
             }
-            ResourceValue::Stream(video) => {
+            ResourceValue::Stream(stream) => {
                 write!(
                     f,
-                    "[Streamed video ({:?} @ {}fps)]",
-                    video.duration(),
-                    video.framerate()
+                    "[Buffered stream ({:?} @ {}fps)]",
+                    stream.duration(),
+                    stream.framerate()
                 )
             }
         }
@@ -71,7 +76,6 @@ impl Debug for ResourceValue {
 #[derive(Default, Debug)]
 pub struct ResourceMap {
     map: HashMap<PathBuf, ResourceValue>,
-    gst_init: bool,
 }
 
 impl ResourceMap {
@@ -82,7 +86,6 @@ impl ResourceMap {
 
     pub fn clear(&mut self) {
         self.map.clear();
-        self.gst_init = false;
     }
 
     pub fn preload_block(
@@ -165,16 +168,11 @@ impl ResourceMap {
                     "avi" | "gif" | "mkv" | "mov" | "mp4" | "mpg" | "webm"
                         if mode == "cache" || mode == "stream" =>
                     {
-                        if !self.gst_init {
-                            video::gst_init()?;
-                            self.gst_init = true;
-                        }
-                        let stream = video_from_file(&path, &config)?;
                         if mode == "cache" {
-                            let (frames, framerate) = stream.pull_samples()?;
-                            Ok(ResourceValue::Video(Arc::new(frames), framerate))
+                            let (frames, framerate) = video_from_file(&path, &config)?;
+                            Ok(ResourceValue::Video(frames, framerate))
                         } else {
-                            Ok(ResourceValue::Stream(stream))
+                            Ok(ResourceValue::Stream(stream_from_file(&path, &config)?))
                         }
                     }
                     _ => Err(ResourceLoadError(format!(
