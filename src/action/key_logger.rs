@@ -7,7 +7,7 @@ use crate::logger::LoggerMsg;
 use crate::resource::ResourceMap;
 use crate::scheduler::{Event, Monitor};
 use crate::server::ServerMsg;
-use iced_native::Command;
+use iced::Command;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;

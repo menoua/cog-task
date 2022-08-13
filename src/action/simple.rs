@@ -46,12 +46,6 @@ impl Action for Simple {
             ))
         })?;
 
-        let content = std::fs::read_to_string(&path).map_err(|e| {
-            ActionEvolveError(format!(
-                "Unable to read simple action definition file ({path:?})\n{e:#?}"
-            ))
-        })?;
-
         let action = match path.extension().map(|s| s.to_str().unwrap()) {
             Some("json") => {
                 serde_json::from_reader::<_, ExtAction>(BufReader::new(file)).map_err(|e| {
@@ -63,9 +57,6 @@ impl Action for Simple {
                     TaskDefinitionError(format!("Invalid simple action file ({path:?}):\n{e:#?}"))
                 })
             }
-            Some("ron") => ron::from_str::<ExtAction>(&content).map_err(|e| {
-                TaskDefinitionError(format!("Invalid simple action file ({path:?}):\n{e:#?}"))
-            }),
             _ => Err(TaskDefinitionError(format!(
                 "Simple action source ({path:?}) should be a `.json`, `.yml`, or `.ron` file"
             ))),

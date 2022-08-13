@@ -26,24 +26,16 @@ impl Task {
     pub fn new(root_dir: &Path) -> Result<Self, error::Error> {
         let path_json = root_dir.join("task.json");
         let path_yaml = root_dir.join("task.yml");
-        let path_ron = root_dir.join("task.ron");
-        let path = match (path_json.exists(), path_yaml.exists(), path_ron.exists()) {
-            (true, false, false) => path_json,
-            (false, true, false) => path_yaml,
-            (false, false, true) => path_ron,
+        let path = match (path_json.exists(), path_yaml.exists()) {
+            (true, false) => path_json,
+            (false, true) => path_yaml,
             _ => Err(TaskDefinitionError(
-                "There should be exactly one of `task.json`, `task.yml`, `task.ron` files in task directory."
-                    .to_owned()
+                "There should be exactly one of `task.json` or `task.yml` files in task directory."
+                    .to_owned(),
             ))?,
         };
 
         let file = File::open(&path).map_err(|e| {
-            TaskDefinitionError(format!(
-                "Unable to open task definition file ({:?}):\n{e:#?}",
-                path
-            ))
-        })?;
-        let content = std::fs::read_to_string(&path).map_err(|e| {
             TaskDefinitionError(format!(
                 "Unable to open task definition file ({:?}):\n{e:#?}",
                 path
@@ -55,9 +47,6 @@ impl Task {
                 TaskDefinitionError(format!("Invalid task definition file ({path:?}):\n{e:#?}"))
             })?,
             "yaml" => serde_yaml::from_reader::<_, Task>(BufReader::new(file)).map_err(|e| {
-                TaskDefinitionError(format!("Invalid task definition file ({path:?}):\n{e:#?}"))
-            })?,
-            "ron" => ron::from_str::<Task>(&content).map_err(|e| {
                 TaskDefinitionError(format!("Invalid task definition file ({path:?}):\n{e:#?}"))
             })?,
             ext => Err(TaskDefinitionError(format!(

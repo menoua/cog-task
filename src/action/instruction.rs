@@ -7,11 +7,10 @@ use crate::resource::{text::text_or_file, ResourceMap};
 use crate::scheduler::{Monitor, SchedulerMsg};
 use crate::server::ServerMsg;
 use crate::{error, style};
+use iced::alignment::Vertical;
 use iced::pure::widget::{Button, Column, Container, Text};
 use iced::pure::Element;
-use iced::Length;
-use iced_native::alignment::Vertical;
-use iced_native::{Alignment, Command};
+use iced::{Alignment, Command, Length};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 

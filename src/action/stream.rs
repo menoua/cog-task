@@ -8,8 +8,7 @@ use crate::scheduler::{Event, Monitor, SchedulerMsg, SPIN_DURATION, SPIN_STRATEG
 use crate::server::ServerMsg;
 use iced::pure::widget::{image, Container};
 use iced::pure::Element;
-use iced::{ContentFit, Length};
-use iced_native::Command;
+use iced::{Command, ContentFit, Length};
 use serde::{Deserialize, Serialize};
 use spin_sleep::SpinSleeper;
 use std::path::PathBuf;

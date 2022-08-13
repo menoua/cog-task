@@ -1,4 +1,7 @@
-use crate::assets::{ICON_CLOSE_WINDOW, ICON_MAGNIFYING_GLASS, ICON_TO_CLIPBOARD};
+use crate::assets::{
+    ICON_CLOSE_WINDOW, ICON_MAGNIFYING_GLASS, ICON_TO_CLIPBOARD, TEXT_LARGE, TEXT_NORMAL,
+    TEXT_SMALL, TEXT_TITLE, TEXT_XLARGE,
+};
 use crate::config::Config;
 use crate::env::Env;
 use crate::logger::LoggerMsg;
@@ -13,9 +16,9 @@ use iced::keyboard::Event::KeyPressed;
 use iced::pure::widget::{Button, Column, Container, Row, Scrollable, Space, Text, TextInput};
 use iced::pure::{button, Application, Element};
 use iced::ContentFit::{Contain, ScaleDown};
-use iced::{svg, window, Alignment, Command, Renderer};
+use iced::{svg, window, Alignment, Command, Length, Renderer, Subscription};
 use iced_aw::pure::{Card, Modal};
-use iced_native::{Event, Length, Subscription};
+use iced_native::Event;
 use serde_json::Value;
 use spin_sleep::SpinSleeper;
 use std::path::PathBuf;
@@ -449,7 +452,7 @@ impl Server {
             .push(
                 Button::new(
                     Text::new("Quit")
-                        .size(40)
+                        .size(TEXT_XLARGE)
                         .horizontal_alignment(Horizontal::Center)
                         .vertical_alignment(Vertical::Center),
                 )
@@ -475,7 +478,7 @@ impl Server {
                 if self.show_magnification {
                     row.push(
                         Text::new(format!("| x{} ", str_with_precision(self.scale_factor, 1)))
-                            .size(30)
+                            .size(TEXT_SMALL)
                             .horizontal_alignment(Horizontal::Center),
                     )
                     .push({
@@ -518,13 +521,13 @@ impl Server {
                     .align_items(Alignment::Center)
                     .push(
                         Text::new("Subject ID: ")
-                            .size(36)
+                            .size(TEXT_LARGE)
                             .horizontal_alignment(Horizontal::Center)
                             .vertical_alignment(Vertical::Center),
                     )
                     .push(
                         TextInput::new("Enter Subject ID", &self.subject, ServerMsg::SetSubject)
-                            .size(36)
+                            .size(TEXT_LARGE)
                             .width(Length::Units(300))
                             .padding([5, 9]),
                     ),
@@ -532,7 +535,7 @@ impl Server {
             .push({
                 let button = Button::new(
                     Text::new("Start!")
-                        .size(40)
+                        .size(TEXT_XLARGE)
                         .horizontal_alignment(Horizontal::Center)
                         .vertical_alignment(Vertical::Center),
                 )
@@ -559,7 +562,7 @@ impl Server {
                 .push(
                     Container::new(
                         Text::new(self.task.title())
-                            .size(45)
+                            .size(TEXT_TITLE)
                             .horizontal_alignment(Horizontal::Center),
                     )
                     .align_y(Vertical::Top),
@@ -568,7 +571,7 @@ impl Server {
                     Container::new(Scrollable::new(
                         Text::new(self.task.description())
                             .width(Length::Units(1200))
-                            .size(36)
+                            .size(TEXT_LARGE)
                             .horizontal_alignment(Horizontal::Center),
                     ))
                     .height(Length::Fill)
@@ -595,7 +598,7 @@ impl Server {
                         .iter()
                         .enumerate()
                         .map(|(i, (block, done))| {
-                            let button = Button::new(Text::new(block).size(36))
+                            let button = Button::new(Text::new(block).size(TEXT_LARGE))
                                 .padding([15, 60])
                                 .on_press(ServerMsg::StartBlock(i));
 
@@ -615,7 +618,7 @@ impl Server {
             )
             .push(
                 Container::new(
-                    Button::new(Text::new("Back").size(30))
+                    Button::new(Text::new("Back").size(TEXT_SMALL))
                         .padding([15, 60])
                         .style(style::Cancel)
                         .on_press(ServerMsg::GoToStartup),
@@ -673,7 +676,7 @@ impl Server {
     }
 
     fn view_loading(&self) -> Element<'_, <Self as Application>::Message> {
-        Container::new(Text::new("...").size(45))
+        Container::new(Text::new("...").size(TEXT_XLARGE))
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x()
@@ -682,7 +685,7 @@ impl Server {
     }
 
     fn view_cleanup(&self) -> Element<'_, <Self as Application>::Message> {
-        Container::new(Text::new("...").size(45))
+        Container::new(Text::new("...").size(TEXT_XLARGE))
             .width(Length::Fill)
             .height(Length::Fill)
             .center_x()
@@ -736,8 +739,8 @@ impl Server {
                 "Block \"{}\" ended with status:",
                 self.active_block.map_or("", |i| &self.blocks[i].0)
             ))
-            .size(36),
-            Scrollable::new(Text::new(status).size(36)),
+            .size(TEXT_LARGE),
+            Scrollable::new(Text::new(status).size(TEXT_NORMAL)),
         );
 
         if status.as_str() == "Success" {
@@ -754,8 +757,8 @@ impl Server {
                 self.active_block.map_or("", |i| &self.blocks[i].0),
                 err.type_()
             ))
-            .size(36),
-            Scrollable::new(Text::new(format!("{err:?}")).size(36)),
+            .size(TEXT_LARGE),
+            Scrollable::new(Text::new(format!("{err:?}")).size(TEXT_NORMAL)),
         )
         .style(style::Error)
     }

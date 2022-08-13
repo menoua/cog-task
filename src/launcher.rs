@@ -1,17 +1,18 @@
 use crate::assets::{
     ICON_CLOSE_WINDOW, ICON_HELP, ICON_MULTI_FOLDERS, ICON_SINGLE_FOLDER, ICON_SYSTEM_INFO,
-    ICON_TO_CLIPBOARD, VERSION,
+    ICON_TO_CLIPBOARD, TEXT_LARGE, TEXT_TINY, TEXT_XSMALL, VERSION,
 };
 use crate::style;
 use crate::style::CUSTOM_RED;
 use heck::ToTitleCase;
 use iced::alignment::{Horizontal, Vertical};
-use iced::pure::widget::{svg, Button, Column, Container, Row, Scrollable, Space, Text};
+use iced::pure::widget::{
+    svg, tooltip::Position, Button, Column, Container, Row, Scrollable, Space, Text,
+};
 use iced::pure::{button, column, text, tooltip, Application, Element};
 use iced::ContentFit::{Contain, ScaleDown};
 use iced::{Alignment, Color, Command, Length, Renderer};
 use iced_aw::pure::{Card, Modal};
-use iced_native::widget::tooltip::Position;
 use itertools::Itertools;
 use native_dialog::FileDialog;
 use std::env::{current_dir, current_exe};
@@ -329,7 +330,7 @@ impl Application for Launcher {
             .map(|(i, label)| {
                 let button = Button::new(
                     Text::new(label)
-                        .size(32)
+                        .size(TEXT_XSMALL)
                         .horizontal_alignment(Horizontal::Center)
                         .vertical_alignment(Vertical::Center),
                 )
@@ -346,7 +347,7 @@ impl Application for Launcher {
             .collect();
 
         let content = if buttons.is_empty() {
-            Container::new(Text::new("(No tasks found in task directory)").size(22))
+            Container::new(Text::new("(No tasks found in task directory)").size(TEXT_XSMALL))
         } else {
             Container::new(Scrollable::new(style::grid(buttons, 1, 25, 25)))
         }
@@ -369,7 +370,7 @@ impl Application for Launcher {
                                 } else {
                                     format!("CogTask v{VERSION}")
                                 })
-                                .size(36),
+                                .size(TEXT_LARGE),
                             )
                             .push(
                                 Row::new()
@@ -540,7 +541,7 @@ impl Application for Launcher {
 impl Launcher {
     fn view_sys_info(&self) -> Card<LauncherMsg, Renderer> {
         Card::new(
-            Text::new("System information:").size(24),
+            Text::new("System information:").size(TEXT_XSMALL),
             column()
                 .spacing(10)
                 .align_items(Alignment::Start)
@@ -549,28 +550,28 @@ impl Launcher {
                         "System: {} - {} - {}",
                         self.sys_info.sys_name, self.sys_info.sys_kernel, self.sys_info.sys_version
                     ))
-                    .size(22),
+                    .size(TEXT_TINY),
                 )
                 .push(
                     text(format!(
                         "CPU: {} - {}",
                         self.sys_info.cpu_brand, self.sys_info.cpu_cores
                     ))
-                    .size(22),
+                    .size(TEXT_TINY),
                 )
                 .push(
                     text(format!(
                         "Memory: {} - {}",
                         self.sys_info.memory_total, self.sys_info.memory_used
                     ))
-                    .size(22),
+                    .size(TEXT_TINY),
                 )
                 .push(
                     text(format!(
                         "Graphics: {} - {}",
                         self.sys_info.graphics_adapter, self.sys_info.graphics_backend
                     ))
-                    .size(22),
+                    .size(TEXT_TINY),
                 ),
         )
         .style(style::Status)
@@ -586,9 +587,9 @@ impl Launcher {
             .map_or("".to_owned(), |s| s.clone());
         let text = text.lines().into_iter().map(|line| {
             if re.is_match(line) {
-                Text::new(line).size(24).color(CUSTOM_RED)
+                Text::new(line).size(TEXT_TINY).color(CUSTOM_RED)
             } else {
-                Text::new(line).size(22).color(Color::BLACK)
+                Text::new(line).size(TEXT_TINY).color(Color::BLACK)
             }
         });
 
@@ -602,7 +603,7 @@ impl Launcher {
                 "Task \"{}\" failed with error:",
                 self.active_task.as_ref().unwrap_or(&"[INVALID]".to_owned())
             ))
-            .size(24),
+            .size(TEXT_TINY),
             Scrollable::new(content),
         )
         .style(style::Error)

@@ -9,7 +9,7 @@ use crate::server::{Server, ServerMsg};
 use iced::keyboard::KeyCode;
 use iced::pure::widget::Column;
 use iced::pure::Element;
-use iced_native::Command;
+use iced::Command;
 use itertools::Itertools;
 use num_traits::Zero;
 use petgraph::prelude::EdgeRef;
