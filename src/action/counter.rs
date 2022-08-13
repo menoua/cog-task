@@ -113,7 +113,7 @@ impl StatefulAction for StatefulCounter {
 
     fn view(&self, _scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
         Ok(Container::new(
-            Button::new(Text::new(format!("Click me {} more times", self.count)).size(36))
+            Button::new(Text::new(format!("Click me {} more times", self.count)).size(34))
                 .padding([15, 60])
                 .on_press(StatefulActionMsg::Update(0x00).wrap())
                 .style(style::Select),

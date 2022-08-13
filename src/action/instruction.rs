@@ -157,7 +157,7 @@ impl StatefulAction for StatefulInstruction {
             .align_items(Alignment::Center)
             .push(
                 Text::new(&self.text)
-                    .size(36)
+                    .size(34)
                     .horizontal_alignment(self.justify.into())
                     .vertical_alignment(Vertical::Center),
             )
@@ -167,7 +167,7 @@ impl StatefulAction for StatefulInstruction {
             content
         } else {
             content.push(
-                Button::new(Text::new("Next").size(36))
+                Button::new(Text::new("Next").size(34))
                     .padding([15, 60])
                     .on_press(StatefulActionMsg::Update(0x00).wrap())
                     .style(style::Submit),

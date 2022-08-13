@@ -415,7 +415,7 @@ impl StatefulAction for StatefulQuestion {
                 | StatefulQItem::MultiLine { prompt, .. }
                 | StatefulQItem::SingleChoice { prompt, .. }
                 | StatefulQItem::MultiChoice { prompt, .. }
-                | StatefulQItem::Slider { prompt, .. } => Text::new(prompt).size(36),
+                | StatefulQItem::Slider { prompt, .. } => Text::new(prompt).size(34),
             };
 
             let fields = match question {
@@ -423,14 +423,14 @@ impl StatefulAction for StatefulQuestion {
                     TextInput::new("Your answer goes here", input, move |s| {
                         StatefulActionMsg::UpdateString(SHIFT * i, s).wrap()
                     })
-                    .size(36)
+                    .size(32)
                     .padding([5, 9]),
                 ),
                 StatefulQItem::MultiLine { input, .. } => Container::new(
                     TextInput::new("Your answer goes here", input, move |s| {
                         StatefulActionMsg::UpdateString(SHIFT * i, s).wrap()
                     })
-                    .size(36)
+                    .size(32)
                     .padding([5, 9]),
                 ),
                 StatefulQItem::SingleChoice {
@@ -447,7 +447,8 @@ impl StatefulAction for StatefulQuestion {
                                 StatefulActionMsg::UpdateBool(SHIFT * i + e, true).wrap()
                             })
                             .style(style::Radio)
-                            .size(30)
+                            .text_size(32)
+                            .size(25)
                         })
                         .collect();
                     Container::new(style::grid(options, *columns as usize, 15, 45))
@@ -465,6 +466,8 @@ impl StatefulAction for StatefulQuestion {
                             Checkbox::new(choice[j], o.to_string(), move |e| {
                                 StatefulActionMsg::UpdateBool(SHIFT * i + j, e).wrap()
                             })
+                            .text_size(32)
+                            .size(25)
                         })
                         .collect();
                     Container::new(style::grid(options, *columns as usize, 15, 45))
@@ -482,7 +485,7 @@ impl StatefulAction for StatefulQuestion {
                         .padding([0, 150])
                         .push(
                             Text::new(str_with_precision(range.0, *precision))
-                                .size(36)
+                                .size(32)
                                 .vertical_alignment(Vertical::Center),
                         )
                         .push(
@@ -494,13 +497,13 @@ impl StatefulAction for StatefulQuestion {
                         )
                         .push(
                             Text::new(str_with_precision(range.1, *precision))
-                                .size(36)
+                                .size(32)
                                 .vertical_alignment(Vertical::Center),
                         )
                         .push(Space::with_width(Length::Fill))
                         .push(
                             Text::new(str_with_precision(*choice, *precision))
-                                .size(36)
+                                .size(32)
                                 .vertical_alignment(Vertical::Center),
                         ),
                 ),
@@ -515,7 +518,7 @@ impl StatefulAction for StatefulQuestion {
         let content = Scrollable::new(content);
         let submit = Button::new(
             Text::new("Submit")
-                .size(36)
+                .size(34)
                 .horizontal_alignment(Horizontal::Center)
                 .vertical_alignment(Vertical::Center),
         )
