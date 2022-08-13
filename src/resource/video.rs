@@ -54,8 +54,10 @@ pub struct Handle {
     source: gst::Bin,
     bus: gst::Bus,
     app_sink: Option<gst_app::AppSink>,
-    size: [u32; 2],
-    framerate: f64,
+    frame_size: [u32; 2],
+    frame_rate: f64,
+    audio_chan: u16,
+    audio_rate: u32,
     duration: Duration,
     is_eos: bool,
     paused: bool,
@@ -96,61 +98,20 @@ impl Handle {
                 .unwrap()
         );
 
-        let source = gst::parse_launch(&format!(
-            "playbin uri=\"{}\" video-sink=\"videoconvert ! videoscale ! appsink \
-            name=app_sink caps=video/x-raw,format=BGRA,pixel-aspect-ratio=1/1,control-rate=2\"",
-            uri
-        ))
-        .map_err(|e| {
-            VideoDecodingError(format!(
-                "Failed to parse gstreamer command for video ({path:?}):\n{e:#?}"
-            ))
-        })?
-        .downcast::<gst::Bin>()
-        .unwrap();
-
+        let source = gst_launch(&uri, true)?;
         let bus = source.bus().unwrap();
 
-        let video_sink: gst::Element = source.property("video-sink");
-        let pad = video_sink.pads().get(0).cloned().unwrap();
-        let pad = pad.dynamic_cast::<gst::GhostPad>().unwrap();
-        let bin = pad.parent_element().unwrap();
-        let bin = bin.downcast::<gst::Bin>().unwrap();
+        let video_sink = video_sink_from_source(&source, false);
+        let (width, height, frame_rate) = match video_sink.as_ref() {
+            Some(sink) => video_meta_from_sink(sink)?,
+            None => (0, 0, 0.0),
+        };
 
-        let app_sink = bin.by_name("app_sink").unwrap();
-        let app_sink = app_sink.downcast::<gst_app::AppSink>().unwrap();
-
-        let frame = Arc::new(Mutex::new(None));
-        set_sink_callback(app_sink, frame);
-
-        source.set_state(gst::State::Playing).map_err(|e| {
-            VideoDecodingError(format!(
-                "Failed to change state for video ({path:?}):\n{e:#?}"
-            ))
-        })?;
-
-        // wait for up to 5 seconds until the decoder gets the source capabilities
-        source
-            .state(gst::ClockTime::from_seconds(5))
-            .0
-            .map_err(|e| {
-                VideoDecodingError(format!(
-                    "Failed to read state for video ({path:?}):\n{e:#?}"
-                ))
-            })?;
-
-        // extract resolution and framerate
-        let caps = pad.current_caps().ok_or(Error::Caps)?;
-        let s = caps.structure(0).ok_or(Error::Caps)?;
-        let width = s.get::<i32>("width").map_err(|_| Error::Caps)?;
-        let height = s.get::<i32>("height").map_err(|_| Error::Caps)?;
-        let size = [width as u32, height as u32];
-        let framerate = s
-            .get::<gst::Fraction>("framerate")
-            .map_err(|_| Error::Caps)?;
-        let framerate = Rational32::new(framerate.numer() as _, framerate.denom() as _)
-            .to_f64()
-            .unwrap();
+        let audio_sink = audio_sink_from_source(&source, false);
+        let (audio_chan, audio_rate) = match audio_sink.as_ref() {
+            Some(sink) => audio_meta_from_sink(sink)?,
+            None => (0, 0),
+        };
 
         let duration = Duration::from_nanos(
             source
@@ -160,25 +121,21 @@ impl Handle {
                 .nseconds(),
         );
 
-        let position: gst::GenericFormattedValue = gst::format::Default(0).into();
-        source.set_state(gst::State::Paused).map_err(|e| {
-            VideoDecodingError(format!("Failed to pause video ({path:?}):\n{e:#?}"))
+        source.set_state(gst::State::Null).map_err(|e| {
+            VideoDecodingError(format!(
+                "Failed to close video graciously ({path:?}):\n{e:#?}"
+            ))
         })?;
-        source
-            .seek_simple(gst::SeekFlags::FLUSH, position)
-            .map_err(|e| {
-                VideoDecodingError(format!(
-                    "Failed to seek position for video ({path:?}):\n{e:#?}"
-                ))
-            })?;
 
         Ok(Handle {
             uri,
             source,
             bus,
             app_sink: None,
-            size,
-            framerate,
+            frame_size: [width as u32, height as u32],
+            frame_rate,
+            audio_chan,
+            audio_rate,
             duration,
             is_eos: false,
             paused: true,
@@ -188,13 +145,13 @@ impl Handle {
     /// Get the size/resolution of the video as `[width, height]`.
     #[inline(always)]
     pub fn size(&self) -> [u32; 2] {
-        self.size
+        self.frame_size
     }
 
     /// Get the framerate of the video as frames per second.
     #[inline(always)]
     pub fn framerate(&self) -> f64 {
-        self.framerate
+        self.frame_rate
     }
 
     /// Set the volume multiplier of the audio.
@@ -283,10 +240,31 @@ impl Handle {
 
     pub fn set_sink_callback(
         &mut self,
-        frame_ref: Arc<Mutex<Option<image::Handle>>>,
+        frame: Arc<Mutex<Option<image::Handle>>>,
     ) -> Result<(), error::Error> {
         if let Some(app_sink) = self.app_sink.take() {
-            set_sink_callback(app_sink, frame_ref);
+            let [width, height] = self.size();
+
+            thread::spawn(move || {
+                app_sink.set_callbacks(
+                    gst_app::AppSinkCallbacks::builder()
+                        .new_sample(move |sink| {
+                            let sample = sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
+                            let buffer = sample.buffer().ok_or(gst::FlowError::Error)?;
+                            let map = buffer.map_readable().map_err(|_| gst::FlowError::Error)?;
+
+                            *frame.lock().map_err(|_| gst::FlowError::Error)? =
+                                Some(image::Handle::from_pixels(
+                                    width,
+                                    height,
+                                    map.as_slice().to_owned(),
+                                ));
+
+                            Ok(gst::FlowSuccess::Ok)
+                        })
+                        .build(),
+                );
+            });
             Ok(())
         } else {
             Err(InternalError(
@@ -296,62 +274,29 @@ impl Handle {
     }
 
     pub fn cloned(&self) -> Result<Self, error::Error> {
-        let source = gst::parse_launch(&format!(
-            "playbin uri=\"{}\" video-sink=\"videoconvert ! videoscale ! appsink \
-            name=app_sink caps=video/x-raw,format=BGRA,pixel-aspect-ratio=1/1,control-rate=4\"",
-            self.uri
-        ))
-        .map_err(|e| {
-            VideoDecodingError(format!(
-                "Failed to parse gstreamer command for video ({:?}):\n{e:#?}",
-                self.uri
-            ))
-        })?
-        .downcast::<gst::Bin>()
-        .unwrap();
-
+        let source = gst_launch(&self.uri, false)?;
         let bus = source.bus().unwrap();
+        source.set_property("mute", false);
 
-        let video_sink: gst::Element = source.property("video-sink");
-        let pad = video_sink.pads().get(0).cloned().unwrap();
-        let pad = pad.dynamic_cast::<gst::GhostPad>().unwrap();
-        let bin = pad.parent_element().unwrap();
-        let bin = bin.downcast::<gst::Bin>().unwrap();
+        let video_sink = video_sink_from_source(&source, true);
+        if let Some(sink) = video_sink.as_ref() {
+            sink.set_max_buffers(5 * self.frame_rate.ceil() as u32);
+        }
 
-        let app_sink = bin.by_name("app_sink").unwrap();
-        let app_sink = app_sink.downcast::<gst_app::AppSink>().unwrap();
-        app_sink.set_sync(true);
-        app_sink.set_max_lateness(0);
-        app_sink.set_max_buffers(1000);
-        source.set_state(gst::State::Paused).map_err(|e| {
-            VideoDecodingError(format!(
-                "Failed to initialize video state to Paused on video ({:?}):\n{e:#?}",
-                self.uri
-            ))
-        })?;
-        source
-            .state(gst::ClockTime::from_seconds(5))
-            .0
-            .map_err(|e| {
-                VideoDecodingError(format!(
-                    "Failed to read state for video ({:?}):\n{e:#?}",
-                    self.uri
-                ))
-            })?;
-        app_sink.pull_preroll().map_err(|e| {
-            VideoDecodingError(format!(
-                "Failed to pull PREROLL sample from video ({:?}):\n{e:#?}",
-                self.uri
-            ))
-        })?;
+        // let audio_sink = audio_sink_from_source(&source, true);
+        // if let Some(sink) = audio_sink.as_ref() {
+        //     sink.set_max_buffers(5 * self.audio_rate * 2);
+        // }
 
         Ok(Handle {
             uri: self.uri.clone(),
             source,
             bus,
-            app_sink: Some(app_sink),
-            size: self.size,
-            framerate: self.framerate,
+            app_sink: video_sink,
+            frame_size: self.frame_size,
+            frame_rate: self.frame_rate,
+            audio_chan: self.audio_chan,
+            audio_rate: self.audio_rate,
             duration: self.duration,
             is_eos: self.is_eos,
             paused: self.paused,
@@ -359,54 +304,19 @@ impl Handle {
     }
 
     pub fn pull_samples(&self) -> Result<(Vec<image::Handle>, f64), error::Error> {
-        let source = gst::parse_launch(&format!(
-            "playbin uri=\"{}\" video-sink=\"videoconvert ! videoscale ! appsink \
-            name=app_sink caps=video/x-raw,format=BGRA,pixel-aspect-ratio=1/1,control-rate=4\"",
-            self.uri
-        ))
-        .map_err(|e| {
-            VideoDecodingError(format!(
-                "Failed to parse gstreamer command for video ({:?}):\n{e:#?}",
-                self.uri
-            ))
-        })?
-        .downcast::<gst::Bin>()
-        .unwrap();
+        let source = gst_launch(&self.uri, true)?;
 
-        let video_sink: gst::Element = source.property("video-sink");
-        let pad = video_sink.pads().get(0).cloned().unwrap();
-        let pad = pad.dynamic_cast::<gst::GhostPad>().unwrap();
-        let bin = pad.parent_element().unwrap();
-        let bin = bin.downcast::<gst::Bin>().unwrap();
+        let video_sink = video_sink_from_source(&source, false);
+        if let Some(sink) = video_sink.as_ref() {
+            sink.set_max_lateness(0);
+            sink.set_max_buffers(5 * self.frame_rate.ceil() as u32);
+        }
 
-        let app_sink = bin.by_name("app_sink").unwrap();
-        let app_sink = app_sink.downcast::<gst_app::AppSink>().unwrap();
-        app_sink.set_sync(true);
-        app_sink.set_max_lateness(0);
-        app_sink.set_max_buffers(1000);
-        source.set_state(gst::State::Paused).map_err(|e| {
-            VideoDecodingError(format!(
-                "Failed to initialize video state to Paused on video ({:?}):\n{e:#?}",
-                self.uri
-            ))
-        })?;
-        source
-            .state(gst::ClockTime::from_seconds(5))
-            .0
-            .map_err(|e| {
-                VideoDecodingError(format!(
-                    "Failed to read state for video ({:?}):\n{e:#?}",
-                    self.uri
-                ))
-            })?;
-        app_sink.pull_preroll().map_err(|e| {
-            VideoDecodingError(format!(
-                "Failed to pull PREROLL sample from video ({:?}):\n{e:#?}",
-                self.uri
-            ))
-        })?;
+        let audio_sink = audio_sink_from_source(&source, false);
+        if let Some(sink) = audio_sink.as_ref() {
+            sink.set_max_buffers(5 * self.audio_rate * 2);
+        }
 
-        app_sink.set_sync(false);
         source.set_property("mute", true);
         source.set_state(gst::State::Playing).map_err(|e| {
             VideoDecodingError(format!(
@@ -415,9 +325,13 @@ impl Handle {
             ))
         })?;
 
+        let video_sink = video_sink.ok_or(InternalError(
+            "Tried to pull on non-existent video sink".to_owned(),
+        ))?;
+
         let mut frames = vec![];
         let t1 = Instant::now();
-        while let Ok(sample) = app_sink.pull_sample() {
+        while let Ok(sample) = video_sink.pull_sample() {
             let buffer = sample.buffer().ok_or_else(|| {
                 VideoDecodingError(format!(
                     "Failed to obtain buffer on video sample (\"{}\").",
@@ -432,14 +346,14 @@ impl Handle {
             })?;
 
             frames.push(image::Handle::from_pixels(
-                self.size[0] as _,
-                self.size[1] as _,
+                self.frame_size[0] as _,
+                self.frame_size[1] as _,
                 map.as_slice().to_owned(),
             ));
         }
         println!("Took {:?} to pull samples for video.", Instant::now() - t1);
 
-        Ok((frames, self.framerate))
+        Ok((frames, self.frame_rate))
     }
 }
 
@@ -473,36 +387,106 @@ impl From<Error> for error::Error {
     }
 }
 
-fn set_sink_callback(app_sink: gst_app::AppSink, frame_ref: Arc<Mutex<Option<image::Handle>>>) {
-    thread::spawn(move || {
-        app_sink.set_callbacks(
-            gst_app::AppSinkCallbacks::builder()
-                .new_sample(move |sink| {
-                    let sample = sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
-                    let buffer = sample.buffer().ok_or(gst::FlowError::Error)?;
-                    let map = buffer.map_readable().map_err(|_| gst::FlowError::Error)?;
+fn gst_pipeline(uri: &str, audio: bool) -> String {
+    if audio {
+        format!(
+            "playbin uri=\"{uri}\" \
+            video-sink=\"videoconvert ! videoscale ! appsink name=video_sink caps=video/x-raw,format=BGRA,pixel-aspect-ratio=1/1\" \
+            audio-sink=\"audioconvert ! appsink name=audio_sink caps=audio/x-raw,format=S16LE,layout=interleaved\""
+        )
+    } else {
+        format!(
+            "playbin uri=\"{uri}\" \
+            video-sink=\"videoconvert ! videoscale ! appsink name=video_sink caps=video/x-raw,format=BGRA,pixel-aspect-ratio=1/1\""
+        )
+    }
+}
 
-                    let pad = sink.static_pad("sink").ok_or(gst::FlowError::Error)?;
+fn gst_launch(uri: &str, audio: bool) -> Result<gst::Bin, error::Error> {
+    let source = gst::parse_launch(&gst_pipeline(uri, audio)).map_err(|e| {
+        VideoDecodingError(format!(
+            "Failed to parse gstreamer command for video ({uri:?}):\n{e:#?}"
+        ))
+    })?;
+    let source = source.downcast::<gst::Bin>().unwrap();
 
-                    let caps = pad.current_caps().ok_or(gst::FlowError::Error)?;
-                    let caps = caps.structure(0).ok_or(gst::FlowError::Error)?;
-                    let width = caps
-                        .get::<i32>("width")
-                        .map_err(|_| gst::FlowError::Error)?;
-                    let height = caps
-                        .get::<i32>("height")
-                        .map_err(|_| gst::FlowError::Error)?;
+    source.set_state(gst::State::Paused).map_err(|e| {
+        VideoDecodingError(format!(
+            "Failed to change state for video ({uri:?}):\n{e:#?}"
+        ))
+    })?;
+    source
+        .state(gst::ClockTime::from_seconds(5))
+        .0
+        .map_err(|e| {
+            VideoDecodingError(format!("Failed to read state for video ({uri:?}):\n{e:#?}"))
+        })?;
 
-                    *frame_ref.lock().map_err(|_| gst::FlowError::Error)? =
-                        Some(image::Handle::from_pixels(
-                            width as _,
-                            height as _,
-                            map.as_slice().to_owned(),
-                        ));
+    Ok(source)
+}
 
-                    Ok(gst::FlowSuccess::Ok)
-                })
-                .build(),
-        );
-    });
+fn video_sink_from_source(source: &gst::Bin, sync: bool) -> Option<gst_app::AppSink> {
+    let video_sink: gst::Element = source.property("video-sink");
+    let pad = video_sink.pads().get(0).cloned().unwrap();
+    let pad = pad.dynamic_cast::<gst::GhostPad>().unwrap();
+    let bin = pad.parent_element().unwrap();
+    let bin = bin.downcast::<gst::Bin>().unwrap();
+
+    let app_sink = bin.by_name("video_sink").unwrap();
+    let app_sink = app_sink.downcast::<gst_app::AppSink>().unwrap();
+    app_sink.set_async(true);
+    app_sink.set_sync(sync);
+    app_sink.set_max_lateness(0);
+    app_sink.set_max_buffers(10);
+
+    if app_sink.pull_preroll().is_ok() {
+        Some(app_sink)
+    } else {
+        None
+    }
+}
+
+fn audio_sink_from_source(source: &gst::Bin, sync: bool) -> Option<gst_app::AppSink> {
+    let audio_sink: gst::Element = source.property("audio-sink");
+    let pad = audio_sink.pads().get(0).cloned().unwrap();
+    let pad = pad.dynamic_cast::<gst::GhostPad>().unwrap();
+    let bin = pad.parent_element().unwrap();
+    let bin = bin.downcast::<gst::Bin>().unwrap();
+
+    let app_sink = bin.by_name("audio_sink").unwrap();
+    let app_sink = app_sink.downcast::<gst_app::AppSink>().unwrap();
+    app_sink.set_async(true);
+    app_sink.set_sync(sync);
+    app_sink.set_max_lateness(0);
+    app_sink.set_max_buffers(10);
+
+    if app_sink.pull_preroll().is_ok() {
+        Some(app_sink)
+    } else {
+        None
+    }
+}
+
+fn video_meta_from_sink(video_sink: &gst_app::AppSink) -> Result<(u32, u32, f64), error::Error> {
+    let pad = video_sink.static_pad("sink").ok_or(Error::Caps)?;
+    let caps = pad.current_caps().ok_or(Error::Caps)?;
+    let caps = caps.structure(0).ok_or(Error::Caps)?;
+    let width = caps.get::<i32>("width").map_err(|_| Error::Caps)? as u32;
+    let height = caps.get::<i32>("height").map_err(|_| Error::Caps)? as u32;
+    let video_rate = caps
+        .get::<gst::Fraction>("framerate")
+        .map_err(|_| Error::Caps)?;
+    let video_rate = Rational32::new(video_rate.numer() as _, video_rate.denom() as _)
+        .to_f64()
+        .unwrap();
+    Ok((width, height, video_rate))
+}
+
+fn audio_meta_from_sink(audio_sink: &gst_app::AppSink) -> Result<(u16, u32), error::Error> {
+    let pad = audio_sink.static_pad("sink").ok_or(Error::Caps)?;
+    let caps = pad.current_caps().ok_or(Error::Caps)?;
+    let caps = caps.structure(0).ok_or(Error::Caps)?;
+    let channels = caps.get::<i32>("channels").map_err(|_| Error::Caps)? as u16;
+    let audio_rate = caps.get::<i32>("rate").map_err(|_| Error::Caps)? as u32;
+    Ok((channels, audio_rate))
 }
