@@ -1,12 +1,12 @@
 use crate::assets::{
-    ICON_CLOSE_WINDOW, ICON_MAGNIFYING_GLASS, ICON_TO_CLIPBOARD, TEXT_LARGE, TEXT_NORMAL,
-    TEXT_SMALL, TEXT_TITLE, TEXT_XLARGE,
+    ICON_CLOSE_WINDOW, ICON_MAGNIFYING_GLASS, ICON_TO_CLIPBOARD, SPIN_DURATION, SPIN_STRATEGY,
+    TEXT_LARGE, TEXT_NORMAL, TEXT_SMALL, TEXT_TITLE, TEXT_XLARGE,
 };
 use crate::config::Config;
 use crate::env::Env;
 use crate::logger::LoggerMsg;
 use crate::resource::ResourceMap;
-use crate::scheduler::{Scheduler, SchedulerMsg, SPIN_DURATION, SPIN_STRATEGY};
+use crate::scheduler::{Scheduler, SchedulerMsg};
 use crate::task::block::Block;
 use crate::task::Task;
 use crate::util::{f32_with_precision, str_with_precision};
@@ -50,10 +50,11 @@ pub struct Server {
     animation_id: u32,
     status: Option<Result<String, error::Error>>,
     show_magnification: bool,
+    bin_hash: String,
 }
 
 impl Server {
-    pub fn new(path: PathBuf) -> Result<Self, error::Error> {
+    pub fn new(path: PathBuf, bin_hash: String) -> Result<Self, error::Error> {
         let env = Env::new(path)?;
         let task = Task::new(env.task())?;
         let blocks = task
@@ -61,6 +62,8 @@ impl Server {
             .into_iter()
             .map(|label| (label, false))
             .collect();
+
+        println!("Saving output to: {:?}", env.output());
 
         Ok(Self {
             env,
@@ -78,6 +81,7 @@ impl Server {
             animation_id: 0,
             status: None,
             show_magnification: false,
+            bin_hash,
         })
     }
 
@@ -150,11 +154,11 @@ pub enum ServerMsg {
 impl Application for Server {
     type Executor = iced::executor::Default;
     type Message = ServerMsg;
-    type Flags = PathBuf;
+    type Flags = (PathBuf, String);
 
     #[inline(always)]
-    fn new(task: PathBuf) -> (Self, Command<Self::Message>) {
-        match Server::new(task) {
+    fn new((task, bin_hash): (PathBuf, String)) -> (Self, Command<Self::Message>) {
+        match Server::new(task, bin_hash) {
             Ok(server) => (server, Command::none()),
             Err(e) => {
                 eprintln!("[{}]\n{e:?}", e.type_());
@@ -184,10 +188,7 @@ impl Application for Server {
             }
             (Page::Startup, ServerMsg::GoToSelect) | (Page::Activity, ServerMsg::GoToSelect) => {
                 self.page = Page::Selection;
-                println!(
-                    "Starting task with configuration:\n{:#?}",
-                    self.task.config()
-                );
+                println!("\n{:#?}", self.task.config());
                 Command::none()
             }
             (Page::Selection, ServerMsg::GoToStartup) => {
@@ -196,7 +197,7 @@ impl Application for Server {
             }
             (Page::Selection, ServerMsg::StartBlock(i)) => {
                 if self.scheduler.is_none() {
-                    println!("Starting experiment block {i}");
+                    println!("\nStarting experiment block {i}...");
                     self.active_block = Some(i);
                     self.page = Page::Loading;
                     Command::perform(
@@ -761,5 +762,9 @@ impl Server {
             Scrollable::new(Text::new(format!("{err:?}")).size(TEXT_NORMAL)),
         )
         .style(style::Error)
+    }
+
+    pub fn hash(&self) -> String {
+        self.bin_hash.clone()
     }
 }

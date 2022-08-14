@@ -5,7 +5,7 @@ use crate::error::Error::InvalidNameError;
 use crate::io::IO;
 use crate::logger::LoggerMsg;
 use crate::resource::ResourceMap;
-use crate::scheduler::{Event, Monitor};
+use crate::scheduler::monitor::{Event, Monitor};
 use crate::server::ServerMsg;
 use iced::Command;
 use serde::{Deserialize, Serialize};

@@ -5,7 +5,7 @@ use crate::error::Error::{InternalError, InvalidNameError};
 use crate::io::IO;
 use crate::logger::LoggerMsg;
 use crate::resource::ResourceMap;
-use crate::scheduler::{Monitor, SchedulerMsg};
+use crate::scheduler::SchedulerMsg;
 use crate::server::ServerMsg;
 use crate::style;
 use crate::util::{f32_with_precision, f64_with_precision, str_with_precision};
@@ -352,11 +352,6 @@ impl StatefulAction for StatefulQuestion {
     #[inline(always)]
     fn is_static(&self) -> bool {
         false
-    }
-
-    #[inline(always)]
-    fn monitors(&self) -> Option<Monitor> {
-        None
     }
 
     #[inline(always)]

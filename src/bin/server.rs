@@ -1,20 +1,8 @@
-// todo!("Maybe come up with a way to allow multiple µComponent-type actions to \
-//        run simultaneously in special circumstances; think if it is even useful;\
-//        for example maybe allow 2 horizontal (or vertical) panes instead of single
-//        viewport");
-
-// todo!("Add cross-fade support by providing fade-in/out duration (global, block, and local \
-//        -- like how gain is set)")
-
-// todo!("Add Compound action functionality, which uses 2 NOPs -- one before the sub-origin \
-//        set, and one after all sub-actions end")
-
-// todo!("Add volume option to video")
-
 use cog_task::assets::VERSION;
 use cog_task::server::Server;
 use iced::pure::Application;
 use iced::{window, Error, Settings};
+use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 
 fn main() -> Result<(), Error> {
@@ -23,11 +11,13 @@ fn main() -> Result<(), Error> {
         println!("Invalid number of arguments. Correct usage:\n./server path_to_task_dir");
         std::process::exit(1);
     } else {
-        println!(
-            "Starting task \"{}\" with Server-v{}...\n",
-            args[1], VERSION
-        );
+        println!("Starting task \"{}\" with Server-v{}...", args[1], VERSION);
     }
+
+    let bin = PathBuf::from(&args[0]);
+    let mut hasher = Sha256::default();
+    hasher.update(&std::fs::read(bin).unwrap());
+    let bin_hash = hex::encode(hasher.finalize());
 
     let path = PathBuf::from(&args[1]);
 
@@ -41,9 +31,7 @@ fn main() -> Result<(), Error> {
             icon: None,
             ..Default::default()
         },
-        flags: path,
-        // default_font: None,
-        // default_text_size: 0,
+        flags: (path, bin_hash),
         // text_multithreading: false,
         // antialiasing: false,
         exit_on_close_request: false,

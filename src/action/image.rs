@@ -4,7 +4,6 @@ use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::Monitor;
 use crate::server::ServerMsg;
 use iced::pure::widget::{image, svg, Container};
 use iced::pure::Element;
@@ -87,11 +86,6 @@ impl StatefulAction for StatefulImage {
     }
 
     #[inline(always)]
-    fn monitors(&self) -> Option<Monitor> {
-        None
-    }
-
-    #[inline(always)]
     fn stop(&mut self) -> Result<(), error::Error> {
         self.done = true;
         Ok(())
@@ -150,10 +144,6 @@ impl StatefulAction for StatefulSvg {
 
     fn is_static(&self) -> bool {
         true
-    }
-
-    fn monitors(&self) -> Option<Monitor> {
-        None
     }
 
     fn stop(&mut self) -> Result<(), error::Error> {

@@ -1,7 +1,7 @@
 use crate::config::{Config, LogFormat};
 use crate::error;
 use crate::error::Error::LoggerError;
-use crate::scheduler::{Info, SchedulerMsg};
+use crate::scheduler::{info::Info, SchedulerMsg};
 use crate::server::ServerMsg;
 use iced::Command;
 use itertools::Itertools;

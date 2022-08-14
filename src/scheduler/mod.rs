@@ -1,10 +1,13 @@
 use crate::action::StatefulActionMsg;
-use crate::config::{Config, Hash, LogCondition};
+use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
+use crate::config::{Config, LogCondition};
 use crate::error;
 use crate::error::Error::{FlowError, InternalError, LoggerError};
 use crate::io::IO;
 use crate::logger::{Logger, LoggerMsg};
 use crate::scheduler::graph::{DependencyGraph, Edge, Node};
+use crate::scheduler::info::Info;
+use crate::scheduler::monitor::{Event, Monitor};
 use crate::server::{Server, ServerMsg};
 use iced::keyboard::KeyCode;
 use iced::pure::widget::Column;
@@ -15,68 +18,16 @@ use num_traits::Zero;
 use petgraph::prelude::EdgeRef;
 use petgraph::stable_graph::NodeIndex;
 use petgraph::EdgeDirection;
-use serde::Serialize;
 use serde_json::Value;
-use spin_sleep::{SpinSleeper, SpinStrategy};
+use spin_sleep::SpinSleeper;
 use std::collections::HashSet;
 use std::ops::Add;
-use std::path::PathBuf;
 use std::time::{Duration, Instant, SystemTime};
 
 pub mod flow;
 pub mod graph;
-
-pub const SPIN_DURATION: u32 = 100_000_000; // equivalent to 100ms
-pub const SPIN_STRATEGY: SpinStrategy = SpinStrategy::SpinLoopHint;
-
-#[derive(Debug, Default, Serialize)]
-pub struct Info {
-    task: TaskInfo,
-    block: BlockInfo,
-    subject: String,
-    output: PathBuf,
-}
-
-#[derive(Debug, Default, Serialize)]
-pub struct TaskInfo {
-    name: String,
-    version: String,
-    hash: String,
-}
-
-#[derive(Debug, Default, Serialize)]
-pub struct BlockInfo {
-    name: String,
-    hash: String,
-}
-
-impl Info {
-    #[inline(always)]
-    pub fn subject(&self) -> &String {
-        &self.subject
-    }
-
-    #[inline(always)]
-    pub fn block(&self) -> &String {
-        &self.block.name
-    }
-
-    #[inline(always)]
-    pub fn output(&self) -> &PathBuf {
-        &self.output
-    }
-}
-
-#[derive(Debug)]
-pub enum Monitor {
-    Keys,
-    Frames(f64),
-}
-#[derive(Debug, Clone)]
-pub enum Event {
-    Key(KeyCode),
-    Refresh,
-}
+pub mod info;
+pub mod monitor;
 
 #[derive(Debug, Clone)]
 pub enum SchedulerMsg {
@@ -129,19 +80,7 @@ impl Scheduler {
         let flow = block.flow();
         let resources = server.resources();
 
-        let info = Info {
-            task: TaskInfo {
-                name: task.name().to_owned(),
-                version: task.version().to_owned(),
-                hash: task.hash(),
-            },
-            block: BlockInfo {
-                name: block.label().to_owned(),
-                hash: block.hash(),
-            },
-            subject: server.subject().to_owned(),
-            output: server.env().output().to_owned(),
-        };
+        let info = Info::new(server, task, block);
 
         let io = IO::new()?;
         let config = block.config(server.config());
@@ -566,18 +505,6 @@ impl Scheduler {
                         cmd.push(
                             node.action
                                 .update(StatefulActionMsg::UpdateEvent(Event::Key(key)))?,
-                        );
-                    }
-                }
-                Ok(Command::batch(cmd))
-            }
-            (true, SchedulerMsg::Refresh(i)) if i == self.animation_id => {
-                let mut cmd = vec![];
-                for &i in self.fps_monitors.iter() {
-                    if let Some(node) = self.graph.node_mut(self.nodes[i]) {
-                        cmd.push(
-                            node.action
-                                .update(StatefulActionMsg::UpdateEvent(Event::Refresh))?,
                         );
                     }
                 }

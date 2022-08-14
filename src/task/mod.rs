@@ -1,6 +1,7 @@
-use crate::config::{Config, Hash};
+use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InvalidNameError, TaskDefinitionError};
+use crate::util::Hash;
 use block::Block;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};

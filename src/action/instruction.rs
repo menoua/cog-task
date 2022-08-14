@@ -4,7 +4,7 @@ use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
 use crate::resource::text::Justification;
 use crate::resource::{text::text_or_file, ResourceMap};
-use crate::scheduler::{Monitor, SchedulerMsg};
+use crate::scheduler::SchedulerMsg;
 use crate::server::ServerMsg;
 use crate::{error, style};
 use iced::alignment::Vertical;
@@ -126,11 +126,6 @@ impl StatefulAction for StatefulInstruction {
     #[inline(always)]
     fn is_static(&self) -> bool {
         self.persistent
-    }
-
-    #[inline(always)]
-    fn monitors(&self) -> Option<Monitor> {
-        None
     }
 
     #[inline(always)]

@@ -3,7 +3,6 @@ use crate::config::Config;
 use crate::error;
 use crate::io::IO;
 use crate::resource::ResourceMap;
-use crate::scheduler::Monitor;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -69,11 +68,6 @@ impl StatefulAction for StatefulNop {
     #[inline(always)]
     fn is_static(&self) -> bool {
         self.persistent
-    }
-
-    #[inline(always)]
-    fn monitors(&self) -> Option<Monitor> {
-        None
     }
 
     #[inline(always)]

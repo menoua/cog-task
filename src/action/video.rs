@@ -1,10 +1,11 @@
 use crate::action::{Action, StatefulAction};
+use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::{Monitor, SchedulerMsg, SPIN_DURATION, SPIN_STRATEGY};
+use crate::scheduler::{monitor::Monitor, SchedulerMsg};
 use crate::server::ServerMsg;
 use iced::pure::widget::{image, Container};
 use iced::pure::Element;

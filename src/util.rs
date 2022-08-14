@@ -1,3 +1,5 @@
+use serde::Serialize;
+
 #[inline(always)]
 pub fn f32_with_precision(x: f32, precision: u8) -> f32 {
     let precision = 10_f32.powi(precision as i32);
@@ -20,5 +22,14 @@ pub fn str_with_precision(x: f32, precision: u8) -> String {
         int.to_owned()
     } else {
         format!("{int}.{frac}")
+    }
+}
+
+pub trait Hash: Serialize {
+    fn hash(&self) -> String {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::default();
+        hasher.update(&serde_json::to_vec(&self).unwrap());
+        hex::encode(hasher.finalize())
     }
 }

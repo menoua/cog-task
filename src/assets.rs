@@ -1,3 +1,5 @@
+use spin_sleep::SpinStrategy;
+
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const TEXT_TITLE: u16 = 45;
@@ -7,6 +9,9 @@ pub const TEXT_NORMAL: u16 = 34;
 pub const TEXT_SMALL: u16 = 32;
 pub const TEXT_XSMALL: u16 = 28;
 pub const TEXT_TINY: u16 = 24;
+
+pub const SPIN_DURATION: u32 = 100_000_000; // equivalent to 100ms
+pub const SPIN_STRATEGY: SpinStrategy = SpinStrategy::SpinLoopHint;
 
 pub const IMAGE_FIXATION: &[u8] = include_bytes!("assets/fixation.svg");
 pub const IMAGE_RUSTACEAN: &[u8] = include_bytes!("assets/rustacean.svg");

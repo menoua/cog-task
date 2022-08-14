@@ -1,8 +1,9 @@
 use crate::action::{Action, ExtAction};
-use crate::config::{Config, Hash, OptionalConfig};
+use crate::config::{Config, OptionalConfig};
 use crate::error;
 use crate::error::Error::TaskDefinitionError;
 use crate::scheduler::flow::Flow;
+use crate::util::Hash;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
