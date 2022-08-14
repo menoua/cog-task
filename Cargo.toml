@@ -2,7 +2,7 @@
 name = "cog-task"
 version = "0.1.0"
 edition = "2021"
-license = "MIT"
+license-file = "LICENSE"
 repository = "https://github.com/menoua/cog-task-rs"
 description = "CogTask: a general-purpose low-latency application to serve cognitive tasks"
 exclude = [".*"]
