@@ -12,7 +12,6 @@ pub fn audio_from_file(
     path: &Path,
     config: &Config,
 ) -> Result<Buffered<SamplesBuffer<i16>>, error::Error> {
-    let gain = config.base_gain();
     let trigger_type = config.trigger_type();
     let use_trigger = config.use_trigger();
 
@@ -69,11 +68,7 @@ pub fn audio_from_file(
     for s in decoder {
         c = (c + 1) % in_channels;
         if c < in_channels - 1 || trigger.is_none() || use_trigger {
-            if let Some(gain) = gain {
-                samples.push((gain * s as f32) as i16);
-            } else {
-                samples.push(s);
-            }
+            samples.push(s);
         }
         if c == in_channels - 1 {
             if let Some(trigger) = &mut trigger {

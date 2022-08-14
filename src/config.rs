@@ -76,7 +76,7 @@ pub struct Config {
     #[serde(default = "defaults::nested_evolve")]
     nested_evolve: bool,
     #[serde(default)]
-    base_gain: Option<f32>,
+    base_volume: Option<f32>,
     #[serde(default)]
     fps_lock: f64,
     #[serde(default)]
@@ -149,8 +149,8 @@ impl Config {
     }
 
     #[inline(always)]
-    pub fn base_gain(&self) -> Option<f32> {
-        self.base_gain
+    pub fn base_volume(&self) -> Option<f32> {
+        self.base_volume
     }
 
     #[inline(always)]
@@ -189,6 +189,15 @@ impl Config {
             Ok(())
         }
     }
+
+    pub fn volume(&self, vol: Option<f32>) -> Option<f32> {
+        match (self.base_volume, vol) {
+            (Some(v), Some(w)) => Some(v * w),
+            (Some(v), None) => Some(v),
+            (None, Some(w)) => Some(w),
+            (None, None) => None,
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, Copy, Deserialize, Serialize)]
@@ -201,7 +210,7 @@ pub struct OptionalConfig {
     #[serde(default)]
     nested_evolve: Option<bool>,
     #[serde(default)]
-    base_gain: Option<Option<f32>>,
+    base_volume: Option<Option<f32>>,
     #[serde(default)]
     fps_lock: Option<f64>,
     #[serde(default)]
@@ -224,8 +233,8 @@ impl OptionalConfig {
         if let Some(v) = self.nested_evolve {
             config.nested_evolve = v;
         }
-        if let Some(v) = self.base_gain {
-            config.base_gain = v;
+        if let Some(v) = self.base_volume {
+            config.base_volume = v;
         }
         if let Some(v) = self.fps_lock {
             config.fps_lock = v;

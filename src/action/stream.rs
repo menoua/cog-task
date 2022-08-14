@@ -26,7 +26,7 @@ pub struct Stream {
     #[serde(default)]
     width: Option<u16>,
     #[serde(default)]
-    volume: Option<f64>,
+    volume: Option<f32>,
     #[serde(default)]
     looping: bool,
     #[serde(default)]
@@ -65,14 +65,7 @@ impl Action for Stream {
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         match res.fetch(&self.src())? {
             ResourceValue::Stream(stream) => {
-                let volume = self
-                    .volume
-                    .map_or(config.base_gain().map(|v| v as f64), |v| {
-                        match config.base_gain() {
-                            Some(w) => Some(v * w as f64),
-                            None => Some(v),
-                        }
-                    });
+                let volume = config.volume(self.volume);
                 let mut stream = stream.cloned(volume)?;
 
                 let frame = Arc::new(Mutex::new(None));

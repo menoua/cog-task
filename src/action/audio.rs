@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 pub struct Audio {
     src: PathBuf,
     #[serde(default)]
-    gain: Option<f32>,
+    volume: Option<f32>,
     #[serde(default)]
     looping: bool,
 }
@@ -47,11 +47,13 @@ impl Action for Audio {
             let sink = io.audio()?;
 
             sink.pause();
-            match (self.gain, self.looping) {
-                (Some(gain), true) => sink.append(src.amplify(gain).repeat_infinite()),
-                (Some(gain), false) => sink.append(src.amplify(gain)),
-                (None, true) => sink.append(src.repeat_infinite()),
-                (None, false) => sink.append(src),
+            if let Some(volume) = config.volume(self.volume) {
+                sink.set_volume(volume);
+            }
+            if self.looping {
+                sink.append(src.repeat_infinite())
+            } else {
+                sink.append(src)
             }
 
             let done = Arc::new(Mutex::new(sink.empty()));

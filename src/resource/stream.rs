@@ -307,7 +307,7 @@ impl Stream {
         }
     }
 
-    pub fn cloned(&self, volume: Option<f64>) -> Result<Self, error::Error> {
+    pub fn cloned(&self, volume: Option<f32>) -> Result<Self, error::Error> {
         let source = gst_launch(&self.uri, false, volume)?;
         let bus = source.bus().unwrap();
 
@@ -434,7 +434,7 @@ fn gst_pipeline(uri: &str, audio: bool) -> String {
     }
 }
 
-fn gst_launch(uri: &str, audio: bool, volume: Option<f64>) -> Result<gst::Bin, error::Error> {
+fn gst_launch(uri: &str, audio: bool, volume: Option<f32>) -> Result<gst::Bin, error::Error> {
     let source = gst::parse_launch(&gst_pipeline(uri, audio)).map_err(|e| {
         VideoDecodingError(format!(
             "Failed to parse gstreamer command for video ({uri:?}):\n{e:#?}"
@@ -443,7 +443,7 @@ fn gst_launch(uri: &str, audio: bool, volume: Option<f64>) -> Result<gst::Bin, e
     let source = source.downcast::<gst::Bin>().unwrap();
 
     if let Some(volume) = volume {
-        source.set_property("volume", volume);
+        source.set_property("volume", volume as f64);
     }
 
     source.set_state(gst::State::Paused).map_err(|e| {
