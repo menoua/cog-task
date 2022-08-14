@@ -57,8 +57,8 @@ impl StatefulAction for StatefulNop {
     }
 
     #[inline(always)]
-    fn is_over(&self) -> bool {
-        self.done || !self.persistent
+    fn is_over(&self) -> Result<bool, error::Error> {
+        Ok(self.done || !self.persistent)
     }
 
     #[inline(always)]

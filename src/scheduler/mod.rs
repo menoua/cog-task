@@ -370,7 +370,7 @@ impl Scheduler {
         let mut done = vec![];
         for &i in self.active.iter() {
             if let Some(node) = self.graph.node_mut(self.nodes[i]) {
-                if node.action.is_over() {
+                if node.action.is_over()? {
                     done.push(i);
                 }
             }
@@ -379,7 +379,7 @@ impl Scheduler {
         let mut ready = vec![];
         for &i in self.ready.iter() {
             if let Some(node) = self.graph.node(self.nodes[i]) {
-                if node.action.is_over() {
+                if node.action.is_over()? {
                     done.push(i);
                 } else {
                     ready.push(i);
@@ -392,13 +392,11 @@ impl Scheduler {
             Edge::Starter => self.graph.contains_node(self.nodes[*v]),
             Edge::Stopper => self.active.contains(v),
         });
-        self.timers
-            .iter()
-            .take_while(|(_, _, t)| time >= *t)
-            .for_each(|(v, e, _)| match e {
+        for (v, e, _) in self.timers.iter().take_while(|(_, _, t)| time >= *t) {
+            match e {
                 Edge::Starter => {
                     if let Some(Node { action, .. }) = self.graph.node(self.nodes[*v]) {
-                        if action.is_over() {
+                        if action.is_over()? {
                             done.push(*v);
                         } else {
                             ready.push(*v);
@@ -406,7 +404,8 @@ impl Scheduler {
                     }
                 }
                 Edge::Stopper => done.push(*v),
-            });
+            }
+        }
         self.timers.retain(|(_, _, t)| time < *t);
 
         while !done.is_empty() {

@@ -1,7 +1,7 @@
 use crate::action::{Action, StatefulAction};
 use crate::config::{Config, TimePrecision};
 use crate::error;
-use crate::error::Error::InvalidResourceError;
+use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::{SchedulerMsg, SPIN_DURATION, SPIN_STRATEGY};
@@ -12,7 +12,9 @@ use serde::{Deserialize, Serialize};
 use spin_sleep::SpinSleeper;
 use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{Receiver, Sender, TryRecvError};
+use std::sync::{mpsc, Arc, Mutex};
+use std::thread;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -51,13 +53,80 @@ impl Action for Audio {
                 (None, false) => sink.append(src),
             }
 
+            let done = Arc::new(Mutex::new(sink.empty()));
+            let sink = Arc::new(Mutex::new(Some(sink)));
+            let (tx_start, rx_start) = mpsc::channel();
+            let (tx_stop, rx_stop) = mpsc::channel();
+
+            {
+                let done = done.clone();
+                let sink = sink.clone();
+                let time_precision = config.time_precision();
+                let looping = self.looping;
+                let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
+
+                thread::spawn(move || {
+                    if rx_start.recv().is_err() {
+                        return;
+                    }
+
+                    if let Some(sink) = sink.lock().unwrap().as_ref() {
+                        sink.play();
+                    } else {
+                        let _ = tx_stop.send(());
+                        return;
+                    }
+
+                    if looping {
+                        loop {
+                            thread::sleep(Duration::from_secs(5));
+                            if let Err(TryRecvError::Disconnected) = rx_start.try_recv() {
+                                break;
+                            }
+                        }
+                    } else {
+                        // wait for the exact duration of the audio (note that the actual audio might
+                        // take longer to finish playing due to IO delay, etc.), leaving what remains
+                        // to be played in a serial or parallel mode depending on time_precision conf
+                        let target_time = Instant::now() + duration;
+                        sleeper.sleep(target_time - Instant::now());
+
+                        match time_precision {
+                            TimePrecision::RespectIntervals => {
+                                if let Some(sink) = sink.lock().unwrap().take() {
+                                    sink.detach();
+                                }
+                            }
+                            TimePrecision::RespectBoundaries => {
+                                let mut done = false;
+                                let step = Duration::from_micros(50);
+                                while !done {
+                                    if let Some(sink) = sink.lock().unwrap().as_ref() {
+                                        if sink.empty() {
+                                            done = true;
+                                        } else {
+                                            sleeper.sleep(step);
+                                        }
+                                    } else {
+                                        done = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    *done.lock().unwrap() = true;
+                    let _ = tx_stop.send(());
+                });
+            }
+
             Ok(Box::new(StatefulAudio {
                 id,
-                done: false,
+                done,
                 duration,
                 looping: self.looping,
-                time_precision: config.time_precision(),
-                sink: Arc::new(Mutex::new(Some(sink))),
+                sink,
+                link: Some((tx_start, rx_stop)),
             }))
         } else {
             Err(InvalidResourceError(format!(
@@ -70,11 +139,11 @@ impl Action for Audio {
 
 pub struct StatefulAudio {
     id: usize,
-    done: bool,
+    done: Arc<Mutex<bool>>,
     duration: Duration,
     looping: bool,
-    time_precision: TimePrecision,
     sink: Arc<Mutex<Option<Sink>>>,
+    link: Option<(Sender<()>, Receiver<()>)>,
 }
 
 impl Debug for StatefulAudio {
@@ -89,13 +158,13 @@ impl StatefulAction for StatefulAudio {
         self.id
     }
 
-    fn is_over(&self) -> bool {
-        if self.done {
-            true
+    fn is_over(&self) -> Result<bool, error::Error> {
+        if *self.done.lock().unwrap() {
+            Ok(true)
         } else if let Some(sink) = self.sink.lock().unwrap().as_ref() {
-            sink.empty()
+            Ok(sink.empty())
         } else {
-            true
+            Ok(true)
         }
     }
 
@@ -114,70 +183,34 @@ impl StatefulAction for StatefulAudio {
         if let Some(sink) = self.sink.lock().unwrap().take() {
             sink.stop();
         }
-        self.done = true;
+        *self.done.lock().unwrap() = true;
         Ok(())
     }
 
     fn start(&mut self) -> Result<Command<ServerMsg>, error::Error> {
-        let sink = self.sink.clone();
-        let duration = self.duration;
-        let time_precision = self.time_precision;
-
-        if self.looping {
-            if let Some(sink) = sink.lock().unwrap().as_ref() {
-                sink.play();
-                Ok(Command::none())
-            } else {
-                Ok(Command::perform(async {}, |()| {
-                    SchedulerMsg::Advance.wrap()
-                }))
-            }
-        } else {
-            Ok(Command::perform(
-                async move {
-                    let playing = if let Some(sink) = sink.lock().unwrap().as_ref() {
-                        sink.play();
-                        true
-                    } else {
-                        false
-                    };
-
-                    // wait for the exact duration of the audio (note that the actual audio might
-                    // take longer to finish playing due to IO delay, etc.), leaving what remains
-                    // to be played in a serial or parallel mode depending on time_precision conf
-                    let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
-                    if playing {
-                        let target_time = Instant::now() + duration;
-                        sleeper.sleep(target_time - Instant::now());
-                    }
-
-                    match time_precision {
-                        TimePrecision::RespectIntervals => {
-                            if let Some(sink) = sink.lock().unwrap().take() {
-                                sink.detach();
-                            }
-                        }
-                        TimePrecision::RespectBoundaries => {
-                            let mut done = false;
-                            let step = Duration::from_micros(50);
-                            while !done {
-                                if let Some(sink) = sink.lock().unwrap().as_ref() {
-                                    if sink.empty() {
-                                        done = true;
-                                    } else {
-                                        sleeper.sleep(step);
-                                    }
-                                } else {
-                                    done = true;
-                                }
-                            }
-                        }
-                    }
-                    SchedulerMsg::Advance
-                },
-                SchedulerMsg::wrap,
+        let link = self.link.take().ok_or_else(|| {
+            InternalError(format!(
+                "Link to audio thread could not be acquired for action `{}`",
+                self.id
             ))
-        }
+        })?;
+
+        link.0.send(()).map_err(|e| {
+            InternalError(format!(
+                "Failed to send start signal to concurrent audio thread:\n{e:#?}"
+            ))
+        })?;
+
+        let done = self.done.clone();
+
+        Ok(Command::perform(
+            async move {
+                let link = link;
+                let _ = link.1.recv();
+                *done.lock().unwrap() = true;
+            },
+            |()| SchedulerMsg::Advance.wrap(),
+        ))
     }
 }
 

@@ -1,10 +1,10 @@
-use crate::action::{Action, StatefulAction, StatefulActionMsg};
+use crate::action::{Action, StatefulAction};
 use crate::config::Config;
 use crate::error;
-use crate::error::Error::InvalidResourceError;
+use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::{Event, Monitor, SchedulerMsg, SPIN_DURATION, SPIN_STRATEGY};
+use crate::scheduler::{Monitor, SchedulerMsg, SPIN_DURATION, SPIN_STRATEGY};
 use crate::server::ServerMsg;
 use iced::pure::widget::{image, Container};
 use iced::pure::Element;
@@ -12,7 +12,8 @@ use iced::{Command, ContentFit, Length};
 use serde::{Deserialize, Serialize};
 use spin_sleep::SpinSleeper;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -49,15 +50,59 @@ impl Action for Video {
         _io: &IO,
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         match res.fetch(&self.src())? {
-            ResourceValue::Video(frames, framerate) => Ok(Box::new(StatefulVideo {
-                id,
-                done: Arc::new(Mutex::new(frames.is_empty())),
-                frames: frames.clone(),
-                framerate: *framerate,
-                position: Arc::new(Mutex::new(0)),
-                width: self.width,
-                looping: self.looping,
-            })),
+            ResourceValue::Video(frames, framerate) => {
+                let done = Arc::new(Mutex::new(frames.is_empty()));
+                let position = Arc::new(Mutex::new(0));
+
+                let (tx_start, rx_start) = mpsc::channel();
+                let (tx_stop, rx_stop) = mpsc::channel();
+
+                {
+                    let position = position.clone();
+                    let done = done.clone();
+                    let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
+                    let period = Duration::from_secs_f64(1.0 / *framerate);
+                    let n_frames = frames.len();
+                    let looping = self.looping;
+
+                    thread::spawn(move || {
+                        if rx_start.recv().is_err() {
+                            return;
+                        }
+
+                        loop {
+                            sleeper.sleep(period);
+                            let mut done = done.lock().unwrap();
+                            let mut pos = position.lock().unwrap();
+                            if *pos == n_frames - 1 {
+                                if looping {
+                                    *pos = 0;
+                                } else {
+                                    *done = true;
+                                }
+                            } else {
+                                *pos += 1;
+                            }
+                            if *done {
+                                break;
+                            }
+                        }
+
+                        let _ = tx_stop.send(());
+                    });
+                }
+
+                Ok(Box::new(StatefulVideo {
+                    id,
+                    done,
+                    frames: frames.clone(),
+                    framerate: *framerate,
+                    position,
+                    width: self.width,
+                    looping: self.looping,
+                    link: Some((tx_start, rx_stop)),
+                }))
+            }
             _ => Err(InvalidResourceError(format!(
                 "Video action supplied non-video resource: `{:?}`",
                 self.src
@@ -75,6 +120,7 @@ pub struct StatefulVideo {
     position: Arc<Mutex<usize>>,
     width: Option<u16>,
     looping: bool,
+    link: Option<(Sender<()>, Receiver<()>)>,
 }
 
 impl StatefulAction for StatefulVideo {
@@ -84,8 +130,8 @@ impl StatefulAction for StatefulVideo {
     }
 
     #[inline(always)]
-    fn is_over(&self) -> bool {
-        *self.done.lock().unwrap()
+    fn is_over(&self) -> Result<bool, error::Error> {
+        Ok(*self.done.lock().unwrap())
     }
 
     #[inline(always)]
@@ -111,48 +157,32 @@ impl StatefulAction for StatefulVideo {
 
     #[inline(always)]
     fn start(&mut self) -> Result<Command<ServerMsg>, error::Error> {
-        *self.position.lock().unwrap() = 0;
+        let link = self.link.take().ok_or_else(|| {
+            InternalError(format!(
+                "Link to video thread could not be acquired for action `{}`",
+                self.id
+            ))
+        })?;
 
-        let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
-        let period = Duration::from_secs_f64(1.0 / self.framerate);
-        let position = self.position.clone();
+        link.0.send(()).map_err(|e| {
+            InternalError(format!(
+                "Failed to send start signal to concurrent video thread:\n{e:#?}"
+            ))
+        })?;
+
         let done = self.done.clone();
-        let n_frames = self.frames.len();
-        let looping = self.looping;
 
-        thread::spawn(move || loop {
-            sleeper.sleep(period);
-            let mut done = done.lock().unwrap();
-            let mut pos = position.lock().unwrap();
-            if *pos == n_frames - 1 {
-                if looping {
-                    *pos = 0;
-                } else {
-                    *done = true;
-                }
-            } else {
-                *pos += 1;
-            }
-            if *done {
-                break;
-            }
-        });
-
-        Ok(Command::none())
-    }
-
-    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<ServerMsg>, error::Error> {
-        if let StatefulActionMsg::UpdateEvent(Event::Refresh) = msg {
-            if *self.done.lock().unwrap() {
-                Ok(Command::perform(async {}, |()| {
-                    SchedulerMsg::Advance.wrap()
-                }))
-            } else {
-                Ok(Command::none())
-            }
-        } else {
-            Ok(Command::none())
-        }
+        Ok(Command::batch([
+            Command::perform(async {}, |()| SchedulerMsg::Refresh(0).wrap()),
+            Command::perform(
+                async move {
+                    let link = link;
+                    let _ = link.1.recv();
+                    *done.lock().unwrap() = true;
+                },
+                |()| SchedulerMsg::Advance.wrap(),
+            ),
+        ]))
     }
 
     fn view(&self, scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {

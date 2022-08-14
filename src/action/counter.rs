@@ -72,8 +72,8 @@ impl StatefulAction for StatefulCounter {
     }
 
     #[inline(always)]
-    fn is_over(&self) -> bool {
-        self.done || self.count == 0
+    fn is_over(&self) -> Result<bool, error::Error> {
+        Ok(self.done || self.count == 0)
     }
 
     #[inline(always)]

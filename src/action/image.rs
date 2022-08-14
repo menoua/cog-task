@@ -72,8 +72,8 @@ impl StatefulAction for StatefulImage {
     }
 
     #[inline(always)]
-    fn is_over(&self) -> bool {
-        self.done
+    fn is_over(&self) -> Result<bool, error::Error> {
+        Ok(self.done)
     }
 
     #[inline(always)]
@@ -140,8 +140,8 @@ impl StatefulAction for StatefulSvg {
         self.id
     }
 
-    fn is_over(&self) -> bool {
-        self.done
+    fn is_over(&self) -> Result<bool, error::Error> {
+        Ok(self.done)
     }
 
     fn is_visual(&self) -> bool {

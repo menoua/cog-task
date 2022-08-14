@@ -114,8 +114,8 @@ impl StatefulAction for StatefulInstruction {
     }
 
     #[inline(always)]
-    fn is_over(&self) -> bool {
-        self.done
+    fn is_over(&self) -> Result<bool, error::Error> {
+        Ok(self.done)
     }
 
     #[inline(always)]

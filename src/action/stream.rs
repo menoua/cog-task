@@ -1,10 +1,10 @@
-use crate::action::{Action, StatefulAction, StatefulActionMsg};
+use crate::action::{Action, StatefulAction};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError, TaskDefinitionError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::{Event, Monitor, SchedulerMsg, SPIN_DURATION, SPIN_STRATEGY};
+use crate::scheduler::{Monitor, SchedulerMsg, SPIN_DURATION, SPIN_STRATEGY};
 use crate::server::ServerMsg;
 use iced::pure::widget::{image, Container};
 use iced::pure::Element;
@@ -157,8 +157,8 @@ impl StatefulAction for StatefulStream {
     }
 
     #[inline(always)]
-    fn is_over(&self) -> bool {
-        *(*self.done.lock().unwrap()).as_ref().unwrap_or(&true)
+    fn is_over(&self) -> Result<bool, error::Error> {
+        self.done.lock().unwrap().clone()
     }
 
     #[inline(always)]
@@ -225,20 +225,6 @@ impl StatefulAction for StatefulStream {
                 |()| SchedulerMsg::Advance.wrap(),
             ),
         ]))
-    }
-
-    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<ServerMsg>, error::Error> {
-        if let StatefulActionMsg::UpdateEvent(Event::Refresh) = msg {
-            match self.done.lock().unwrap().as_ref() {
-                Ok(true) => Ok(Command::perform(async {}, |()| {
-                    SchedulerMsg::Advance.wrap()
-                })),
-                Ok(false) => Ok(Command::none()),
-                Err(e) => Err(e.clone()),
-            }
-        } else {
-            Ok(Command::none())
-        }
     }
 
     fn view(&self, scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {

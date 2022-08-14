@@ -66,8 +66,8 @@ pub trait StatefulAction: Debug {
     fn id(&self) -> usize;
 
     #[inline(always)]
-    fn is_over(&self) -> bool {
-        false
+    fn is_over(&self) -> Result<bool, error::Error> {
+        Ok(false)
     }
 
     #[inline(always)]
