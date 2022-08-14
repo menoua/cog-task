@@ -12,7 +12,7 @@ use iced::{Command, ContentFit, Length};
 use serde::{Deserialize, Serialize};
 use spin_sleep::SpinSleeper;
 use std::path::PathBuf;
-use std::sync::mpsc::{Sender, TryRecvError};
+use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
@@ -84,19 +84,20 @@ impl Action for Stream {
                 };
 
                 let done = Arc::new(Mutex::new(Ok(stream.eos())));
-                let (tx, rx) = mpsc::channel();
+                let (tx_start, rx_start) = mpsc::channel();
+                let (tx_stop, rx_stop) = mpsc::channel();
                 let looping = self.looping;
 
                 let done_clone = done.clone();
                 let join_handle = thread::spawn(move || -> Result<(), error::Error> {
-                    if rx.recv().is_err() {
+                    if rx_start.recv().is_err() {
                         return Ok(());
                     }
 
                     stream.start_stream()?;
 
                     loop {
-                        if let Err(TryRecvError::Disconnected) = rx.try_recv() {
+                        if let Err(TryRecvError::Disconnected) = rx_start.try_recv() {
                             stream.set_paused(true)?;
                             break;
                         }
@@ -114,6 +115,7 @@ impl Action for Stream {
                         }
                     }
 
+                    let _ = tx_stop.send(());
                     Ok(())
                 });
 
@@ -124,7 +126,7 @@ impl Action for Stream {
                     framerate,
                     width: self.width,
                     looping,
-                    link: tx,
+                    link: Some((tx_start, rx_stop)),
                     join_handle: Some(join_handle),
                 }))
             }
@@ -144,7 +146,7 @@ pub struct StatefulStream {
     framerate: f64,
     width: Option<u16>,
     looping: bool,
-    link: Sender<()>,
+    link: Option<(Sender<()>, Receiver<()>)>,
     join_handle: Option<JoinHandle<Result<(), error::Error>>>,
 }
 
@@ -185,7 +187,14 @@ impl StatefulAction for StatefulStream {
     }
 
     fn start(&mut self) -> Result<Command<ServerMsg>, error::Error> {
-        self.link.send(()).map_err(|e| {
+        let link = self.link.take().ok_or_else(|| {
+            InternalError(format!(
+                "Link to streaming thread could not be acquired for action `{}`",
+                self.id
+            ))
+        })?;
+
+        link.0.send(()).map_err(|e| {
             InternalError(format!(
                 "Failed to send start signal to concurrent stream thread:\n{e:#?}"
             ))
@@ -203,23 +212,15 @@ impl StatefulAction for StatefulStream {
             Command::perform(async {}, |()| SchedulerMsg::Refresh(0).wrap()),
             Command::perform(
                 async move {
-                    let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
-                    let period = Duration::from_millis(5);
-
-                    loop {
-                        if join_handle.is_finished() {
-                            *done.lock().unwrap() = match join_handle.join() {
-                                Ok(Ok(_)) => Ok(true),
-                                Ok(Err(e)) => Err(e),
-                                Err(e) => Err(InternalError(format!(
-                                    "Failed to graciously close stream decoder thread:\n{e:#?}"
-                                ))),
-                            };
-                            break;
-                        } else {
-                            sleeper.sleep(period);
-                        }
-                    }
+                    let link = link;
+                    let _ = link.1.recv();
+                    *done.lock().unwrap() = match join_handle.join() {
+                        Ok(Ok(_)) => Ok(true),
+                        Ok(Err(e)) => Err(e),
+                        Err(e) => Err(InternalError(format!(
+                            "Failed to graciously close stream decoder thread:\n{e:#?}"
+                        ))),
+                    };
                 },
                 |()| SchedulerMsg::Advance.wrap(),
             ),
