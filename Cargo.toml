@@ -5,7 +5,7 @@ edition = "2021"
 license = "MIT"
 repository = "https://github.com/menoua/cog-task-rs"
 description = "CogTask: a general-purpose low-latency application to serve cognitive tasks"
-exclude = [".*"]
+exclude = ["Cargo.lock", "Cargo.toml.orig", ".*"]
 
 [dependencies]
 iced = { version = "0.4.2", features = ["pure", "image", "svg", "tokio"] }
