@@ -59,12 +59,20 @@ impl Action for Stream {
         &self,
         id: usize,
         res: &ResourceMap,
-        _config: &Config,
+        config: &Config,
         _io: &IO,
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         match res.fetch(&self.src())? {
             ResourceValue::Stream(stream) => {
-                let mut stream = stream.cloned(self.volume)?;
+                let volume = self
+                    .volume
+                    .map_or(config.base_gain().map(|v| v as f64), |v| {
+                        match config.base_gain() {
+                            Some(w) => Some(v * w as f64),
+                            None => Some(v),
+                        }
+                    });
+                let mut stream = stream.cloned(volume)?;
 
                 let frame = Arc::new(Mutex::new(None));
                 if stream.has_video() {
