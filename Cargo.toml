@@ -9,7 +9,7 @@ description = "CogTask: a general-purpose low-latency application to serve cogni
 exclude = [".*"]
 
 [dependencies]
-iced = { version = "0.4.2", features = ["pure", "image", "svg", "tokio"] }
+iced = { version = "0.4.2", features = ["pure", "image", "svg", "tokio", "default_system_font"] }
 iced_native = { version = "0.5.1" }
 iced_aw = { version = "0.2.0", features = ["card", "colors", "modal", "pure"] }
 serde = { version = "1.0.139", features = ["derive"] }

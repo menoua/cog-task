@@ -32,6 +32,8 @@ fn main() -> Result<(), Error> {
             ..Default::default()
         },
         flags: (path, bin_hash),
+        // default_font: None,
+        // default_text_size: 0,
         // text_multithreading: false,
         // antialiasing: false,
         exit_on_close_request: false,
