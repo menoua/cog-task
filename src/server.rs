@@ -1,6 +1,6 @@
 use crate::assets::{
-    ICON_CLOSE_WINDOW, ICON_MAGNIFYING_GLASS, ICON_TO_CLIPBOARD, SPIN_DURATION, SPIN_STRATEGY,
-    TEXT_LARGE, TEXT_NORMAL, TEXT_SMALL, TEXT_TITLE, TEXT_XLARGE,
+    Icon, SPIN_DURATION, SPIN_STRATEGY, TEXT_LARGE, TEXT_NORMAL, TEXT_SMALL, TEXT_TITLE,
+    TEXT_XLARGE,
 };
 use crate::config::Config;
 use crate::env::Env;
@@ -15,8 +15,7 @@ use iced::alignment::{Horizontal, Vertical};
 use iced::keyboard::Event::KeyPressed;
 use iced::pure::widget::{Button, Column, Container, Row, Scrollable, Space, Text, TextInput};
 use iced::pure::{button, Application, Element};
-use iced::ContentFit::{Contain, ScaleDown};
-use iced::{svg, window, Alignment, Command, Length, Renderer, Subscription};
+use iced::{window, Alignment, Command, Length, Renderer, Subscription};
 use iced_aw::pure::{Card, Modal};
 use iced_native::Event;
 use serde_json::Value;
@@ -238,10 +237,19 @@ impl Application for Server {
                 }
             }
             (Page::Loading, ServerMsg::LoadComplete) => {
+                let at_least_until = Instant::now() + MIN_UPDATE_DELAY;
                 match self.scheduler.as_mut().unwrap().start() {
                     Ok(cmd) => {
                         self.page = Page::Activity;
                         self.capture_key = true;
+
+                        let now = Instant::now();
+                        if now < at_least_until {
+                            SpinSleeper::new(SPIN_DURATION)
+                                .with_spin_strategy(SPIN_STRATEGY)
+                                .sleep(at_least_until - now);
+                        }
+
                         Command::batch([
                             cmd,
                             Command::perform(async {}, |()| SchedulerMsg::Refresh(0).wrap()),
@@ -256,6 +264,7 @@ impl Application for Server {
                 self.capture_key = false;
                 self.capture_fps = None;
                 self.animation_id = 0;
+                thread::sleep(MIN_UPDATE_DELAY);
                 Command::perform(
                     async move {
                         thread::sleep(Duration::from_millis(500));
@@ -269,6 +278,7 @@ impl Application for Server {
                 self.capture_key = false;
                 self.capture_fps = None;
                 self.animation_id = 0;
+                thread::sleep(MIN_UPDATE_DELAY);
                 Command::perform(
                     async move {
                         thread::sleep(Duration::from_millis(500));
@@ -290,6 +300,7 @@ impl Application for Server {
                     )));
                 }
 
+                thread::sleep(MIN_UPDATE_DELAY);
                 Command::perform(
                     async move {
                         thread::sleep(Duration::from_millis(500));
@@ -480,13 +491,9 @@ impl Server {
                     .spacing(5)
                     .height(Length::Shrink)
                     .push(
-                        Button::new(
-                            svg::Svg::new(svg::Handle::from_memory(ICON_MAGNIFYING_GLASS))
-                                .width(Length::Units(30))
-                                .content_fit(ScaleDown),
-                        )
-                        .style(style::Transparent)
-                        .on_press(ServerMsg::ToggleSettings),
+                        button(Icon::MagnifyingGlass)
+                            .style(style::Transparent)
+                            .on_press(ServerMsg::ToggleSettings),
                     );
 
                 if self.show_magnification {
@@ -723,8 +730,8 @@ impl Server {
                     .align_items(Alignment::Center)
                     .push(
                         button(
-                            svg::Svg::new(svg::Handle::from_memory(ICON_TO_CLIPBOARD))
-                                .content_fit(Contain),
+                            Icon::Clipboard, // svg::Svg::new(svg::Handle::from_memory(ICON_TO_CLIPBOARD))
+                                             //     .content_fit(Contain),
                         )
                         .style(style::Transparent)
                         .width(Length::Units(50))
@@ -733,8 +740,8 @@ impl Server {
                     )
                     .push(
                         button(
-                            svg::Svg::new(svg::Handle::from_memory(ICON_CLOSE_WINDOW))
-                                .content_fit(Contain),
+                            Icon::Close, // svg::Svg::new(svg::Handle::from_memory(ICON_CLOSE_WINDOW))
+                                         //     .content_fit(Contain),
                         )
                         .style(style::Transparent)
                         .width(Length::Units(50))

@@ -1,16 +1,12 @@
-use crate::assets::{
-    ICON_CLOSE_WINDOW, ICON_HELP, ICON_MULTI_FOLDERS, ICON_SINGLE_FOLDER, ICON_SYSTEM_INFO,
-    ICON_TO_CLIPBOARD, TEXT_LARGE, TEXT_TINY, TEXT_XSMALL, VERSION,
-};
+use crate::assets::{Icon, TEXT_LARGE, TEXT_TINY, TEXT_XSMALL, VERSION};
 use crate::style;
 use crate::style::CUSTOM_RED;
 use heck::ToTitleCase;
 use iced::alignment::{Horizontal, Vertical};
 use iced::pure::widget::{
-    svg, tooltip::Position, Button, Column, Container, Row, Scrollable, Space, Text,
+    tooltip::Position, Button, Column, Container, Row, Scrollable, Space, Text,
 };
 use iced::pure::{button, column, text, tooltip, Application, Element};
-use iced::ContentFit::{Contain, ScaleDown};
 use iced::{Alignment, Color, Command, Length, Renderer};
 use iced_aw::pure::{Card, Modal};
 use itertools::Itertools;
@@ -377,80 +373,30 @@ impl Application for Launcher {
                                     .spacing(2)
                                     .align_items(Alignment::Center)
                                     .push(tooltip(
-                                        Button::new(
-                                            Container::new(
-                                                svg::Svg::new(svg::Handle::from_memory(
-                                                    ICON_SINGLE_FOLDER,
-                                                ))
-                                                .content_fit(ScaleDown)
-                                                .width(Length::Units(26))
-                                                .height(Length::Units(26)),
-                                            )
-                                            .width(Length::Units(32))
-                                            .height(Length::Units(32))
-                                            .center_y()
-                                            .center_x(),
-                                        )
-                                        .style(style::Transparent)
-                                        .on_press(LauncherMsg::LoadTask),
+                                        button(Icon::Folder)
+                                            .style(style::Transparent)
+                                            .on_press(LauncherMsg::LoadTask),
                                         "Load task",
                                         Position::Bottom,
                                     ))
                                     .push(tooltip(
-                                        Button::new(
-                                            Container::new(
-                                                svg::Svg::new(svg::Handle::from_memory(
-                                                    ICON_MULTI_FOLDERS,
-                                                ))
-                                                .content_fit(ScaleDown)
-                                                .width(Length::Units(26))
-                                                .height(Length::Units(26)),
-                                            )
-                                            .width(Length::Units(32))
-                                            .height(Length::Units(32))
-                                            .center_y()
-                                            .center_x(),
-                                        )
-                                        .style(style::Transparent)
-                                        .on_press(LauncherMsg::LoadTaskRepo),
+                                        button(Icon::FolderTree)
+                                            .style(style::Transparent)
+                                            .on_press(LauncherMsg::LoadTaskRepo),
                                         "Load task catalogue",
                                         Position::Bottom,
                                     ))
                                     .push(tooltip(
-                                        Button::new(
-                                            Container::new(
-                                                svg::Svg::new(svg::Handle::from_memory(
-                                                    ICON_SYSTEM_INFO,
-                                                ))
-                                                .content_fit(ScaleDown)
-                                                .width(Length::Units(26))
-                                                .height(Length::Units(26)),
-                                            )
-                                            .width(Length::Units(32))
-                                            .height(Length::Units(32))
-                                            .center_y()
-                                            .center_x(),
-                                        )
-                                        .style(style::Transparent)
-                                        .on_press(LauncherMsg::ShowSystemInfo),
+                                        button(Icon::SystemInfo)
+                                            .style(style::Transparent)
+                                            .on_press(LauncherMsg::ShowSystemInfo),
                                         "System information",
                                         Position::Bottom,
                                     ))
                                     .push(tooltip(
-                                        Button::new(
-                                            Container::new(
-                                                svg::Svg::new(svg::Handle::from_memory(ICON_HELP))
-                                                    .content_fit(ScaleDown)
-                                                    .width(Length::Units(26))
-                                                    .height(Length::Units(26)),
-                                            )
-                                            .width(Length::Units(32))
-                                            .height(Length::Units(32))
-                                            .center_y()
-                                            .center_x(),
-                                        )
-                                        .style(style::Transparent)
-                                        .on_press(LauncherMsg::ShowHelp),
+                                        button(Icon::Help)
+                                            .style(style::Transparent)
+                                            .on_press(LauncherMsg::ShowHelp),
                                         "Help",
                                         Position::Bottom,
                                     )),
@@ -490,10 +436,11 @@ impl Application for Launcher {
                                                 .align_items(Alignment::Center)
                                                 .push(
                                                     button(
-                                                        svg::Svg::new(svg::Handle::from_memory(
-                                                            ICON_TO_CLIPBOARD,
-                                                        ))
-                                                        .content_fit(Contain),
+                                                        Icon::Clipboard,
+                                                        // svg::Svg::new(svg::Handle::from_memory(
+                                                        //     ICON_TO_CLIPBOARD,
+                                                        // ))
+                                                        // .content_fit(Contain),
                                                     )
                                                     .style(style::Transparent)
                                                     .width(Length::Units(36))
@@ -502,10 +449,10 @@ impl Application for Launcher {
                                                 )
                                                 .push(
                                                     button(
-                                                        svg::Svg::new(svg::Handle::from_memory(
-                                                            ICON_CLOSE_WINDOW,
-                                                        ))
-                                                        .content_fit(Contain),
+                                                        Icon::Close, // svg::Svg::new(svg::Handle::from_memory(
+                                                                     //     ICON_CLOSE_WINDOW,
+                                                                     // ))
+                                                                     // .content_fit(Contain),
                                                     )
                                                     .style(style::Transparent)
                                                     .width(Length::Units(36))
