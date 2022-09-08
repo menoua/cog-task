@@ -1,7 +1,7 @@
 ## To-do
 
 - [x] Replace SVG icons with font icons.
-- [x] Find alternative icon font to "font awesome" with open source thin/light icons. 
+- [ ] Find alternative icon font to "font awesome" with open source thin/light icons. 
 - [ ] Support audio fade-in/out by providing duration (global, block, and local -- like volume):
     - use crossfade feature of rodio
     - find similar feature on gstreamer
