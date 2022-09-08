@@ -25,6 +25,8 @@ use std::path::PathBuf;
 use std::thread;
 use std::time::{Duration, Instant};
 
+const MIN_UPDATE_DELAY: Duration = Duration::from_millis(2);
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Page {
     Startup,
@@ -297,8 +299,14 @@ impl Application for Server {
             }
             (Page::Loading | Page::Activity, ServerMsg::Relay(msg)) => {
                 if let Some(scheduler) = self.scheduler.as_mut() {
+                    let at_least_until = Instant::now() + MIN_UPDATE_DELAY;
                     match scheduler.update(msg) {
                         Ok(cmd) => {
+                            let now = Instant::now();
+                            if scheduler.needs_refresh() && now < at_least_until {
+                                thread::sleep(at_least_until - now);
+                            }
+
                             if scheduler.captures_fps().is_none() {
                                 self.capture_fps = None;
                                 return cmd;
@@ -337,6 +345,7 @@ impl Application for Server {
                 } else if let Some(scheduler) = self.scheduler.as_mut() {
                     if let Some(fps) = self.capture_fps {
                         let next_frame = Instant::now() + Duration::from_secs_f64(1.0 / fps);
+                        thread::sleep(MIN_UPDATE_DELAY);
                         match scheduler.update(SchedulerMsg::Refresh(i)) {
                             Ok(cmd) => {
                                 let sleeper = SpinSleeper::new(SPIN_DURATION)

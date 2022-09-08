@@ -90,13 +90,7 @@ pub trait StatefulAction: Debug {
 
     #[inline(always)]
     fn start(&mut self) -> Result<Command<ServerMsg>, error::Error> {
-        if self.is_visual() {
-            Ok(Command::perform(async {}, |()| {
-                SchedulerMsg::Refresh(0).wrap()
-            }))
-        } else {
-            Ok(Command::none())
-        }
+        Ok(Command::none())
     }
 
     #[inline(always)]

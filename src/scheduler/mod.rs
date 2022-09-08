@@ -568,4 +568,9 @@ impl Scheduler {
     pub fn animation_id(&self) -> u32 {
         self.animation_id
     }
+
+    #[inline(always)]
+    pub fn needs_refresh(&self) -> bool {
+        self.needs_refresh
+    }
 }
