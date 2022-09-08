@@ -304,7 +304,9 @@ impl Application for Server {
                         Ok(cmd) => {
                             let now = Instant::now();
                             if scheduler.needs_refresh() && now < at_least_until {
-                                thread::sleep(at_least_until - now);
+                                SpinSleeper::new(SPIN_DURATION)
+                                    .with_spin_strategy(SPIN_STRATEGY)
+                                    .sleep(at_least_until - now);
                             }
 
                             if scheduler.captures_fps().is_none() {
@@ -345,7 +347,9 @@ impl Application for Server {
                 } else if let Some(scheduler) = self.scheduler.as_mut() {
                     if let Some(fps) = self.capture_fps {
                         let next_frame = Instant::now() + Duration::from_secs_f64(1.0 / fps);
-                        thread::sleep(MIN_UPDATE_DELAY);
+                        SpinSleeper::new(SPIN_DURATION)
+                            .with_spin_strategy(SPIN_STRATEGY)
+                            .sleep(MIN_UPDATE_DELAY);
                         match scheduler.update(SchedulerMsg::Refresh(i)) {
                             Ok(cmd) => {
                                 let sleeper = SpinSleeper::new(SPIN_DURATION)
