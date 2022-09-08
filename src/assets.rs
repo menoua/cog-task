@@ -42,11 +42,11 @@ pub enum Icon {
 impl<'a, T> From<Icon> for Element<'a, T> {
     fn from(icon: Icon) -> Self {
         match icon {
-            Icon::Help => text("\u{f059}").font(FONT_ICONS_REGULAR),
+            Icon::Help => text("\u{f059}").font(FONT_ICONS_SOLID),
             Icon::SystemInfo => text("\u{f05a}").font(FONT_ICONS_SOLID),
             Icon::Clipboard => text("\u{f328}").font(FONT_ICONS_REGULAR),
             Icon::Close => text("\u{f00d}").font(FONT_ICONS_SOLID),
-            Icon::Folder => text("\u{f07b}").font(FONT_ICONS_REGULAR),
+            Icon::Folder => text("\u{f07b}").font(FONT_ICONS_SOLID),
             Icon::FolderTree => text("\u{f802}").font(FONT_ICONS_SOLID),
             Icon::MagnifyingGlass => text("\u{f002}").font(FONT_ICONS_SOLID),
         }
