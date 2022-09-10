@@ -1,8 +1,8 @@
 ## To-do
 
 - [x] Replace SVG icons with font icons.
-- [ ] In `gstreamer` pipeline, use `uridecodebin` instead of `playbin`.
-- [ ] Add trigger support for video (only if it has mono audio)
+- [x] Add trigger support for video (only if it has less than 2 audio channels)
+- [ ] Implement ffmpeg backend for streaming
 - [ ] Find alternative icon font to "font awesome" with open source thin/light icons. 
 - [ ] Support audio fade-in/out by providing duration (global, block, and local -- like volume):
     - use crossfade feature of rodio
