@@ -23,8 +23,9 @@ heck = "0.4.0"
 spin_sleep = "1.1.1"
 sha2 = "0.10.2"
 hex = "0.4.3"
-gstreamer = "0.18.8"
-gstreamer-app = "0.18.7"
+gstreamer = { version = "0.18.8", features = ["v1_10"] }
+gstreamer-app = { version = "0.18.7", features = ["v1_10"] }
+ffmpeg-next = "5.1.1"
 glib = "0.15.12"
 num-rational = "0.4.1" # framerates come in rationals
 num-traits = "0.2.15" # convert rationals to floats (ToPrimitive)

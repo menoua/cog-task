@@ -119,11 +119,6 @@ impl Task {
     pub fn description(&self) -> &str {
         &self.description
     }
-
-    #[inline(always)]
-    pub fn set_trigger(&mut self, state: bool) {
-        self.config.set_trigger(state);
-    }
 }
 
 impl Hash for Task {}

@@ -1,12 +1,13 @@
 ## To-do
 
 - [x] Replace SVG icons with font icons.
+- [ ] In `gstreamer` pipeline, use `uridecodebin` instead of `playbin`.
+- [ ] Add trigger support for video (only if it has mono audio)
 - [ ] Find alternative icon font to "font awesome" with open source thin/light icons. 
 - [ ] Support audio fade-in/out by providing duration (global, block, and local -- like volume):
     - use crossfade feature of rodio
     - find similar feature on gstreamer
 - [ ] Support spatial audio
-- [ ] Add trigger support for video
 - [ ] Deploy progress bar at loading screen to give a sense of how long until block starts. Probably should be ratio of number of resources loaded (send message LoadProgress(done, total) on every successful load).
 - [ ] Solution to styling is to define CustomStyle structs with fields and a wrapper struct that has Option<T>  for each widget. Then deserialize from file with same name, and if Some(_) apply that style instead of the default one (in case of None).
 - [ ] Add text styling option. For now just font, color, and size.

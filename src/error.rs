@@ -20,6 +20,7 @@ pub enum Error {
     FlowError(String),
     GraphError(String),
     ChecksumError(String),
+    BackendError(String),
 }
 
 impl Debug for Error {
@@ -77,7 +78,8 @@ impl Debug for Error {
             | Error::LoggerError(e)
             | Error::FlowError(e)
             | Error::GraphError(e)
-            | Error::ChecksumError(e) => write!(f, "{e}"),
+            | Error::ChecksumError(e)
+            | Error::BackendError(e) => write!(f, "{e}"),
             Error::VideoDecodingError(e) => {
                 write!(
                     f,
@@ -117,6 +119,7 @@ impl Error {
             Error::FlowError(_) => "FlowError",
             Error::GraphError(_) => "GraphError",
             Error::ChecksumError(_) => "ChecksumError",
+            Error::BackendError(_) => "BackendError",
         }
     }
 }

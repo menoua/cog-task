@@ -61,6 +61,21 @@ impl Default for LogCondition {
     }
 }
 
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaBackend {
+    None,
+    Gst,
+    Ffmpeg,
+}
+
+impl Default for MediaBackend {
+    #[inline(always)]
+    fn default() -> Self {
+        MediaBackend::None
+    }
+}
+
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -85,6 +100,8 @@ pub struct Config {
     time_precision: TimePrecision,
     #[serde(default)]
     log_when: LogCondition,
+    #[serde(default)]
+    media_backend: MediaBackend,
 }
 
 mod defaults {
@@ -110,11 +127,6 @@ mod defaults {
 }
 
 impl Config {
-    #[inline(always)]
-    pub fn set_trigger(&mut self, state: bool) {
-        self.use_trigger = state;
-    }
-
     #[inline(always)]
     pub fn trigger_type(&self) -> &TriggerType {
         &self.trigger_type
@@ -179,6 +191,11 @@ impl Config {
     }
 
     #[inline(always)]
+    pub fn media_backend(&self) -> MediaBackend {
+        self.media_backend
+    }
+
+    #[inline(always)]
     pub fn verify(&self) -> Result<(), error::Error> {
         if matches!(self.trigger_type, TriggerType::None) && self.use_trigger {
             Err(InvalidConfigError(
@@ -219,6 +236,8 @@ pub struct OptionalConfig {
     time_precision: Option<TimePrecision>,
     #[serde(default)]
     log_when: Option<LogCondition>,
+    #[serde(default)]
+    media_backend: Option<MediaBackend>,
 }
 
 impl OptionalConfig {
@@ -247,6 +266,9 @@ impl OptionalConfig {
         }
         if let Some(v) = self.log_when {
             config.log_when = v;
+        }
+        if let Some(v) = self.media_backend {
+            config.media_backend = v;
         }
         config
     }

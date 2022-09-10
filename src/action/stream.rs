@@ -70,7 +70,7 @@ impl Action for Stream {
 
                 let frame = Arc::new(Mutex::new(None));
                 if stream.has_video() {
-                    stream.set_sink_callback(frame.clone())?;
+                    stream.set_callbacks(frame.clone())?;
                 } else if self.width.is_some() {
                     return Err(TaskDefinitionError(format!(
                         "Video-less stream `{id}` should not be supplied a width"
@@ -96,11 +96,11 @@ impl Action for Stream {
                         return Ok(());
                     }
 
-                    stream.start_stream()?;
+                    stream.start()?;
 
                     loop {
                         if let Err(TryRecvError::Disconnected) = rx_start.try_recv() {
-                            stream.set_paused(true)?;
+                            stream.pause()?;
                             break;
                         }
 
