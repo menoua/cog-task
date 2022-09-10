@@ -3,6 +3,7 @@
 - [x] Replace SVG icons with font icons.
 - [x] Add trigger support for video (only if it has less than 2 audio channels)
 - [ ] Implement ffmpeg backend for streaming
+- [ ] Replace errors with `eyre` errors.
 - [ ] Find alternative icon font to "font awesome" with open source thin/light icons. 
 - [ ] Support audio fade-in/out by providing duration (global, block, and local -- like volume):
     - use crossfade feature of rodio
