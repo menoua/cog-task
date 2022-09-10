@@ -60,27 +60,6 @@ impl MediaStream for Stream {
             None => (0, 0),
         };
 
-        let media_mode = match (media_mode, audio_chan) {
-            (MediaMode::FirstChannel, 0) => {
-                return Err(InvalidConfigError(format!(
-                    "Cannot assume integrated trigger due to missing audio stream: {path:?}"
-                )));
-            }
-            (MediaMode::FirstChannel, 1) => MediaMode::Muted,
-            (MediaMode::FirstChannel, 2) => MediaMode::FirstChannel,
-            (MediaMode::FirstChannel, _) => {
-                return Err(InvalidConfigError(format!(
-                    "Cannot use integrated trigger with multichannel (n = {audio_chan} > 2) audio: {path:?}"
-                )));
-            }
-            (MediaMode::WithTrigger(_), c) if c > 1 => {
-                return Err(InvalidConfigError(format!(
-                    "Cannot add trigger stream to non-mono (n = {audio_chan}) audio stream: {path:?}"
-                )));
-            }
-            (mode, _) => mode,
-        };
-
         let duration = Duration::from_nanos(
             source
                 .query_duration::<gst::ClockTime>()
@@ -94,6 +73,21 @@ impl MediaStream for Stream {
                 "Failed to close video graciously ({path:?}):\n{e:#?}"
             ))
         })?;
+
+        let (media_mode, audio_chan) = match (media_mode, audio_chan) {
+            (MediaMode::FirstChannel, 0) => Err(InvalidConfigError(format!(
+                "Cannot assume integrated trigger due to missing audio stream: {path:?}"
+            ))),
+            (MediaMode::FirstChannel, 1) => Ok((MediaMode::Muted, 0)),
+            (MediaMode::FirstChannel, 2) => Ok((MediaMode::FirstChannel, 1)),
+            (MediaMode::FirstChannel, _) => Err(InvalidConfigError(format!(
+                "Cannot use integrated trigger with multichannel (n = {audio_chan} > 2) audio: {path:?}"
+            ))),
+            (MediaMode::WithTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
+                "Cannot add trigger stream to non-mono (n = {audio_chan}) audio stream: {path:?}"
+            ))),
+            (mode, c) => Ok((mode, c)),
+        }?;
 
         Ok(Stream {
             path: path.to_owned(),
