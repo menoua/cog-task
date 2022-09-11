@@ -14,7 +14,11 @@ where
     Self: Sized,
 {
     fn new(path: &Path, config: &Config, media_mode: MediaMode) -> Result<Self, error::Error>;
-    fn cloned(&self, volume: Option<f32>) -> Result<Self, error::Error>;
+    fn cloned(
+        &self,
+        frame: Arc<Mutex<Option<image::Handle>>>,
+        volume: Option<f32>,
+    ) -> Result<Self, error::Error>;
 
     fn eos(&self) -> bool;
     fn size(&self) -> [u32; 2];
@@ -33,10 +37,6 @@ where
     fn pause(&mut self) -> Result<(), error::Error>;
     fn pull_samples(&self) -> Result<(FrameBuffer, f64), error::Error>;
     fn process_bus(&mut self, looping: bool) -> Result<bool, error::Error>;
-    fn set_callbacks(
-        &mut self,
-        frame: Arc<Mutex<Option<image::Handle>>>,
-    ) -> Result<(), error::Error>;
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +44,6 @@ pub enum MediaMode {
     Query,
     Normal,
     Muted,
-    FirstChannel,
-    WithTrigger(PathBuf),
+    SansIntTrigger,
+    WithExtTrigger(PathBuf),
 }

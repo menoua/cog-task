@@ -25,7 +25,7 @@ sha2 = "0.10.2"
 hex = "0.4.3"
 gstreamer = { version = "0.18.8", features = ["v1_10"] }
 gstreamer-app = { version = "0.18.7", features = ["v1_10"] }
-ffmpeg-next = "5.1.1"
+ffmpeg-next = { version = "5.1.1", features = ["default"] } # look into "static" feature
 glib = "0.15.12"
 num-rational = "0.4.1" # framerates come in rationals
 num-traits = "0.2.15" # convert rationals to floats (ToPrimitive)

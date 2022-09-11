@@ -2,7 +2,7 @@ use crate::backend::{MediaMode, MediaStream};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{
-    InternalError, InvalidConfigError, ResourceLoadError, VideoDecodingError,
+    BackendError, InternalError, InvalidConfigError, ResourceLoadError, VideoDecodingError,
 };
 use crate::resource::FrameBuffer;
 use gst::prelude::*;
@@ -30,7 +30,6 @@ pub struct Stream {
     playbin: gst::Bin,
     bus: gst::Bus,
     media_mode: MediaMode,
-    app_sink: Option<gst_app::AppSink>,
     frame_size: [u32; 2],
     frame_rate: f64,
     audio_chan: u16,
@@ -75,15 +74,16 @@ impl MediaStream for Stream {
         })?;
 
         let (media_mode, audio_chan) = match (media_mode, audio_chan) {
-            (MediaMode::FirstChannel, 0) => Err(InvalidConfigError(format!(
+            (MediaMode::SansIntTrigger, 0) => Err(InvalidConfigError(format!(
                 "Cannot assume integrated trigger due to missing audio stream: {path:?}"
             ))),
-            (MediaMode::FirstChannel, 1) => Ok((MediaMode::Muted, 0)),
-            (MediaMode::FirstChannel, 2) => Ok((MediaMode::FirstChannel, 1)),
-            (MediaMode::FirstChannel, _) => Err(InvalidConfigError(format!(
+            (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
+            (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
+            (MediaMode::SansIntTrigger, _) => Err(InvalidConfigError(format!(
                 "Cannot use integrated trigger with multichannel (n = {audio_chan} > 2) audio: {path:?}"
             ))),
-            (MediaMode::WithTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
+            (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
+            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
                 "Cannot add trigger stream to non-mono (n = {audio_chan}) audio stream: {path:?}"
             ))),
             (mode, c) => Ok((mode, c)),
@@ -95,7 +95,6 @@ impl MediaStream for Stream {
             playbin,
             bus,
             media_mode,
-            app_sink: None,
             frame_size: [width as u32, height as u32],
             frame_rate,
             audio_chan,
@@ -106,13 +105,39 @@ impl MediaStream for Stream {
         })
     }
 
-    fn cloned(&self, volume: Option<f32>) -> Result<Self, error::Error> {
+    fn cloned(
+        &self,
+        frame: Arc<Mutex<Option<image::Handle>>>,
+        volume: Option<f32>,
+    ) -> Result<Self, error::Error> {
         let (source, playbin) = launch(&self.path, &self.media_mode, volume)?;
         let bus = source.bus().unwrap();
 
         let video_sink = get_video_sink(&playbin, true);
-        if let Some(sink) = video_sink.as_ref() {
+        if let Some(sink) = video_sink {
             sink.set_max_buffers(5 * self.frame_rate.ceil() as u32);
+            let [width, height] = self.size();
+
+            thread::spawn(move || {
+                sink.set_callbacks(
+                    gst_app::AppSinkCallbacks::builder()
+                        .new_sample(move |sink| {
+                            let sample = sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
+                            let buffer = sample.buffer().ok_or(gst::FlowError::Error)?;
+                            let map = buffer.map_readable().map_err(|_| gst::FlowError::Error)?;
+
+                            *frame.lock().map_err(|_| gst::FlowError::Error)? =
+                                Some(image::Handle::from_pixels(
+                                    width,
+                                    height,
+                                    map.as_slice().to_owned(),
+                                ));
+
+                            Ok(gst::FlowSuccess::Ok)
+                        })
+                        .build(),
+                );
+            });
         }
 
         Ok(Stream {
@@ -121,7 +146,6 @@ impl MediaStream for Stream {
             playbin,
             bus,
             media_mode: self.media_mode.clone(),
-            app_sink: video_sink,
             frame_size: self.frame_size,
             frame_rate: self.frame_rate,
             audio_chan: self.audio_chan,
@@ -271,41 +295,6 @@ impl MediaStream for Stream {
             Ok(self.is_eos)
         }
     }
-
-    fn set_callbacks(
-        &mut self,
-        frame: Arc<Mutex<Option<image::Handle>>>,
-    ) -> Result<(), error::Error> {
-        if let Some(app_sink) = self.app_sink.take() {
-            let [width, height] = self.size();
-
-            thread::spawn(move || {
-                app_sink.set_callbacks(
-                    gst_app::AppSinkCallbacks::builder()
-                        .new_sample(move |sink| {
-                            let sample = sink.pull_sample().map_err(|_| gst::FlowError::Eos)?;
-                            let buffer = sample.buffer().ok_or(gst::FlowError::Error)?;
-                            let map = buffer.map_readable().map_err(|_| gst::FlowError::Error)?;
-
-                            *frame.lock().map_err(|_| gst::FlowError::Error)? =
-                                Some(image::Handle::from_pixels(
-                                    width,
-                                    height,
-                                    map.as_slice().to_owned(),
-                                ));
-
-                            Ok(gst::FlowSuccess::Ok)
-                        })
-                        .build(),
-                );
-            });
-            Ok(())
-        } else {
-            Err(InternalError(
-                "Tried to set app_sink on video twice".to_owned(),
-            ))
-        }
-    }
 }
 
 impl Stream {
@@ -378,7 +367,7 @@ pub fn init() -> Result<(), error::Error> {
             r
         })
         .map_err(|e| {
-            VideoDecodingError(format!(
+            BackendError(format!(
                 "Failed to initialize GStreamer: required because there is a video element \
                 in this block:\n{e:#?}",
             ))
@@ -408,11 +397,11 @@ fn pipeline(path: &Path, mode: &MediaMode) -> Result<String, error::Error> {
             " \
             audio-sink=\"audioconvert ! fakesink\""
         ),
-        MediaMode::FirstChannel => pipeline.push_str(
+        MediaMode::SansIntTrigger => pipeline.push_str(
             " \
             audio-sink=\"audioconvert ! deinterleave name=d ! d.src_0 ! playsink\""
         ),
-        MediaMode::WithTrigger(trigger) => write!(
+        MediaMode::WithExtTrigger(trigger) => write!(
             pipeline,
             " \
             audio-sink=\"audioconvert ! audiopanorama panorama=-1 ! playsink\" \
@@ -444,7 +433,7 @@ fn launch(
         .downcast::<gst::Bin>()
         .unwrap();
 
-    let playbin = if matches!(mode, MediaMode::WithTrigger(_)) {
+    let playbin = if matches!(mode, MediaMode::WithExtTrigger(_)) {
         source
             .by_name("playbin")
             .unwrap()

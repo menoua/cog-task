@@ -38,10 +38,10 @@ impl Stream {
         let use_trigger = config.use_trigger();
         let trigger_type = config.trigger_type();
         let media_mode = match (use_trigger, trigger_type) {
-            (false, TriggerType::LastChannel) => MediaMode::FirstChannel,
+            (false, TriggerType::LastChannel) => MediaMode::SansIntTrigger,
             (true, TriggerType::SeparateFile) => {
                 let trigger = path.with_extension("trig.wav");
-                MediaMode::WithTrigger(trigger)
+                MediaMode::WithExtTrigger(trigger)
             }
             (_, _) => MediaMode::Normal,
         };
@@ -188,20 +188,14 @@ impl Stream {
         }
     }
 
-    pub fn set_callbacks(
-        &mut self,
+    pub fn cloned(
+        &self,
         frame: Arc<Mutex<Option<image::Handle>>>,
-    ) -> Result<(), error::Error> {
+        volume: Option<f32>,
+    ) -> Result<Self, error::Error> {
         match self {
-            Stream::Gst(stream) => stream.set_callbacks(frame),
-            Stream::Ffmpeg(stream) => stream.set_callbacks(frame),
-        }
-    }
-
-    pub fn cloned(&self, volume: Option<f32>) -> Result<Self, error::Error> {
-        match self {
-            Stream::Gst(stream) => stream.cloned(volume).map(Stream::Gst),
-            Stream::Ffmpeg(stream) => stream.cloned(volume).map(Stream::Ffmpeg),
+            Stream::Gst(stream) => stream.cloned(frame, volume).map(Stream::Gst),
+            Stream::Ffmpeg(stream) => stream.cloned(frame, volume).map(Stream::Ffmpeg),
         }
     }
 

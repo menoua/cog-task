@@ -65,13 +65,11 @@ impl Action for Stream {
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         match res.fetch(&self.src())? {
             ResourceValue::Stream(stream) => {
-                let volume = config.volume(self.volume);
-                let mut stream = stream.cloned(volume)?;
-
                 let frame = Arc::new(Mutex::new(None));
-                if stream.has_video() {
-                    stream.set_callbacks(frame.clone())?;
-                } else if self.width.is_some() {
+                let volume = config.volume(self.volume);
+                let mut stream = stream.cloned(frame.clone(), volume)?;
+
+                if !stream.has_video() && self.width.is_some() {
                     return Err(TaskDefinitionError(format!(
                         "Video-less stream `{id}` should not be supplied a width"
                     )));
@@ -236,8 +234,7 @@ impl StatefulAction for StatefulStream {
                 .unwrap()
                 .clone()
                 .unwrap_or_else(|| image::Handle::from_pixels(0, 0, vec![])),
-        )
-        .content_fit(ContentFit::ScaleDown);
+        );
 
         Ok(if let Some(width) = self.width {
             let width = (scale_factor * width as f32) as u16;
