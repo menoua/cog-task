@@ -1,7 +1,7 @@
 use crate::backend::{MediaMode, MediaStream};
 use crate::config::Config;
 use crate::error;
-use crate::error::Error::{BackendError, InternalError, InvalidConfigError, VideoDecodingError};
+use crate::error::Error::{BackendError, InternalError, InvalidConfigError, StreamDecodingError};
 use crate::resource::FrameBuffer;
 use ffmpeg::format::{context::Input, input, Pixel};
 use ffmpeg::media::Type;
@@ -360,6 +360,6 @@ pub fn init() -> Result<(), error::Error> {
 
 impl From<ffmpeg::Error> for error::Error {
     fn from(e: ffmpeg::Error) -> Self {
-        VideoDecodingError(format!("{e:#?}"))
+        StreamDecodingError(format!("{e:#?}"))
     }
 }

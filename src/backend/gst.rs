@@ -2,7 +2,7 @@ use crate::backend::{MediaMode, MediaStream};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{
-    BackendError, InternalError, InvalidConfigError, ResourceLoadError, VideoDecodingError,
+    BackendError, InternalError, InvalidConfigError, ResourceLoadError, StreamDecodingError,
 };
 use crate::resource::FrameBuffer;
 use gst::prelude::*;
@@ -68,7 +68,7 @@ impl MediaStream for Stream {
         );
 
         source.set_state(gst::State::Null).map_err(|e| {
-            VideoDecodingError(format!(
+            StreamDecodingError(format!(
                 "Failed to close video graciously ({path:?}):\n{e:#?}"
             ))
         })?;
@@ -210,7 +210,7 @@ impl MediaStream for Stream {
         let position: gst::GenericFormattedValue = gst::format::Default(0).into();
         self.source
             .seek_simple(gst::SeekFlags::FLUSH, position)
-            .map_err(|e| VideoDecodingError(format!("Failed to seek video position:\n{e:#?}")))?;
+            .map_err(|e| StreamDecodingError(format!("Failed to seek video position:\n{e:#?}")))?;
         self.set_paused(false)?;
         Ok(())
     }
@@ -235,7 +235,7 @@ impl MediaStream for Stream {
 
         playbin.set_property("mute", true);
         source.set_state(gst::State::Playing).map_err(|e| {
-            VideoDecodingError(format!(
+            StreamDecodingError(format!(
                 "Failed to change video state (\"{:?}\"):\n{e:#?}",
                 self.path
             ))
@@ -248,13 +248,13 @@ impl MediaStream for Stream {
         let t1 = Instant::now();
         while let Ok(sample) = video_sink.pull_sample() {
             let buffer = sample.buffer().ok_or_else(|| {
-                VideoDecodingError(format!(
+                StreamDecodingError(format!(
                     "Failed to obtain buffer on video sample (\"{:?}\").",
                     self.path
                 ))
             })?;
             let map = buffer.map_readable().map_err(|e| {
-                VideoDecodingError(format!(
+                StreamDecodingError(format!(
                     "Failed to obtain map on buffered sample (\"{:?}\"):\n{e:#?}",
                     self.path
                 ))
@@ -276,7 +276,7 @@ impl MediaStream for Stream {
         let mut eos = false;
         for msg in self.bus.iter() {
             match msg.view() {
-                gst::MessageView::Error(e) => Err(VideoDecodingError(format!(
+                gst::MessageView::Error(e) => Err(StreamDecodingError(format!(
                     "Encountered error in gstreamer bus:\n{e:#?}"
                 )))?,
                 gst::MessageView::Eos(_eos) => eos = true,
@@ -323,7 +323,7 @@ impl Stream {
             } else {
                 gst::State::Playing
             })
-            .map_err(|e| VideoDecodingError(format!("Failed to change video state:\n{e:#?}")))?;
+            .map_err(|e| StreamDecodingError(format!("Failed to change video state:\n{e:#?}")))?;
         self.paused = paused;
         Ok(())
     }
@@ -426,7 +426,7 @@ fn launch(
 ) -> Result<(gst::Bin, gst::Bin), error::Error> {
     let source = gst::parse_launch(&pipeline(path, mode)?)
         .map_err(|e| {
-            VideoDecodingError(format!(
+            StreamDecodingError(format!(
                 "Failed to parse gstreamer command for video ({path:?}):\n{e:#?}"
             ))
         })?
@@ -448,7 +448,7 @@ fn launch(
     }
 
     source.set_state(gst::State::Paused).map_err(|e| {
-        VideoDecodingError(format!(
+        StreamDecodingError(format!(
             "Failed to change state for video ({path:?}):\n{e:#?}"
         ))
     })?;
@@ -456,7 +456,7 @@ fn launch(
         .state(gst::ClockTime::from_seconds(5))
         .0
         .map_err(|e| {
-            VideoDecodingError(format!(
+            StreamDecodingError(format!(
                 "Failed to read state for video ({path:?}):\n{e:#?}"
             ))
         })?;
@@ -556,6 +556,6 @@ pub enum Error {
 
 impl From<Error> for error::Error {
     fn from(e: Error) -> Self {
-        VideoDecodingError(format!("{e:#?}"))
+        StreamDecodingError(format!("{e:#?}"))
     }
 }

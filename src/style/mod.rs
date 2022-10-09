@@ -324,16 +324,28 @@ pub const HOVERED: Rgba = Rgba::from_rgb(
     0xC4 as f32 / 255.0,
 );
 
-pub const BORDER_RADIUS: f32 = 15.0;
+pub const FOREST_GREEN: Rgba = Rgba::from_rgb(
+    0x22 as f32 / 255.0,
+    0x8B as f32 / 255.0,
+    0x22 as f32 / 255.0,
+);
+
+pub static CUSTOM_RED: Rgba = Rgba::from_rgb(
+    0xC0 as f32 / 255.0,
+    0x1C as f32 / 255.0,
+    0x1C as f32 / 255.0,
+);
 
 pub enum Style {
-    LauncherControls,
-    LauncherSelection,
+    IconControls,
+    SelectButton,
+    CancelButton,
+    SubmitButton,
 }
 
 pub fn style_ui(ui: &mut egui::Ui, style: Style) {
     match style {
-        Style::LauncherControls => {
+        Style::IconControls => {
             ui.spacing_mut().item_spacing = Vec2::splat(4.0);
             ui.spacing_mut().button_padding = Vec2::splat(4.0);
             ui.visuals_mut().button_frame = false;
@@ -342,20 +354,51 @@ pub fn style_ui(ui: &mut egui::Ui, style: Style) {
             ui.visuals_mut().widgets.inactive.rounding = Rounding::same(10.0);
             ui.visuals_mut().widgets.noninteractive.rounding = Rounding::same(10.0);
         }
-        Style::LauncherSelection => {
+        Style::SelectButton => {
+            let rounding = Rounding::same(15.0);
             ui.spacing_mut().item_spacing = Vec2::splat(5.0);
             ui.spacing_mut().button_padding = Vec2::new(10.0, 4.0);
-            ui.visuals_mut().widgets.inactive.rounding = Rounding::same(BORDER_RADIUS);
+            ui.visuals_mut().widgets.inactive.rounding = rounding;
             ui.visuals_mut().widgets.inactive.bg_fill = LIGHT_GRAY.multiply(0.4).into();
             ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::BLACK);
-            ui.visuals_mut().widgets.hovered.rounding = Rounding::same(BORDER_RADIUS);
+            ui.visuals_mut().widgets.hovered.rounding = rounding;
             ui.visuals_mut().widgets.hovered.bg_fill = HOVERED.into();
             ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::BLACK);
-            ui.visuals_mut().widgets.active.rounding = Rounding::same(BORDER_RADIUS);
+            ui.visuals_mut().widgets.active.rounding = rounding;
             ui.visuals_mut().widgets.active.bg_fill = HOVERED.into();
             ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(1.5, Color32::WHITE);
             ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
-            ui.visuals_mut().widgets.noninteractive.rounding = Rounding::same(BORDER_RADIUS);
+            ui.visuals_mut().widgets.noninteractive.rounding = rounding;
+        }
+        Style::CancelButton => {
+            let rounding = Rounding::same(25.0);
+            ui.spacing_mut().button_padding = Vec2::new(30.0, 10.0);
+            ui.visuals_mut().widgets.inactive.rounding = rounding;
+            ui.visuals_mut().widgets.inactive.bg_fill = LIGHT_GRAY.multiply(0.2).into();
+            ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(1.0, CUSTOM_RED);
+            ui.visuals_mut().widgets.hovered.rounding = rounding;
+            ui.visuals_mut().widgets.hovered.bg_fill = LIGHT_GRAY.multiply(0.4).into();
+            ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(1.0, CUSTOM_RED);
+            ui.visuals_mut().widgets.active.rounding = rounding;
+            ui.visuals_mut().widgets.active.bg_fill = LIGHT_GRAY.multiply(0.4).into();
+            ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(1.5, CUSTOM_RED);
+            ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(1.0, CUSTOM_RED);
+            ui.visuals_mut().widgets.noninteractive.rounding = rounding;
+        }
+        Style::SubmitButton => {
+            let rounding = Rounding::same(25.0);
+            ui.spacing_mut().button_padding = Vec2::new(30.0, 10.0);
+            ui.visuals_mut().widgets.inactive.rounding = rounding;
+            ui.visuals_mut().widgets.inactive.bg_fill = LIGHT_GRAY.multiply(0.2).into();
+            ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(1.0, FOREST_GREEN);
+            ui.visuals_mut().widgets.hovered.rounding = rounding;
+            ui.visuals_mut().widgets.hovered.bg_fill = LIGHT_GRAY.multiply(0.4).into();
+            ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(1.0, FOREST_GREEN);
+            ui.visuals_mut().widgets.active.rounding = rounding;
+            ui.visuals_mut().widgets.active.bg_fill = LIGHT_GRAY.multiply(0.4).into();
+            ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(1.5, FOREST_GREEN);
+            ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(1.0, FOREST_GREEN);
+            ui.visuals_mut().widgets.noninteractive.rounding = rounding;
         }
     }
 }

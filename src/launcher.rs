@@ -30,7 +30,7 @@ pub struct Launcher {
     active_task: Option<String>,
     status: Status,
     sys_info: SystemInfo,
-    buffer: MessageBuffer<LauncherMsg>,
+    buffer: MessageBuffer<Callback>,
 }
 
 impl Default for Launcher {
@@ -136,9 +136,9 @@ impl Launcher {
                     }
                     if !stderr.is_empty() {
                         eprintln!("\n{stderr}");
-                        buffer.push_sync(Destination::default(), LauncherMsg::TaskCrash(stderr));
+                        buffer.push_sync(Destination::default(), Callback::TaskCrash(stderr));
                     } else {
-                        buffer.push_sync(Destination::default(), LauncherMsg::TaskClose);
+                        buffer.push_sync(Destination::default(), Callback::TaskClose);
                     }
                 }
                 Err(e) => {
@@ -147,7 +147,7 @@ impl Launcher {
                             bin/server relative to the launcher.\n{e:#?}"
                     );
                     println!("\nEE: {status}");
-                    buffer.push_sync(Destination::default(), LauncherMsg::TaskCrash(status));
+                    buffer.push_sync(Destination::default(), Callback::TaskCrash(status));
                 }
             }
         });
@@ -209,60 +209,51 @@ impl Launcher {
         }
     }
 
-    fn process(&mut self, msg: LauncherMsg) {
+    fn process(&mut self, msg: Callback) {
         match (self.busy, msg) {
-            (true, LauncherMsg::TaskClose) => {
+            (true, Callback::TaskClose) => {
                 self.busy = false;
             }
-            (true, LauncherMsg::TaskCrash(status)) => {
+            (true, Callback::TaskCrash(status)) => {
                 self.status = Status::Result(status);
                 self.busy = false;
             }
-            (_, LauncherMsg::ToClipboard) => {
-                match &self.status {
-                    Status::Result(_status) => {
-                        // ui.output().copied_text = format!(
-                        //     "Task \"{}\" failed with error:\n{status}",
-                        //     self.active_task.as_ref().unwrap_or(&"[NONE]".to_owned())
-                        // );
-                    }
-                    Status::SystemInfo => {
-                        // ui.output().copied_text = format!("{:#?}", self.sys_info);
-                    }
-                    _ => {}
-                }
-            }
+            // (_, LauncherMsg::ToClipboard) => {
+            //     match &self.status {
+            //         Status::Result(_status) => {
+            //             // ui.output().copied_text = format!(
+            //             //     "Task \"{}\" failed with error:\n{status}",
+            //             //     self.active_task.as_ref().unwrap_or(&"[NONE]".to_owned())
+            //             // );
+            //         }
+            //         Status::SystemInfo => {
+            //             // ui.output().copied_text = format!("{:#?}", self.sys_info);
+            //         }
+            //         _ => {}
+            //     }
+            // }
             _ => {}
         };
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum LauncherMsg {
+pub enum Callback {
     TaskCrash(String),
     TaskClose,
-    ToClipboard,
 }
 
 impl eframe::App for Launcher {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.consume_sync_buffer();
-
         frame.set_window_size(self.window_size());
+        self.show(ctx);
+        ctx.request_repaint_after(Duration::from_millis(200));
+    }
+}
 
-        let ctrl_buttons: Vec<_> = vec![
-            egui::Button::new(Icon::Folder),
-            egui::Button::new(Icon::FolderTree),
-            egui::Button::new(Icon::SystemInfo),
-            egui::Button::new(Icon::Help),
-        ];
-
-        let task_buttons: Vec<_> = self
-            .task_labels
-            .iter()
-            .map(|label| egui::Button::new(label))
-            .collect();
-
+impl Launcher {
+    fn show(&mut self, ctx: &egui::Context) {
         egui::CentralPanel::default().show(ctx, |ui| {
             if self.busy {
                 ui.output().cursor_icon = CursorIcon::NotAllowed;
@@ -296,142 +287,176 @@ impl eframe::App for Launcher {
                                 .size(Size::remainder())
                                 .horizontal(|mut strip| {
                                     strip.empty();
-                                    strip.cell(|ui| {
-                                        style_ui(ui, Style::LauncherControls);
-                                        ui.columns(ctrl_buttons.len(), |columns| {
-                                            ctrl_buttons
-                                                .into_iter()
-                                                .enumerate()
-                                                .filter_map(|(i, button)| {
-                                                    let response =
-                                                        columns[i].add(button).on_hover_text(
-                                                            RichText::from(match i {
-                                                                0 => "Load task",
-                                                                1 => "Load task catalogue",
-                                                                2 => "System information",
-                                                                3 => "Help",
-                                                                _ => "",
-                                                            })
-                                                            .size(9.0),
-                                                        );
-                                                    if response.clicked() {
-                                                        Some(i)
-                                                    } else {
-                                                        None
-                                                    }
-                                                })
-                                                .collect_vec()
-                                        })
-                                        .into_iter()
-                                        .for_each(|i| {
-                                            match i {
-                                                0 => {
-                                                    let path = FileDialog::new()
-                                                        .set_location(
-                                                            current_dir()
-                                                                .unwrap()
-                                                                .to_str()
-                                                                .unwrap(),
-                                                        )
-                                                        .show_open_single_dir()
-                                                        .unwrap();
-
-                                                    if let Some(path) = path {
-                                                        self.run_task(path);
-                                                    }
-                                                }
-                                                1 => {
-                                                    let path = FileDialog::new()
-                                                        .set_location(
-                                                            current_dir()
-                                                                .unwrap()
-                                                                .to_str()
-                                                                .unwrap(),
-                                                        )
-                                                        .show_open_single_dir()
-                                                        .unwrap();
-
-                                                    if let Some(path) = path {
-                                                        *self = Self::new(path);
-                                                    }
-                                                }
-                                                2 => self.status = Status::SystemInfo,
-                                                3 => self.status = Status::Help,
-                                                _ => {}
-                                            }
-                                        });
-                                    });
+                                    strip.cell(|ui| self.show_controls(ui));
                                     strip.empty();
                                 });
                         });
 
                         strip.empty();
 
-                        strip.cell(|ui| {
-                            if task_buttons.is_empty() {
-                                ui.horizontal_centered(|ui| {
-                                    ui.vertical_centered(|ui| {
-                                        ui.label("(No tasks found in task directory)");
-                                    });
-                                });
-                            } else {
-                                egui::ScrollArea::vertical().show(ui, |ui| {
-                                    ui.vertical_centered(|ui| {
-                                        style_ui(ui, Style::LauncherSelection);
-                                        for (i, button) in task_buttons.into_iter().enumerate() {
-                                            if ui.add(button).clicked() {
-                                                self.run_task(self.task_paths[i].clone());
-                                            }
-                                        }
-                                    });
-                                });
-                            }
-                        });
+                        strip.cell(|ui| self.show_tasks(ui));
                     });
             });
         });
 
         if !matches!(self.status, Status::None) {
-            let mut open = true;
-            match &self.status {
-                Status::Result(status) => {
-                    Window::new(RichText::from("Status").size(14.0).strong())
-                        .collapsible(false)
-                        .open(&mut open)
-                        .vscroll(true)
-                        .show(ctx, |ui| {
-                            ui.label(RichText::from(status).size(12.0).color(Color32::BLACK));
-                        });
-                }
-                Status::SystemInfo => {
-                    Window::new(RichText::from("System Info").size(14.0).strong())
-                        .collapsible(false)
-                        .open(&mut open)
-                        .vscroll(true)
-                        .show(ctx, |ui| {
-                            ui.label(
-                                RichText::from(format!("{:#?}", self.sys_info))
-                                    .size(12.0)
-                                    .color(Color32::BLACK),
-                            );
-                        });
-                }
-                Status::Help => {
-                    Window::new(RichText::from("Help").size(14.0).strong())
-                        .collapsible(false)
-                        .open(&mut open)
-                        .vscroll(true)
-                        .show(ctx, |ui| {
-                            ui.label(RichText::from("...").size(12.0).color(Color32::BLACK));
-                        });
-                }
-                Status::None => {}
-            }
-            if !open {
-                self.status = Status::None;
-            }
+            self.show_status(ctx);
+        }
+    }
+
+    fn show_controls(&mut self, ui: &mut egui::Ui) {
+        enum Interaction {
+            None,
+            LoadTask,
+            LoadTaskRepo,
+            ShowSystemInfo,
+            ShowHelp,
         }
 
-        ctx.request_repaint_after(Duration::from_millis(200));
+        let mut interaction = Interaction::None;
+
+        style_ui(ui, Style::IconControls);
+        ui.columns(4, |columns| {
+            if columns[0]
+                .button(Icon::Folder)
+                .on_hover_text(RichText::from("Load task").size(9.0))
+                .clicked()
+            {
+                interaction = Interaction::LoadTask;
+            }
+            if columns[1]
+                .button(Icon::FolderTree)
+                .on_hover_text(RichText::from("Load task catalogue").size(9.0))
+                .clicked()
+            {
+                interaction = Interaction::LoadTaskRepo;
+            }
+            if columns[2]
+                .button(Icon::SystemInfo)
+                .on_hover_text(RichText::from("System information").size(9.0))
+                .clicked()
+            {
+                interaction = Interaction::ShowSystemInfo;
+            }
+            if columns[3]
+                .button(Icon::Help)
+                .on_hover_text(RichText::from("Help").size(9.0))
+                .clicked()
+            {
+                interaction = Interaction::ShowHelp;
+            }
+        });
+
+        match interaction {
+            Interaction::None => {}
+            Interaction::LoadTask => {
+                let path = FileDialog::new()
+                    .set_location(current_dir().unwrap().to_str().unwrap())
+                    .show_open_single_dir()
+                    .unwrap();
+
+                if let Some(path) = path {
+                    self.run_task(path);
+                }
+            }
+            Interaction::LoadTaskRepo => {
+                let path = FileDialog::new()
+                    .set_location(current_dir().unwrap().to_str().unwrap())
+                    .show_open_single_dir()
+                    .unwrap();
+
+                if let Some(path) = path {
+                    *self = Self::new(path);
+                }
+            }
+            Interaction::ShowSystemInfo => {
+                self.status = Status::SystemInfo;
+            }
+            Interaction::ShowHelp => {
+                self.status = Status::Help;
+            }
+        }
+    }
+
+    fn show_tasks(&mut self, ui: &mut egui::Ui) {
+        enum Interaction {
+            None,
+            StartTask(usize),
+        }
+
+        let mut interaction = Interaction::None;
+
+        let task_buttons: Vec<_> = self
+            .task_labels
+            .iter()
+            .map(|label| egui::Button::new(label))
+            .collect();
+
+        if task_buttons.is_empty() {
+            ui.horizontal_centered(|ui| {
+                ui.vertical_centered(|ui| {
+                    ui.label("(No tasks found in task directory)");
+                });
+            });
+        } else {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.vertical_centered(|ui| {
+                    style_ui(ui, Style::SelectButton);
+                    for (i, button) in task_buttons.into_iter().enumerate() {
+                        if ui.add(button).clicked() {
+                            interaction = Interaction::StartTask(i);
+                        }
+                    }
+                });
+            });
+        }
+
+        match interaction {
+            Interaction::None => {}
+            Interaction::StartTask(i) => self.run_task(self.task_paths[i].clone()),
+        }
+    }
+
+    fn show_status(&mut self, ctx: &egui::Context) {
+        let mut open = true;
+
+        match &self.status {
+            Status::Result(status) => {
+                Window::new(RichText::from("Status").size(14.0).strong())
+                    .collapsible(false)
+                    .open(&mut open)
+                    .vscroll(true)
+                    .show(ctx, |ui| {
+                        ui.label(RichText::from(status).size(12.0).color(Color32::BLACK));
+                    });
+            }
+            Status::SystemInfo => {
+                Window::new(RichText::from("System Info").size(14.0).strong())
+                    .collapsible(false)
+                    .open(&mut open)
+                    .vscroll(true)
+                    .show(ctx, |ui| {
+                        ui.label(
+                            RichText::from(format!("{:#?}", self.sys_info))
+                                .size(12.0)
+                                .color(Color32::BLACK),
+                        );
+                    });
+            }
+            Status::Help => {
+                Window::new(RichText::from("Help").size(14.0).strong())
+                    .collapsible(false)
+                    .open(&mut open)
+                    .vscroll(true)
+                    .show(ctx, |ui| {
+                        ui.label(RichText::from("...").size(12.0).color(Color32::BLACK));
+                    });
+            }
+            Status::None => {}
+        }
+
+        if !open {
+            self.status = Status::None;
+        }
     }
 }
