@@ -24,6 +24,7 @@ static GST_INIT: OnceCell<()> = OnceCell::new();
 /// A video handle that uses GStreamer to stream video content.
 /// This `struct` and its associated `impl` is a simplified version of the
 /// `VideoPlayer` struct found at: https://github.com/jazzfool/iced_video_player.
+#[derive(Clone)]
 pub struct Stream {
     path: PathBuf,
     source: gst::Bin,

@@ -3,7 +3,7 @@ use crate::error::Error::EnvironmentError;
 use std::env::current_dir;
 use std::path::PathBuf;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Env {
     root_dir: PathBuf,
     task_dir: PathBuf,

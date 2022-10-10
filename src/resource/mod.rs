@@ -24,11 +24,12 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 pub type FrameBuffer = Arc<Vec<img::Handle>>;
 pub type AudioBuffer = Buffered<SamplesBuffer<i16>>;
 
+#[derive(Clone)]
 pub enum ResourceValue {
     Text(Arc<String>),
     Image(Arc<img::Handle>),
@@ -73,10 +74,8 @@ impl Debug for ResourceValue {
     }
 }
 
-#[derive(Default, Debug)]
-pub struct ResourceMap {
-    map: HashMap<PathBuf, ResourceValue>,
-}
+#[derive(Default, Debug, Clone)]
+pub struct ResourceMap(Arc<Mutex<HashMap<PathBuf, ResourceValue>>>);
 
 impl ResourceMap {
     #[inline(always)]
@@ -85,22 +84,24 @@ impl ResourceMap {
     }
 
     pub fn clear(&mut self) {
-        self.map.clear();
+        self.0.lock().unwrap().clear();
     }
 
     pub fn preload_block(
         &mut self,
-        block: &Block,
-        env: &Env,
+        resources: Vec<PathBuf>,
         config: &Config,
+        env: &Env,
     ) -> Result<(), error::Error> {
+        // Lock map
+        let mut map = self.0.lock().unwrap();
+
         // Clean up existing resource map
-        self.clear();
-        let config = block.config(config);
+        map.clear();
 
         // Load default fixation image
         let src = PathBuf::from_str("fixation.svg").unwrap();
-        self.map.entry(src.clone()).or_insert_with(|| {
+        map.entry(src.clone()).or_insert_with(|| {
             let data =
                 ResourceValue::Svg(Arc::new(svg_from_bytes(IMAGE_FIXATION.to_owned(), &src)));
             println!("+ default fixation : {data:?}");
@@ -110,7 +111,7 @@ impl ResourceMap {
 
         // Load default rustacean image
         let src = PathBuf::from_str("rustacean.svg").unwrap();
-        self.map.entry(src.clone()).or_insert_with(|| {
+        map.entry(src.clone()).or_insert_with(|| {
             let data =
                 ResourceValue::Svg(Arc::new(svg_from_bytes(IMAGE_RUSTACEAN.to_owned(), &src)));
             println!("+ default rustacean : {data:?}");
@@ -119,8 +120,8 @@ impl ResourceMap {
         let mut default_rustacean = true;
 
         // Load resources used in new block
-        for src in block.resources(&config) {
-            let mut is_new = !self.map.contains_key(&src);
+        for src in resources {
+            let mut is_new = !map.contains_key(&src);
             match src.to_str().unwrap() {
                 "fixation.svg" => {
                     if default_fixation {
@@ -176,16 +177,16 @@ impl ResourceMap {
                     ))),
                 }?;
                 println!("+ {src:?} : {data:?}");
-                self.map.insert(src, data);
+                map.insert(src, data);
             }
         }
 
         Ok(())
     }
 
-    pub fn fetch(&self, src: &PathBuf) -> Result<&ResourceValue, error::Error> {
-        if let Some(res) = self.map.get(src) {
-            Ok(res)
+    pub fn fetch(&self, src: &PathBuf) -> Result<ResourceValue, error::Error> {
+        if let Some(res) = self.0.lock().unwrap().get(src) {
+            Ok(res.clone())
         } else {
             Err(ResourceLoadError(format!(
                 "Tried to fetch unexpected resource: {src:?}"
@@ -194,18 +195,18 @@ impl ResourceMap {
     }
 
     pub fn fetch_text(&self, text: &str) -> Result<String, error::Error> {
-        let text: &str = match text_or_file(text) {
+        let text: String = match text_or_file(text) {
             Some(src) => {
                 if let ResourceValue::Text(text) = self.fetch(&src)? {
-                    Ok(text.as_str())
+                    Ok((*text).clone())
                 } else {
                     Err(ResourceLoadError(format!(
                         "Text file caused unexpected error: `{src:?}`"
                     )))
                 }
             }
-            None => Ok(text),
+            None => Ok(text.to_owned()),
         }?;
-        Ok(text.to_owned())
+        Ok(text)
     }
 }

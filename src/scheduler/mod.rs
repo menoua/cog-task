@@ -4,11 +4,11 @@ use crate::config::{Config, LogCondition};
 use crate::error;
 use crate::error::Error::{FlowError, InternalError, LoggerError};
 use crate::io::IO;
-use crate::logger::{Logger, LoggerMsg};
+use crate::logger::{Logger, LoggerCallback};
 use crate::scheduler::graph::{DependencyGraph, Edge, Node};
 use crate::scheduler::info::Info;
 use crate::scheduler::monitor::{Event, Monitor};
-use crate::server::{Server, ServerMsg};
+use crate::server::{Server, SyncCallback};
 use iced::keyboard::KeyCode;
 use iced::pure::widget::Column;
 use iced::pure::Element;
@@ -35,7 +35,7 @@ pub enum SchedulerMsg {
     Advance,
     Start,
     Stop,
-    Logger(LoggerMsg),
+    Logger(LoggerCallback),
     LoggerError(String),
     Relay(StatefulActionMsg),
     KeyPress(KeyCode),
@@ -44,8 +44,8 @@ pub enum SchedulerMsg {
 
 impl SchedulerMsg {
     #[inline(always)]
-    pub fn wrap(self) -> ServerMsg {
-        ServerMsg::Relay(self)
+    pub fn wrap(self) -> SyncCallback {
+        SyncCallback::Relay(self)
     }
 }
 
@@ -73,7 +73,7 @@ pub struct Scheduler {
 }
 
 impl Scheduler {
-    pub fn new(server: &Server) -> Result<(Self, Command<ServerMsg>), error::Error> {
+    pub fn new(server: &Server) -> Result<(Self, Command<SyncCallback>), error::Error> {
         let task = server.task();
         let block = server.active_block();
         let actions = block.actions();
@@ -87,7 +87,7 @@ impl Scheduler {
         let (graph, nodes) = DependencyGraph::new(actions, flow, resources, &config, &io)?;
 
         let mut logger = Logger::new(&info, &config)?;
-        let cmd = logger.update(LoggerMsg::Extend(
+        let cmd = logger.update(LoggerCallback::Extend(
             "mainevent".to_owned(),
             vec![
                 ("info".to_owned(), serde_json::to_value(&info).unwrap()),
@@ -131,7 +131,7 @@ impl Scheduler {
         &self.config
     }
 
-    fn start_queue(&mut self) -> Result<Command<ServerMsg>, error::Error> {
+    fn start_queue(&mut self) -> Result<Command<SyncCallback>, error::Error> {
         let mut cmd = vec![];
         let mut dropped_foreground = false;
         if let Some(i) = self.foreground {
@@ -167,7 +167,7 @@ impl Scheduler {
                 ) {
                     let logger = self.logger.as_mut().expect("Failed to fetch logger");
                     if let Some(name) = node.name() {
-                        cmd.push(logger.update(LoggerMsg::Extend(
+                        cmd.push(logger.update(LoggerCallback::Extend(
                             "flow".to_owned(),
                             vec![
                                 ("start".to_owned(), Value::Number(i.into())),
@@ -175,7 +175,7 @@ impl Scheduler {
                             ],
                         ))?);
                     } else {
-                        cmd.push(logger.update(LoggerMsg::Append(
+                        cmd.push(logger.update(LoggerCallback::Append(
                             "flow".to_owned(),
                             ("start".to_owned(), Value::Number(i.into())),
                         ))?);
@@ -263,7 +263,7 @@ impl Scheduler {
         }
     }
 
-    pub fn start(&mut self) -> Result<Command<ServerMsg>, error::Error> {
+    pub fn start(&mut self) -> Result<Command<SyncCallback>, error::Error> {
         let mut cmd = vec![];
         if self.running || !self.active.is_empty() {
             panic!("Tried to start a scheduler when it was already running.");
@@ -304,7 +304,7 @@ impl Scheduler {
         Ok(Command::batch(cmd))
     }
 
-    pub fn advance(&mut self) -> Result<Command<ServerMsg>, error::Error> {
+    pub fn advance(&mut self) -> Result<Command<SyncCallback>, error::Error> {
         let mut cmd = vec![];
         let mut done = vec![];
         for &i in self.active.iter() {
@@ -386,7 +386,7 @@ impl Scheduler {
                     let logger = self.logger.as_mut().expect("Failed to fetch logger");
 
                     if let Some(name) = node.name() {
-                        cmd.push(logger.update(LoggerMsg::Extend(
+                        cmd.push(logger.update(LoggerCallback::Extend(
                             "flow".to_owned(),
                             vec![
                                 ("stop".to_owned(), Value::Number(i.into())),
@@ -394,7 +394,7 @@ impl Scheduler {
                             ],
                         ))?);
                     } else {
-                        cmd.push(logger.update(LoggerMsg::Append(
+                        cmd.push(logger.update(LoggerCallback::Append(
                             "flow".to_owned(),
                             ("stop".to_owned(), Value::Number(i.into())),
                         ))?);
@@ -417,27 +417,27 @@ impl Scheduler {
         }
     }
 
-    pub fn request_finish(&mut self) -> Command<ServerMsg> {
+    pub fn request_finish(&mut self) -> Command<SyncCallback> {
         if let Some(logger) = &mut self.logger {
             Command::batch([
                 logger
-                    .update(LoggerMsg::Append(
+                    .update(LoggerCallback::Append(
                         "mainevent".to_owned(),
                         ("finish".to_owned(), Value::String("Success".to_owned())),
                     ))
                     .unwrap(),
-                Command::perform(async {}, |()| ServerMsg::FinishBlock),
+                Command::perform(async {}, |()| SyncCallback::BlockFinished),
             ])
         } else {
-            Command::perform(async {}, |()| ServerMsg::FinishBlock)
+            Command::perform(async {}, |()| SyncCallback::BlockFinished)
         }
     }
 
-    pub fn request_interrupt(&mut self) -> Command<ServerMsg> {
+    pub fn request_interrupt(&mut self) -> Command<SyncCallback> {
         if let Some(logger) = &mut self.logger {
             Command::batch([
                 logger
-                    .update(LoggerMsg::Append(
+                    .update(LoggerCallback::Append(
                         "mainevent".to_owned(),
                         (
                             "interrupt".to_owned(),
@@ -445,20 +445,20 @@ impl Scheduler {
                         ),
                     ))
                     .unwrap(),
-                Command::perform(async {}, |()| ServerMsg::InterruptBlock),
+                Command::perform(async {}, |()| SyncCallback::BlockInterrupted),
             ])
         } else {
-            Command::perform(async {}, |()| ServerMsg::InterruptBlock)
+            Command::perform(async {}, |()| SyncCallback::BlockInterrupted)
         }
     }
 
-    pub fn update(&mut self, msg: SchedulerMsg) -> Result<Command<ServerMsg>, error::Error> {
+    pub fn update(&mut self, msg: SchedulerMsg) -> Result<Command<SyncCallback>, error::Error> {
         self.needs_refresh = false;
         match (self.running, msg) {
             (false, SchedulerMsg::Start) => {
                 if let Some(logger) = &mut self.logger {
                     Ok(Command::batch([
-                        logger.update(LoggerMsg::Append(
+                        logger.update(LoggerCallback::Append(
                             "mainevent".to_owned(),
                             ("start".to_owned(), Value::String("Success".to_owned())),
                         ))?,
@@ -514,7 +514,7 @@ impl Scheduler {
         }
     }
 
-    pub fn view(&self, scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
+    pub fn view(&self, scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
         if let Some(i) = self.foreground {
             if let Some(node) = self.graph.node(self.nodes[i]) {
                 return node.action.view(scale_factor);
@@ -523,7 +523,7 @@ impl Scheduler {
         Ok(Column::new().into())
     }
 
-    pub fn stop(&mut self) -> Result<Command<ServerMsg>, error::Error> {
+    pub fn stop(&mut self) -> Result<Command<SyncCallback>, error::Error> {
         self.running = false;
         self.foreground = None;
         self.ready.clear();
@@ -539,12 +539,12 @@ impl Scheduler {
 
         if let Some(logger) = self.logger.as_mut() {
             Ok(Command::batch([
-                logger.update(LoggerMsg::Finish)?,
-                Command::perform(async {}, move |()| ServerMsg::CleanUp(Ok(()))),
+                logger.update(LoggerCallback::Finish)?,
+                Command::perform(async {}, move |()| SyncCallback::CleanupComplete(Ok(()))),
             ]))
         } else {
             Ok(Command::perform(async {}, move |()| {
-                ServerMsg::CleanUp(Ok(()))
+                SyncCallback::CleanupComplete(Ok(()))
             }))
         }
     }

@@ -6,7 +6,7 @@ use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::SchedulerMsg;
-use crate::server::ServerMsg;
+use crate::server::SyncCallback;
 use iced::Command;
 use rodio::{Sink, Source};
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,6 @@ impl Action for Audio {
         io: &IO,
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         if let ResourceValue::Audio(src) = res.fetch(&self.src)? {
-            let src = src.clone();
             let duration = src.total_duration().unwrap();
             let sink = io.audio()?;
 
@@ -190,7 +189,7 @@ impl StatefulAction for StatefulAudio {
         Ok(())
     }
 
-    fn start(&mut self) -> Result<Command<ServerMsg>, error::Error> {
+    fn start(&mut self) -> Result<Command<SyncCallback>, error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
                 "Link to audio thread could not be acquired for action `{}`",

@@ -6,7 +6,7 @@ use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::{monitor::Monitor, SchedulerMsg};
-use crate::server::ServerMsg;
+use crate::server::SyncCallback;
 use iced::pure::widget::{image, Container};
 use iced::pure::Element;
 use iced::{Command, ContentFit, Length};
@@ -62,7 +62,7 @@ impl Action for Video {
                     let position = position.clone();
                     let done = done.clone();
                     let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
-                    let period = Duration::from_secs_f64(1.0 / *framerate);
+                    let period = Duration::from_secs_f64(1.0 / framerate);
                     let n_frames = frames.len();
                     let looping = self.looping;
 
@@ -96,8 +96,8 @@ impl Action for Video {
                 Ok(Box::new(StatefulVideo {
                     id,
                     done,
-                    frames: frames.clone(),
-                    framerate: *framerate,
+                    frames,
+                    framerate,
                     position,
                     width: self.width,
                     looping: self.looping,
@@ -157,7 +157,7 @@ impl StatefulAction for StatefulVideo {
     }
 
     #[inline(always)]
-    fn start(&mut self) -> Result<Command<ServerMsg>, error::Error> {
+    fn start(&mut self) -> Result<Command<SyncCallback>, error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
                 "Link to video thread could not be acquired for action `{}`",
@@ -186,7 +186,7 @@ impl StatefulAction for StatefulVideo {
         ]))
     }
 
-    fn view(&self, scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
+    fn view(&self, scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
         let position = *self.position.lock().unwrap();
         let image =
             image::Image::new(self.frames[position].clone()).content_fit(ContentFit::ScaleDown);

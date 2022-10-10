@@ -3,7 +3,7 @@ use crate::config::Config;
 use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::SchedulerMsg;
-use crate::server::ServerMsg;
+use crate::server::SyncCallback;
 use crate::{error, style};
 use iced::pure::widget::{Button, Container, Text};
 use iced::pure::Element;
@@ -92,7 +92,7 @@ impl StatefulAction for StatefulCounter {
         Ok(())
     }
 
-    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<ServerMsg>, error::Error> {
+    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<SyncCallback>, error::Error> {
         if let StatefulActionMsg::Update(0x00) = msg {
             self.count -= 1;
         }
@@ -106,7 +106,7 @@ impl StatefulAction for StatefulCounter {
         }
     }
 
-    fn view(&self, _scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
+    fn view(&self, _scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
         Ok(Container::new(
             Button::new(Text::new(format!("Click me {} more times", self.count)).size(34))
                 .padding([15, 60])

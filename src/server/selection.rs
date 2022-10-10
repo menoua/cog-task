@@ -1,9 +1,14 @@
-use crate::server::{Page, Server};
+use crate::callback::Destination;
+use crate::error::Error;
+use crate::scheduler::Scheduler;
+use crate::server::{Page, Server, SyncCallback};
 use crate::style::{style_ui, Style};
+use crate::task::block::Block;
 use eframe::egui;
 use eframe::egui::{Color32, RichText, ScrollArea, Window};
 use egui::CentralPanel;
 use egui_extras::{Size, StripBuilder};
+use std::thread;
 
 impl Server {
     pub(crate) fn show_selection(&mut self, ctx: &egui::Context) {
@@ -130,8 +135,29 @@ impl Server {
 
         match interaction {
             Interaction::None => {}
-            Interaction::StartBlock(_i) => {
-                // TODO
+            Interaction::StartBlock(i) => {
+                if self.scheduler.is_none() {
+                    println!("\nStarting experiment block {i}...");
+                    self.active_block = Some(i);
+                    self.page = Page::Loading;
+
+                    let env = self.env().clone();
+                    let block = self.task.block(i);
+                    let config = block.config(self.task.config());
+                    let resources = block.resources(&config);
+                    let mut queue = self.sync_queue.clone();
+                    let mut resource_map = self.resources().clone();
+                    thread::spawn(move || {
+                        match resource_map.preload_block(resources, &config, &env) {
+                            Ok(()) => {
+                                queue.push(Destination::default(), SyncCallback::LoadComplete)
+                            }
+                            Err(e) => {
+                                queue.push(Destination::default(), SyncCallback::BlockCrashed(e))
+                            }
+                        }
+                    });
+                }
             }
         }
     }

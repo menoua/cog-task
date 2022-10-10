@@ -1,26 +1,15 @@
 use super::Server;
 use eframe::egui;
+use eframe::egui::CentralPanel;
 
 impl Server {
-    pub(crate) fn show_activity(&mut self, _ctx: &egui::Context) {
-        /*
-        if let Some(scheduler) = self.scheduler.as_ref() {
-            match scheduler.view(self.scale_factor) {
-                Ok(view) => Column::new()
-                    .width(Length::Fill)
-                    .height(Length::Fill)
-                    .align_items(Alignment::Center)
-                    .push(view)
-                    .into(),
-                Err(e) => {
-                    #[cfg(debug_assertions)]
-                    println!("View error: {e:#?}");
-                    panic!("Error encountered during view call:\n{e:#?}");
-                }
+    pub(crate) fn show_activity(&mut self, ctx: &egui::Context) {
+        CentralPanel::default().show(ctx, |ui| {
+            if let Some(scheduler) = self.scheduler.as_ref() {
+                ui.centered_and_justified(|ui| ui.heading("[Activity goes here...]"));
+            } else {
+                ui.centered_and_justified(|ui| ui.heading("[SCHEDULER IS MISSING!]"));
             }
-        } else {
-            Column::new().into()
-        }
-         */
+        });
     }
 }

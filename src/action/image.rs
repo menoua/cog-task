@@ -4,7 +4,7 @@ use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::server::ServerMsg;
+use crate::server::SyncCallback;
 use iced::pure::widget::{image, svg, Container};
 use iced::pure::Element;
 use iced::{ContentFit, Length};
@@ -39,13 +39,13 @@ impl Action for Image {
             ResourceValue::Image(image) => Ok(Box::new(StatefulImage {
                 id,
                 done: false,
-                handle: image.clone(),
+                handle: image,
                 width: self.width,
             })),
             ResourceValue::Svg(image) => Ok(Box::new(StatefulSvg {
                 id,
                 done: false,
-                handle: image.clone(),
+                handle: image,
                 width: self.width,
             })),
             _ => Err(InvalidResourceError(format!(
@@ -91,7 +91,7 @@ impl StatefulAction for StatefulImage {
         Ok(())
     }
 
-    fn view(&self, scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
+    fn view(&self, scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
         let image = image::Image::new(self.handle.as_ref().clone());
         Ok(if let Some(width) = self.width {
             let width = (scale_factor * width as f32) as u16;
@@ -151,7 +151,7 @@ impl StatefulAction for StatefulSvg {
         Ok(())
     }
 
-    fn view(&self, scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
+    fn view(&self, scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
         let image = svg::Svg::new(self.handle.as_ref().clone());
         Ok(if let Some(width) = self.width {
             let width = (scale_factor * width as f32) as u16;

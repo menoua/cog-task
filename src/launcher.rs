@@ -1,5 +1,5 @@
 use crate::assets::{Icon, VERSION};
-use crate::message::{Destination, MessageBuffer};
+use crate::callback::{CallbackQueue, Destination};
 use crate::style;
 use crate::style::{style_ui, Style};
 use crate::system::SystemInfo;
@@ -31,7 +31,7 @@ pub struct Launcher {
     active_task: Option<String>,
     status: Status,
     sys_info: SystemInfo,
-    buffer: MessageBuffer<Callback>,
+    sync_queue: CallbackQueue<SyncCallback>,
 }
 
 impl Default for Launcher {
@@ -82,7 +82,7 @@ impl Launcher {
                 active_task: None,
                 status: Status::None,
                 sys_info: SystemInfo::new(),
-                buffer: MessageBuffer::new(),
+                sync_queue: CallbackQueue::new(),
             }
         } else {
             Self {
@@ -93,7 +93,7 @@ impl Launcher {
                 active_task: None,
                 status: Status::None,
                 sys_info: SystemInfo::new(),
-                buffer: MessageBuffer::new(),
+                sync_queue: CallbackQueue::new(),
             }
         }
     }
@@ -121,7 +121,7 @@ impl Launcher {
         let curr = current_dir().unwrap();
         let root = current_exe().unwrap().parent().unwrap().to_path_buf();
         let path = root.join("bin").join("server").to_str().unwrap().to_owned();
-        let mut buffer = self.buffer.clone();
+        let mut buffer = self.sync_queue.clone();
         self.busy = true;
         self.active_task = Some(task.file_name().unwrap().to_str().unwrap().to_title_case());
         thread::spawn(move || {
@@ -137,9 +137,9 @@ impl Launcher {
                     }
                     if !stderr.is_empty() {
                         eprintln!("\n{stderr}");
-                        buffer.push_sync(Destination::default(), Callback::TaskCrash(stderr));
+                        buffer.push(Destination::default(), SyncCallback::TaskCrashed(stderr));
                     } else {
-                        buffer.push_sync(Destination::default(), Callback::TaskClose);
+                        buffer.push(Destination::default(), SyncCallback::TaskClosed);
                     }
                 }
                 Err(e) => {
@@ -148,7 +148,7 @@ impl Launcher {
                             bin/server relative to the launcher.\n{e:#?}"
                     );
                     println!("\nEE: {status}");
-                    buffer.push_sync(Destination::default(), Callback::TaskCrash(status));
+                    buffer.push(Destination::default(), SyncCallback::TaskCrashed(status));
                 }
             }
         });
@@ -202,12 +202,12 @@ impl Launcher {
         );
     }
 
-    fn process(&mut self, msg: Callback) {
+    fn process(&mut self, msg: SyncCallback) {
         match (self.busy, msg) {
-            (true, Callback::TaskClose) => {
+            (true, SyncCallback::TaskClosed) => {
                 self.busy = false;
             }
-            (true, Callback::TaskCrash(status)) => {
+            (true, SyncCallback::TaskCrashed(status)) => {
                 self.status = Status::Result(status);
                 self.busy = false;
             }
@@ -231,14 +231,14 @@ impl Launcher {
 }
 
 #[derive(Debug, Clone)]
-pub enum Callback {
-    TaskCrash(String),
-    TaskClose,
+pub enum SyncCallback {
+    TaskCrashed(String),
+    TaskClosed,
 }
 
 impl eframe::App for Launcher {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        while let Some((_dest, message)) = self.buffer.pop_sync() {
+        while let Some((_dest, message)) = self.sync_queue.pop() {
             self.process(message);
         }
 

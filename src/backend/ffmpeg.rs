@@ -17,6 +17,7 @@ use std::time::Duration;
 
 static FFMPEG_INIT: OnceCell<()> = OnceCell::new();
 
+#[derive(Clone)]
 pub struct Stream {
     path: PathBuf,
     _context: Option<Arc<Mutex<Input>>>,

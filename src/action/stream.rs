@@ -6,7 +6,7 @@ use crate::error::Error::{InternalError, InvalidResourceError, TaskDefinitionErr
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::{monitor::Monitor, SchedulerMsg};
-use crate::server::ServerMsg;
+use crate::server::SyncCallback;
 use iced::pure::widget::{image, Container};
 use iced::pure::Element;
 use iced::{Command, ContentFit, Length};
@@ -186,7 +186,7 @@ impl StatefulAction for StatefulStream {
         Ok(())
     }
 
-    fn start(&mut self) -> Result<Command<ServerMsg>, error::Error> {
+    fn start(&mut self) -> Result<Command<SyncCallback>, error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
                 "Link to streaming thread could not be acquired for action `{}`",
@@ -227,7 +227,7 @@ impl StatefulAction for StatefulStream {
         ]))
     }
 
-    fn view(&self, scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
+    fn view(&self, scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
         let image = image::Image::new(
             self.frame
                 .lock()

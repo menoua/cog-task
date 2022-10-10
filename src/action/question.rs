@@ -3,10 +3,10 @@ use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidNameError};
 use crate::io::IO;
-use crate::logger::LoggerMsg;
+use crate::logger::LoggerCallback;
 use crate::resource::ResourceMap;
 use crate::scheduler::SchedulerMsg;
-use crate::server::ServerMsg;
+use crate::server::SyncCallback;
 use crate::style;
 use crate::util::{f32_with_precision, f64_with_precision, str_with_precision};
 use iced::alignment::{Horizontal, Vertical};
@@ -360,16 +360,16 @@ impl StatefulAction for StatefulQuestion {
         Ok(())
     }
 
-    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<ServerMsg>, error::Error> {
+    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<SyncCallback>, error::Error> {
         Ok(match msg {
             StatefulActionMsg::Update(0x00) => {
                 self.done = true;
-                let answers = LoggerMsg::Extend(
+                let answers = LoggerCallback::Extend(
                     self.group.clone(),
                     self.list.iter().map(|q| q.to_string()).collect(),
                 );
                 Command::batch([
-                    Command::perform(async move { answers }, LoggerMsg::wrap),
+                    Command::perform(async move { answers }, LoggerCallback::wrap),
                     Command::perform(async { SchedulerMsg::Advance }, SchedulerMsg::wrap),
                 ])
             }
@@ -393,8 +393,8 @@ impl StatefulAction for StatefulQuestion {
         })
     }
 
-    fn view(&self, _scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
-        let mut content: Column<ServerMsg> = Column::new()
+    fn view(&self, _scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
+        let mut content: Column<SyncCallback> = Column::new()
             .spacing(30)
             .padding([0, 15])
             .align_items(Alignment::Start);

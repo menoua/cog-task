@@ -5,7 +5,7 @@ use crate::error::Error::{FlowError, TaskDefinitionError};
 use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::flow::{Flow, Timer};
-use crate::server::ServerMsg;
+use crate::server::SyncCallback;
 use iced::Command;
 use petgraph::prelude::{NodeIndex, StableGraph};
 use petgraph::stable_graph::{Edges, NodeIndices};
@@ -39,7 +39,7 @@ impl Node {
     }
 
     #[inline(always)]
-    pub fn start(&mut self) -> Result<Command<ServerMsg>, error::Error> {
+    pub fn start(&mut self) -> Result<Command<SyncCallback>, error::Error> {
         self.action.start()
     }
 

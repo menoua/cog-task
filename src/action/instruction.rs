@@ -5,7 +5,7 @@ use crate::io::IO;
 use crate::resource::text::Justification;
 use crate::resource::{text::text_or_file, ResourceMap};
 use crate::scheduler::SchedulerMsg;
-use crate::server::ServerMsg;
+use crate::server::SyncCallback;
 use crate::{error, style};
 use iced::alignment::Vertical;
 use iced::pure::widget::{Button, Column, Container, Text};
@@ -134,7 +134,7 @@ impl StatefulAction for StatefulInstruction {
         Ok(())
     }
 
-    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<ServerMsg>, error::Error> {
+    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<SyncCallback>, error::Error> {
         if let StatefulActionMsg::Update(0x00) = msg {
             self.done = true;
             Ok(Command::perform(async {}, |()| {
@@ -145,7 +145,7 @@ impl StatefulAction for StatefulInstruction {
         }
     }
 
-    fn view(&self, _scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
+    fn view(&self, _scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
         let content = Column::new()
             .spacing(75)
             .align_items(Alignment::Center)

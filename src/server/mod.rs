@@ -4,9 +4,11 @@ mod loading;
 mod selection;
 mod startup;
 
+use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
+use crate::callback::{CallbackQueue, Destination};
 use crate::config::Config;
 use crate::env::Env;
-use crate::message::MessageBuffer;
+use crate::logger::LoggerCallback;
 use crate::resource::ResourceMap;
 use crate::scheduler::{Scheduler, SchedulerMsg};
 use crate::system::SystemInfo;
@@ -18,8 +20,12 @@ use eframe::egui::{CentralPanel, Rect, Sense};
 use eframe::glow::HasContext;
 use egui_extras::{Size, StripBuilder};
 use iced::{window, Button};
+use serde_json::Value;
+use spin_sleep::SpinSleeper;
 use std::path::PathBuf;
-use std::time::Duration;
+use std::sync::{Arc, Mutex};
+use std::thread;
+use std::time::{Duration, Instant};
 
 const MIN_UPDATE_DELAY: Duration = Duration::from_millis(2);
 
@@ -57,7 +63,8 @@ pub struct Server {
     show_magnification: bool,
     bin_hash: String,
     sys_info: SystemInfo,
-    buffer: MessageBuffer<ServerMsg>,
+    sync_queue: CallbackQueue<SyncCallback>,
+    async_queue: CallbackQueue<AsyncCallback>,
 }
 
 impl Server {
@@ -91,7 +98,8 @@ impl Server {
             show_magnification: false,
             bin_hash,
             sys_info: SystemInfo::new(),
-            buffer: MessageBuffer::new(),
+            sync_queue: CallbackQueue::new(),
+            async_queue: CallbackQueue::new(),
         })
     }
 
@@ -186,72 +194,28 @@ impl Server {
         &self.task
     }
 
-    fn process(&mut self, message: ServerMsg) {
+    fn process(&mut self, message: SyncCallback) {
         match (self.page, message) {
-            (Page::Selection, ServerMsg::StartBlock(_i)) => {
-                // if self.scheduler.is_none() {
-                //     println!("\nStarting experiment block {i}...");
-                //     self.active_block = Some(i);
-                //     self.page = Page::Loading;
-                //     // Command::perform(
-                //     //     async {
-                //     //         thread::sleep(Duration::from_millis(500));
-                //     //     },
-                //     //     move |()| ServerMsg::LoadResources(i),
-                //     // );
-                // }
-            }
-            (Page::Loading, ServerMsg::LoadResources(_i)) => {
-                // if self.scheduler.is_none() {
-                //     let block = self.task.block(i);
-                //
-                //     if let Err(e) =
-                //         self.resources
-                //             .preload_block(block, &self.env, self.task.config())
-                //     {
-                //         self.buffer
-                //             .push_sync(Destination::default(), ServerMsg::CrashBlock(e));
-                //         return;
-                //     }
-                //
-                //     match Scheduler::new(self) {
-                //         Ok((scheduler, _)) => {
-                //             self.scheduler = Some(scheduler);
-                //             // Command::batch([
-                //             //     cmd,
-                //             //     Command::perform(async {}, |()| ServerMsg::LoadComplete),
-                //             // ]);
-                //         }
-                //         Err(e) => {
-                //             self.buffer
-                //                 .push_sync(Destination::default(), ServerMsg::CrashBlock(e));
-                //         }
-                //     }
-                // }
-            }
-            (Page::Loading, ServerMsg::LoadComplete) => {
-                // let at_least_until = Instant::now() + MIN_UPDATE_DELAY;
-                // match self.scheduler.as_mut().unwrap().start() {
-                //     Ok(cmd) => {
-                //         self.page = Page::Activity;
-                //         self.capture_key = true;
-                //
-                //         let now = Instant::now();
-                //         if now < at_least_until {
-                //             SpinSleeper::new(SPIN_DURATION)
-                //                 .with_spin_strategy(SPIN_STRATEGY)
-                //                 .sleep(at_least_until - now);
-                //         }
-                //
-                //         // cmd
-                //     }
-                //     Err(e) => {
-                //         self.buffer
-                //             .push_sync(Destination::default(), ServerMsg::CrashBlock(e));
-                //     }
-                // }
-            }
-            (Page::Activity, ServerMsg::FinishBlock) => {
+            (Page::Loading, SyncCallback::LoadComplete) => match Scheduler::new(self) {
+                Ok((scheduler, _)) => {
+                    self.scheduler = Some(scheduler);
+                    match self.scheduler.as_mut().unwrap().start() {
+                        Ok(_) => {
+                            self.page = Page::Activity;
+                            self.capture_key = true;
+                        }
+                        Err(e) => {
+                            self.sync_queue
+                                .push(Destination::default(), SyncCallback::BlockCrashed(e));
+                        }
+                    }
+                }
+                Err(e) => {
+                    self.sync_queue
+                        .push(Destination::default(), SyncCallback::BlockCrashed(e));
+                }
+            },
+            (Page::Activity, SyncCallback::BlockFinished) => {
                 // self.status = Some(Ok("Success".to_owned()));
                 // self.page = Page::CleanUp;
                 // self.capture_key = false;
@@ -265,7 +229,7 @@ impl Server {
                 //     |()| ServerMsg::DropScheduler,
                 // )
             }
-            (Page::Activity, ServerMsg::InterruptBlock) => {
+            (Page::Activity, SyncCallback::BlockInterrupted) => {
                 // self.status = Some(Ok("Interrupted".to_owned()));
                 // self.page = Page::CleanUp;
                 // self.capture_key = false;
@@ -279,29 +243,24 @@ impl Server {
                 //     |()| ServerMsg::DropScheduler,
                 // )
             }
-            (Page::Loading | Page::Activity, ServerMsg::CrashBlock(_e)) => {
-                // self.status = Some(Err(e.clone()));
-                // self.page = Page::CleanUp;
-                // self.capture_key = false;
-                // self.capture_fps = None;
-                // self.animation_id = 0;
-                //
-                // if let Some(scheduler) = &mut self.scheduler {
-                //     let _ = scheduler.update(SchedulerMsg::Logger(LoggerMsg::Append(
-                //         "mainevent".to_owned(),
-                //         ("crash".to_owned(), Value::String(format!("{e:#?}"))),
-                //     )));
-                // }
-                //
-                // thread::sleep(MIN_UPDATE_DELAY);
-                // Command::perform(
-                //     async move {
-                //         thread::sleep(Duration::from_millis(500));
-                //     },
-                //     |()| ServerMsg::DropScheduler,
-                // )
+            (Page::Loading | Page::Activity, SyncCallback::BlockCrashed(e)) => {
+                self.status = Some(Err(e.clone()));
+                self.page = Page::CleanUp;
+                self.capture_key = false;
+                self.capture_fps = None;
+                self.animation_id = 0;
+
+                self.async_queue.push(
+                    Destination::default(),
+                    AsyncCallback::Logger(LoggerCallback::Append(
+                        "mainevent".to_owned(),
+                        ("crash".to_owned(), Value::String(format!("{e:#?}"))),
+                    )),
+                );
+
+                self.drop_scheduler();
             }
-            (Page::Loading | Page::Activity, ServerMsg::Relay(_msg)) => {
+            (Page::Loading | Page::Activity, SyncCallback::Relay(_msg)) => {
                 // if let Some(scheduler) = self.scheduler.as_mut() {
                 //     let at_least_until = Instant::now() + MIN_UPDATE_DELAY;
                 //     match scheduler.update(msg) {
@@ -318,34 +277,18 @@ impl Server {
                 //     println!("WW: Tried to send message to non-existent scheduler");
                 // }
             }
-            (Page::CleanUp, ServerMsg::DropScheduler) => {
-                // if let Some(mut scheduler) = self.scheduler.take() {
-                //     match scheduler.stop() {
-                //         Ok(cmd) => {
-                //             // cmd
-                //         }
-                //         Err(e) => {
-                //             self.buffer
-                //                 .push_sync(Destination::default(), ServerMsg::CleanUp(Err(e)));
-                //         }
-                //     }
-                // } else {
-                //     self.buffer
-                //         .push_sync(Destination::default(), ServerMsg::CleanUp(Ok(())));
-                // }
-            }
-            (Page::CleanUp, ServerMsg::CleanUp(_success)) => {
-                // match (&self.status, success) {
-                //     (Some(Ok(status)), Ok(_)) if status.as_str() == "Success" => {
-                //         self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 = true;
-                //     }
-                //     (Some(Ok(status)), Err(e)) if status.as_str() == "Success" => {
-                //         self.status = Some(Err(e));
-                //     }
-                //     _ => {}
-                // }
-                //
-                // self.page = Page::Selection;
+            (Page::CleanUp, SyncCallback::CleanupComplete(success)) => {
+                match (&self.status, success) {
+                    (Some(Ok(status)), Ok(_)) if status.as_str() == "Success" => {
+                        self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 = true;
+                    }
+                    (Some(Ok(status)), Err(e)) if status.as_str() == "Success" => {
+                        self.status = Some(Err(e));
+                    }
+                    _ => {}
+                }
+
+                self.page = Page::Selection;
             }
             _ => {}
         };
@@ -372,19 +315,41 @@ impl Server {
     pub fn hash(&self) -> String {
         self.bin_hash.clone()
     }
+
+    fn drop_scheduler(&mut self) {
+        if let Some(mut scheduler) = self.scheduler.take() {
+            match scheduler.stop() {
+                Ok(_) => self.sync_queue.push(
+                    Destination::default(),
+                    SyncCallback::CleanupComplete(Ok(())),
+                ),
+                Err(e) => self.sync_queue.push(
+                    Destination::default(),
+                    SyncCallback::CleanupComplete(Err(e)),
+                ),
+            }
+        } else {
+            self.sync_queue.push(
+                Destination::default(),
+                SyncCallback::CleanupComplete(Ok(())),
+            );
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
-pub enum ServerMsg {
-    StartBlock(usize),                 // Ui
-    LoadResources(usize),              // Ui
-    LoadComplete,                      // Callback
-    FinishBlock,                       // Callback
-    InterruptBlock,                    // Callback
-    CrashBlock(error::Error),          // Callback
-    DropScheduler,                     // Ui
-    CleanUp(Result<(), error::Error>), // Callback
-    Relay(SchedulerMsg),               // Callback
+pub enum SyncCallback {
+    LoadComplete,                              // Callback
+    BlockFinished,                             // Callback
+    BlockInterrupted,                          // Callback
+    BlockCrashed(error::Error),                // Callback
+    CleanupComplete(Result<(), error::Error>), // Callback
+    Relay(SchedulerMsg),                       // Callback
+}
+
+#[derive(Debug, Clone)]
+pub enum AsyncCallback {
+    Logger(LoggerCallback),
 }
 
 impl eframe::App for Server {
@@ -402,7 +367,7 @@ impl eframe::App for Server {
     // }
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        while let Some((_dest, message)) = self.buffer.pop_sync() {
+        while let Some((_dest, message)) = self.sync_queue.pop() {
             self.process(message);
         }
 

@@ -5,7 +5,7 @@ use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::monitor::{Event, Monitor};
 use crate::scheduler::SchedulerMsg;
-use crate::server::ServerMsg;
+use crate::server::SyncCallback;
 use iced::pure::Element;
 use iced::Command;
 use std::fmt::Debug;
@@ -89,17 +89,17 @@ pub trait StatefulAction: Debug {
     fn stop(&mut self) -> Result<(), error::Error>;
 
     #[inline(always)]
-    fn start(&mut self) -> Result<Command<ServerMsg>, error::Error> {
+    fn start(&mut self) -> Result<Command<SyncCallback>, error::Error> {
         Ok(Command::none())
     }
 
     #[inline(always)]
-    fn update(&mut self, _msg: StatefulActionMsg) -> Result<Command<ServerMsg>, error::Error> {
+    fn update(&mut self, _msg: StatefulActionMsg) -> Result<Command<SyncCallback>, error::Error> {
         Ok(Command::none())
     }
 
     #[inline(always)]
-    fn view(&self, _scale_factor: f32) -> Result<Element<'_, ServerMsg>, error::Error> {
+    fn view(&self, _scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
         Err(ActionViewError(format!(
             "View not implemented for action `{}`",
             self.id()
@@ -120,8 +120,8 @@ pub enum StatefulActionMsg {
 
 impl StatefulActionMsg {
     #[inline(always)]
-    pub fn wrap(self) -> ServerMsg {
-        ServerMsg::Relay(SchedulerMsg::Relay(self))
+    pub fn wrap(self) -> SyncCallback {
+        SyncCallback::Relay(SchedulerMsg::Relay(self))
     }
 }
 

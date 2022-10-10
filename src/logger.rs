@@ -2,7 +2,7 @@ use crate::config::{Config, LogFormat};
 use crate::error;
 use crate::error::Error::LoggerError;
 use crate::scheduler::{info::Info, SchedulerMsg};
-use crate::server::ServerMsg;
+use crate::server::SyncCallback;
 use iced::Command;
 use itertools::Itertools;
 use serde_json::Value;
@@ -24,22 +24,25 @@ pub struct Logger {
 }
 
 #[derive(Debug, Clone)]
-pub enum LoggerMsg {
+pub enum LoggerCallback {
     Append(String, (String, Value)),
     Extend(String, Vec<(String, Value)>),
     Flush,
     Finish,
 }
 
-impl LoggerMsg {
+impl LoggerCallback {
     #[inline(always)]
     fn requires_flush(&self) -> bool {
-        matches!(self, LoggerMsg::Append(_, _) | LoggerMsg::Extend(_, _))
+        matches!(
+            self,
+            LoggerCallback::Append(_, _) | LoggerCallback::Extend(_, _)
+        )
     }
 
     #[inline(always)]
-    pub fn wrap(self) -> ServerMsg {
-        ServerMsg::Relay(SchedulerMsg::Logger(self))
+    pub fn wrap(self) -> SyncCallback {
+        SyncCallback::Relay(SchedulerMsg::Logger(self))
     }
 }
 
@@ -123,31 +126,31 @@ impl Logger {
         Ok(())
     }
 
-    pub fn update(&mut self, msg: LoggerMsg) -> Result<Command<ServerMsg>, error::Error> {
+    pub fn update(&mut self, msg: LoggerCallback) -> Result<Command<SyncCallback>, error::Error> {
         let cmd = if msg.requires_flush() && !self.needs_flush {
             Command::perform(
                 async {
                     thread::sleep(Duration::from_secs(30));
-                    LoggerMsg::Flush
+                    LoggerCallback::Flush
                 },
-                LoggerMsg::wrap,
+                LoggerCallback::wrap,
             )
         } else {
             Command::none()
         };
 
         match msg {
-            LoggerMsg::Append(group, entry) => {
+            LoggerCallback::Append(group, entry) => {
                 self.append(group, entry);
             }
-            LoggerMsg::Extend(group, entries) => {
+            LoggerCallback::Extend(group, entries) => {
                 self.extend(group, entries);
             }
-            LoggerMsg::Flush => {
+            LoggerCallback::Flush => {
                 self.flush()?;
                 self.needs_flush = false;
             }
-            LoggerMsg::Finish => {
+            LoggerCallback::Finish => {
                 self.flush().map_err(|e| {
                     LoggerError(format!("Failed to graciously close logger:\n{e:#?}"))
                 })?;

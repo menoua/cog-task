@@ -1,15 +1,13 @@
 use super::Server;
 use eframe::egui;
+use egui::{CentralPanel, Color32, RichText};
 
 impl Server {
-    pub(crate) fn show_loading(&mut self, _ctx: &egui::Context) {
-        /*
-        Container::new(Text::new("...").size(TEXT_XLARGE))
-            .width(Length::Fill)
-            .height(Length::Fill)
-            .center_x()
-            .center_y()
-            .into()
-         */
+    pub(crate) fn show_loading(&mut self, ctx: &egui::Context) {
+        CentralPanel::default().show(ctx, |ui| {
+            ui.centered_and_justified(|ui| {
+                ui.label(RichText::new("...").color(Color32::BLACK).heading());
+            })
+        });
     }
 }

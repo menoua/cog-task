@@ -3,10 +3,10 @@ use crate::config::Config;
 use crate::error;
 use crate::error::Error::InvalidNameError;
 use crate::io::IO;
-use crate::logger::LoggerMsg;
+use crate::logger::LoggerCallback;
 use crate::resource::ResourceMap;
 use crate::scheduler::monitor::{Event, Monitor};
-use crate::server::ServerMsg;
+use crate::server::SyncCallback;
 use iced::Command;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -92,13 +92,13 @@ impl StatefulAction for StatefulKeyLogger {
         Ok(())
     }
 
-    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<ServerMsg>, error::Error> {
+    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<SyncCallback>, error::Error> {
         if let StatefulActionMsg::UpdateEvent(Event::Key(key)) = msg {
             let group = self.group.clone();
             let entry = ("key".to_string(), Value::String(format!("{key:?}")));
             Ok(Command::perform(
-                async move { LoggerMsg::Append(group, entry) },
-                LoggerMsg::wrap,
+                async move { LoggerCallback::Append(group, entry) },
+                LoggerCallback::wrap,
             ))
         } else {
             Ok(Command::none())

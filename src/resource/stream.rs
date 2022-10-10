@@ -14,6 +14,7 @@ pub fn stream_from_file(path: &Path, config: &Config) -> Result<Stream, error::E
     Stream::new(path, config)
 }
 
+#[derive(Clone)]
 pub enum Stream {
     Gst(gst::Stream),
     Ffmpeg(ffmpeg::Stream),
