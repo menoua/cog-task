@@ -6,16 +6,18 @@ mod startup;
 
 use crate::config::Config;
 use crate::env::Env;
-use crate::error;
 use crate::message::MessageBuffer;
 use crate::resource::ResourceMap;
 use crate::scheduler::{Scheduler, SchedulerMsg};
 use crate::system::SystemInfo;
 use crate::task::block::Block;
 use crate::task::Task;
+use crate::{error, style};
 use eframe::egui;
+use eframe::egui::{CentralPanel, Rect, Sense};
 use eframe::glow::HasContext;
-use iced::window;
+use egui_extras::{Size, StripBuilder};
+use iced::{window, Button};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -41,6 +43,7 @@ pub struct Server {
     task: Task,
     subject: String,
     scale_factor: f32,
+    hold_on_rescale: bool,
     resources: ResourceMap,
     scheduler: Option<Scheduler>,
     page: Page,
@@ -74,6 +77,7 @@ impl Server {
             task,
             subject: "".to_owned(),
             scale_factor: 1.0,
+            hold_on_rescale: false,
             resources: ResourceMap::new(),
             scheduler: None,
             page: Page::Startup,
@@ -123,7 +127,7 @@ impl Server {
             &self.title(),
             options,
             Box::new(|cc| {
-                crate::assets::setup(&cc.egui_ctx);
+                style::init(&cc.egui_ctx);
                 if let Some(gl) = &cc.gl {
                     self.sys_info
                         .renderer
@@ -397,7 +401,7 @@ impl eframe::App for Server {
     //     }
     // }
 
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         while let Some((_dest, message)) = self.buffer.pop_sync() {
             self.process(message);
         }
@@ -410,6 +414,13 @@ impl eframe::App for Server {
             Page::CleanUp => self.show_cleanup(ctx),
         }
 
-        ctx.request_repaint();
+        if !self.hold_on_rescale {
+            style::set_fullscreen_scale(ctx, self.scale_factor);
+        }
+        if matches!(self.page, Page::Activity) {
+            ctx.request_repaint();
+        } else {
+            ctx.request_repaint_after(Duration::from_millis(200));
+        }
     }
 }

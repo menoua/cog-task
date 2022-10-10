@@ -72,7 +72,7 @@ impl Server {
 
         StripBuilder::new(ui)
             .size(Size::remainder())
-            .size(Size::exact(height).at_most(600.0))
+            .size(Size::exact(height).at_most(400.0))
             .size(Size::remainder())
             .vertical(|mut strip| {
                 strip.empty();

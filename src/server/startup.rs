@@ -1,5 +1,6 @@
-use crate::assets::{Icon, PIXELS_PER_POINT};
+use crate::assets::Icon;
 use crate::server::{Page, Server};
+use crate::style;
 use crate::style::{style_ui, Style};
 use crate::util::{f32_with_precision, str_with_precision};
 use eframe::egui;
@@ -53,8 +54,6 @@ impl Server {
                     strip.strip(|builder| self.show_startup_controls(builder));
                 });
         });
-
-        ctx.set_pixels_per_point(PIXELS_PER_POINT * self.scale_factor);
     }
 
     fn show_startup_controls(&mut self, builder: StripBuilder) {
@@ -113,19 +112,16 @@ impl Server {
             if self.show_magnification {
                 strip.cell(|ui| {
                     ui.horizontal_centered(|ui| {
-                        ui.label(
-                            RichText::new(format!(
-                                "| x{} ",
-                                str_with_precision(self.scale_factor, 1)
-                            ))
-                            .size(18.0),
+                        let response = ui.add(
+                            egui::DragValue::new(&mut self.scale_factor)
+                                .prefix("x")
+                                .clamp_range(0.8..=1.1)
+                                .speed(0.01),
                         );
-                        style_ui(ui, Style::IconControls);
-                        if ui.button(RichText::new("A").size(16.0)).clicked() {
-                            interaction = Interaction::ZoomOut;
-                        }
-                        if ui.button(RichText::new("A").size(24.0)).clicked() {
-                            interaction = Interaction::ZoomIn;
+
+                        self.hold_on_rescale = response.dragged();
+                        if response.secondary_clicked() && !response.has_focus() {
+                            self.scale_factor = 1.0;
                         }
                     });
                 });

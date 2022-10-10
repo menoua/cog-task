@@ -1,9 +1,14 @@
+use crate::assets::{FONT_ICONS_BRANDS, FONT_ICONS_REGULAR, FONT_ICONS_SOLID};
 use eframe::egui;
-use eframe::egui::{Color32, Rgba, Rounding, Stroke, Vec2};
+use egui::{Color32, FontData, FontDefinitions, FontFamily, Rgba, Rounding, Stroke, Vec2};
 use iced::pure::widget::{button, radio, Column, Row};
 use iced::pure::Element;
 use iced::{Alignment, Background, Color};
 use iced_aw::pure::card;
+use std::time::{Duration, Instant};
+
+pub const SCREEN_SIZE: Vec2 = Vec2::new(960.0, 540.0);
+static mut RESCALE_TIMER: Option<Instant> = None;
 
 pub fn grid<'a, Message: 'static>(
     iter: Vec<impl Into<Element<'a, Message>>>,
@@ -401,4 +406,76 @@ pub fn style_ui(ui: &mut egui::Ui, style: Style) {
             ui.visuals_mut().widgets.noninteractive.rounding = rounding;
         }
     }
+}
+
+pub fn init(ctx: &egui::Context) {
+    // Start with the default fonts (we will be adding to them rather than replacing them).
+    let mut fonts = FontDefinitions::default();
+
+    // Icon fonts from font-awesome
+    fonts.font_data.insert(
+        "fa_brands_regular".to_owned(),
+        FontData::from_static(FONT_ICONS_BRANDS),
+    );
+    fonts.font_data.insert(
+        "fa_free_regular".to_owned(),
+        FontData::from_static(FONT_ICONS_REGULAR),
+    );
+    fonts.font_data.insert(
+        "fa_free_solid".to_owned(),
+        FontData::from_static(FONT_ICONS_SOLID),
+    );
+    fonts
+        .families
+        .entry(FontFamily::Name("fa_free".into()))
+        .or_default()
+        .extend(vec![
+            "fa_free_regular".to_owned(),
+            "fa_free_solid".to_owned(),
+            "fa_brands_regular".to_owned(),
+        ]);
+
+    // // Put my font first (highest priority) for proportional text:
+    // fonts
+    //     .families
+    //     .entry(egui::FontFamily::Proportional)
+    //     .or_default()
+    //     .insert(0, "my_font".to_owned());
+
+    // // Put my font as last fallback for monospace:
+    // fonts
+    //     .families
+    //     .entry(egui::FontFamily::Monospace)
+    //     .or_default()
+    //     .push("my_font".to_owned());
+
+    // Tell egui to use these fonts:
+    ctx.set_fonts(fonts);
+}
+
+pub fn set_fullscreen_scale(ctx: &egui::Context, scale: f32) {
+    let curr = ctx.pixels_per_point();
+    let size = ctx.input().screen_rect().size();
+    let mut scale = (size.x / SCREEN_SIZE.x).min(size.y / SCREEN_SIZE.y) * scale;
+
+    if (scale - 1.0).abs() > 1e-4 {
+        let now = Instant::now();
+        unsafe {
+            match RESCALE_TIMER {
+                None => {
+                    println!("Scaling {curr} by {scale}");
+                    RESCALE_TIMER = Some(now);
+                }
+                Some(timer) if timer.elapsed() > Duration::from_millis(200) => {
+                    println!("Scaling {curr} by {scale}");
+                    RESCALE_TIMER = Some(now);
+                }
+                _ => scale = 1.0,
+            }
+        }
+    } else {
+        scale = 1.0;
+    }
+
+    ctx.set_pixels_per_point(curr * scale);
 }

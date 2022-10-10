@@ -5,8 +5,6 @@ use spin_sleep::SpinStrategy;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-pub const PIXELS_PER_POINT: f32 = 4.0;
-
 pub const TEXT_TITLE: u16 = 45;
 pub const TEXT_XLARGE: u16 = 40;
 pub const TEXT_LARGE: u16 = 36;
@@ -21,18 +19,22 @@ pub const SPIN_STRATEGY: SpinStrategy = SpinStrategy::SpinLoopHint;
 pub const IMAGE_FIXATION: &[u8] = include_bytes!("assets/fixation.svg");
 pub const IMAGE_RUSTACEAN: &[u8] = include_bytes!("assets/rustacean.svg");
 
-pub const FONT_ICONS_BRANDS: Font = Font::External {
-    name: "fa-brands",
-    bytes: include_bytes!("assets/fonts/fa-6-brands-regular-400.otf"),
-};
-pub const FONT_ICONS_REGULAR: Font = Font::External {
-    name: "fa-regular",
-    bytes: include_bytes!("assets/fonts/fa-6-free-regular-400.otf"),
-};
-pub const FONT_ICONS_SOLID: Font = Font::External {
-    name: "fa-solid",
-    bytes: include_bytes!("assets/fonts/fa-6-free-solid-900.otf"),
-};
+// pub const FONT_ICONS_BRANDS: Font = Font::External {
+//     name: "fa-brands",
+//     bytes: include_bytes!("assets/fonts/fa-6-brands-regular-400.otf"),
+// };
+// pub const FONT_ICONS_REGULAR: Font = Font::External {
+//     name: "fa-regular",
+//     bytes: include_bytes!("assets/fonts/fa-6-free-regular-400.otf"),
+// };
+// pub const FONT_ICONS_SOLID: Font = Font::External {
+//     name: "fa-solid",
+//     bytes: include_bytes!("assets/fonts/fa-6-free-solid-900.otf"),
+// };
+pub const FONT_ICONS_BRANDS: &[u8] = include_bytes!("assets/fonts/fa-6-brands-regular-400.otf");
+pub const FONT_ICONS_REGULAR: &[u8] = include_bytes!("assets/fonts/fa-6-free-regular-400.otf");
+pub const FONT_ICONS_SOLID: &[u8] = include_bytes!("assets/fonts/fa-6-free-solid-900.otf");
+
 pub enum Icon {
     Help,
     SystemInfo,
@@ -65,51 +67,4 @@ impl From<Icon> for WidgetText {
     fn from(icon: Icon) -> Self {
         RichText::from(icon).into()
     }
-}
-
-pub fn setup(ctx: &egui::Context) {
-    ctx.set_pixels_per_point(PIXELS_PER_POINT);
-
-    // Start with the default fonts (we will be adding to them rather than replacing them).
-    let mut fonts = FontDefinitions::default();
-
-    // Icon fonts from font-awesome
-    fonts.font_data.insert(
-        "fa_brands_regular".to_owned(),
-        FontData::from_static(include_bytes!("assets/fonts/fa-6-brands-regular-400.otf")),
-    );
-    fonts.font_data.insert(
-        "fa_free_regular".to_owned(),
-        FontData::from_static(include_bytes!("assets/fonts/fa-6-free-regular-400.otf")),
-    );
-    fonts.font_data.insert(
-        "fa_free_solid".to_owned(),
-        FontData::from_static(include_bytes!("assets/fonts/fa-6-free-solid-900.otf")),
-    );
-    fonts
-        .families
-        .entry(FontFamily::Name("fa_free".into()))
-        .or_default()
-        .extend(vec![
-            "fa_free_regular".to_owned(),
-            "fa_free_solid".to_owned(),
-            "fa_brands_regular".to_owned(),
-        ]);
-
-    // // Put my font first (highest priority) for proportional text:
-    // fonts
-    //     .families
-    //     .entry(egui::FontFamily::Proportional)
-    //     .or_default()
-    //     .insert(0, "my_font".to_owned());
-
-    // // Put my font as last fallback for monospace:
-    // fonts
-    //     .families
-    //     .entry(egui::FontFamily::Monospace)
-    //     .or_default()
-    //     .push("my_font".to_owned());
-
-    // Tell egui to use these fonts:
-    ctx.set_fonts(fonts);
 }

@@ -1,5 +1,6 @@
-use crate::assets::{Icon, PIXELS_PER_POINT, VERSION};
+use crate::assets::{Icon, VERSION};
 use crate::message::{Destination, MessageBuffer};
+use crate::style;
 use crate::style::{style_ui, Style};
 use crate::system::SystemInfo;
 use eframe::egui;
@@ -167,7 +168,7 @@ impl Launcher {
             drag_and_drop_support: false,
             icon_data: None,
             initial_window_pos: None,
-            initial_window_size: Some(self.window_size() * PIXELS_PER_POINT / 2.0),
+            initial_window_size: Some(self.window_size() * 2.0),
             min_window_size: None,
             max_window_size: None,
             resizable: false,
@@ -190,7 +191,7 @@ impl Launcher {
             Self::title(),
             options,
             Box::new(|cc| {
-                crate::assets::setup(&cc.egui_ctx);
+                style::init(&cc.egui_ctx);
                 if let Some(gl) = &cc.gl {
                     self.sys_info
                         .renderer
@@ -199,14 +200,6 @@ impl Launcher {
                 Box::new(self)
             }),
         );
-    }
-
-    fn consume_sync_buffer(&mut self) {
-        while let Some((dst, msg)) = self.buffer.pop_sync() {
-            if dst.is_empty() {
-                self.process(msg);
-            }
-        }
     }
 
     fn process(&mut self, msg: Callback) {
@@ -245,9 +238,15 @@ pub enum Callback {
 
 impl eframe::App for Launcher {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        self.consume_sync_buffer();
+        while let Some((_dest, message)) = self.buffer.pop_sync() {
+            self.process(message);
+        }
+
         frame.set_window_size(self.window_size());
+
         self.show(ctx);
+
+        ctx.set_pixels_per_point(4.0);
         ctx.request_repaint_after(Duration::from_millis(200));
     }
 }
