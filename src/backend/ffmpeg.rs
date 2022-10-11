@@ -3,6 +3,10 @@ use crate::config::Config;
 use crate::error;
 use crate::error::Error::{BackendError, InternalError, InvalidConfigError, StreamDecodingError};
 use crate::resource::FrameBuffer;
+use eframe::egui;
+use eframe::egui::mutex::RwLock;
+use eframe::egui::{ColorImage, ImageData, TextureFilter, TextureId, Vec2};
+use eframe::epaint::TextureManager;
 use ffmpeg::format::{context::Input, input, Pixel};
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{context::Context, flag::Flags};
@@ -31,10 +35,16 @@ pub struct Stream {
     duration: Duration,
     is_eos: bool,
     paused: bool,
+    tex_manager: Arc<RwLock<TextureManager>>,
 }
 
 impl MediaStream for Stream {
-    fn new(path: &Path, _config: &Config, media_mode: MediaMode) -> Result<Self, error::Error> {
+    fn new(
+        tex_manager: Arc<RwLock<TextureManager>>,
+        path: &Path,
+        _config: &Config,
+        media_mode: MediaMode,
+    ) -> Result<Self, error::Error> {
         init()?;
 
         let context = input(&path)?;
@@ -98,12 +108,13 @@ impl MediaStream for Stream {
             duration,
             is_eos: false,
             paused: true,
+            tex_manager,
         })
     }
 
     fn cloned(
         &self,
-        frame: Arc<Mutex<Option<image::Handle>>>,
+        frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
         _volume: Option<f32>,
     ) -> Result<Self, error::Error> {
         let context = input(&self.path)?;
@@ -113,7 +124,10 @@ impl MediaStream for Stream {
 
         let context = Arc::new(Mutex::new(context));
         if let Some(index) = self.video_index {
+            let path = self.path.clone();
             let context = context.clone();
+            let tex_manager = self.tex_manager.clone();
+
             thread::spawn(move || {
                 let (mut decoder, mut scaler) = {
                     let context = context.lock().unwrap();
@@ -130,7 +144,7 @@ impl MediaStream for Stream {
                         decoder.format(),
                         decoder.width(),
                         decoder.height(),
-                        Pixel::BGRA,
+                        Pixel::RGBA, // Pixel::BGRA,
                         decoder.width(),
                         decoder.height(),
                         Flags::BILINEAR,
@@ -161,10 +175,16 @@ impl MediaStream for Stream {
                             scaler
                                 .run(&decoded, &mut bgra_frame)
                                 .expect("Failed to run scaler");
-                            *frame.lock().unwrap() = Some(image::Handle::from_pixels(
-                                bgra_frame.width(),
-                                bgra_frame.height(),
-                                bgra_frame.data(0).to_owned(),
+                            *frame.lock().unwrap() = Some((
+                                tex_manager.write().alloc(
+                                    format!("{:?}:@:[current]", path),
+                                    ImageData::Color(ColorImage::from_rgba_unmultiplied(
+                                        [bgra_frame.width() as _, bgra_frame.height() as _],
+                                        bgra_frame.data(0),
+                                    )),
+                                    TextureFilter::Linear,
+                                ),
+                                Vec2::new(bgra_frame.width() as _, bgra_frame.height() as _),
                             ));
                         }
                     }
@@ -206,6 +226,7 @@ impl MediaStream for Stream {
             duration: self.duration,
             is_eos: self.is_eos,
             paused: self.paused,
+            tex_manager: self.tex_manager.clone(),
         })
     }
 
@@ -324,10 +345,21 @@ impl MediaStream for Stream {
                 scaler
                     .run(&decoded, &mut bgra_frame)
                     .expect("Failed to run scaler");
-                frames.push(image::Handle::from_pixels(
-                    bgra_frame.width(),
-                    bgra_frame.height(),
-                    bgra_frame.data(0).to_owned(),
+                // frames.push(image::Handle::from_pixels(
+                //     bgra_frame.width(),
+                //     bgra_frame.height(),
+                //     bgra_frame.data(0).to_owned(),
+                // ));
+                frames.push((
+                    self.tex_manager.write().alloc(
+                        format!("{:?}:@:{}", self.path, frames.len()),
+                        ImageData::Color(ColorImage::from_rgba_unmultiplied(
+                            [bgra_frame.width() as _, bgra_frame.height() as _],
+                            bgra_frame.data(0),
+                        )),
+                        TextureFilter::Linear,
+                    ),
+                    Vec2::new(bgra_frame.width() as _, bgra_frame.height() as _),
                 ));
             }
         }

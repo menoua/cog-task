@@ -1,14 +1,16 @@
 use crate::action::{Action, StatefulAction, StatefulActionMsg, Style};
+use crate::callback::CallbackQueue;
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidNameError};
 use crate::io::IO;
 use crate::logger::LoggerCallback;
 use crate::resource::ResourceMap;
-use crate::scheduler::SchedulerMsg;
-use crate::server::SyncCallback;
+use crate::scheduler::{AsyncCallback, SyncCallback};
 use crate::style;
 use crate::util::{f32_with_precision, f64_with_precision, str_with_precision};
+use eframe::egui;
+use eframe::egui::CentralPanel;
 use iced::alignment::{Horizontal, Vertical};
 use iced::pure::widget::{
     Button, Checkbox, Column, Container, Radio, Row, Rule, Scrollable, Slider, Space, Text,
@@ -360,186 +362,193 @@ impl StatefulAction for StatefulQuestion {
         Ok(())
     }
 
-    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<SyncCallback>, error::Error> {
-        Ok(match msg {
-            StatefulActionMsg::Update(0x00) => {
-                self.done = true;
-                let answers = LoggerCallback::Extend(
-                    self.group.clone(),
-                    self.list.iter().map(|q| q.to_string()).collect(),
-                );
-                Command::batch([
-                    Command::perform(async move { answers }, LoggerCallback::wrap),
-                    Command::perform(async { SchedulerMsg::Advance }, SchedulerMsg::wrap),
-                ])
-            }
-            StatefulActionMsg::UpdateInt(code, value) => {
-                self.list[code as usize / SHIFT].set_answer_i32(code as usize % SHIFT, value)?;
-                Command::none()
-            }
-            StatefulActionMsg::UpdateFloat(code, value) => {
-                self.list[code as usize / SHIFT].set_answer_f32(code as usize % SHIFT, value)?;
-                Command::none()
-            }
-            StatefulActionMsg::UpdateBool(code, value) => {
-                self.list[code as usize / SHIFT].set_answer_bool(code as usize % SHIFT, value)?;
-                Command::none()
-            }
-            StatefulActionMsg::UpdateString(code, value) => {
-                self.list[code as usize / SHIFT].set_answer_str(code as usize % SHIFT, value)?;
-                Command::none()
-            }
-            _ => Command::none(),
-        })
-    }
+    // fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<SyncCallback>, error::Error> {
+    //     Ok(match msg {
+    //         StatefulActionMsg::Update(0x00) => {
+    //             self.done = true;
+    //             let answers = LoggerCallback::Extend(
+    //                 self.group.clone(),
+    //                 self.list.iter().map(|q| q.to_string()).collect(),
+    //             );
+    //             Command::batch([
+    //                 Command::perform(async move { answers }, LoggerCallback::wrap),
+    //                 Command::perform(async { SchedulerMsg::Advance }, SchedulerMsg::wrap),
+    //             ])
+    //         }
+    //         StatefulActionMsg::UpdateInt(code, value) => {
+    //             self.list[code as usize / SHIFT].set_answer_i32(code as usize % SHIFT, value)?;
+    //             Command::none()
+    //         }
+    //         StatefulActionMsg::UpdateFloat(code, value) => {
+    //             self.list[code as usize / SHIFT].set_answer_f32(code as usize % SHIFT, value)?;
+    //             Command::none()
+    //         }
+    //         StatefulActionMsg::UpdateBool(code, value) => {
+    //             self.list[code as usize / SHIFT].set_answer_bool(code as usize % SHIFT, value)?;
+    //             Command::none()
+    //         }
+    //         StatefulActionMsg::UpdateString(code, value) => {
+    //             self.list[code as usize / SHIFT].set_answer_str(code as usize % SHIFT, value)?;
+    //             Command::none()
+    //         }
+    //         _ => Command::none(),
+    //     })
+    // }
 
-    fn view(&self, _scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
-        let mut content: Column<SyncCallback> = Column::new()
-            .spacing(30)
-            .padding([0, 15])
-            .align_items(Alignment::Start);
-
-        for (i, question) in self.list.iter().enumerate() {
-            if i > 0 {
-                content = content.push(Rule::horizontal(5));
-            }
-
-            let prompt = match question {
-                StatefulQItem::SingleLine { prompt, .. }
-                | StatefulQItem::MultiLine { prompt, .. }
-                | StatefulQItem::SingleChoice { prompt, .. }
-                | StatefulQItem::MultiChoice { prompt, .. }
-                | StatefulQItem::Slider { prompt, .. } => Text::new(prompt).size(34),
-            };
-
-            let fields = match question {
-                StatefulQItem::SingleLine { input, .. } => Container::new(
-                    TextInput::new("Your answer goes here", input, move |s| {
-                        StatefulActionMsg::UpdateString(SHIFT * i, s).wrap()
-                    })
-                    .size(32)
-                    .padding([5, 9]),
-                ),
-                StatefulQItem::MultiLine { input, .. } => Container::new(
-                    TextInput::new("Your answer goes here", input, move |s| {
-                        StatefulActionMsg::UpdateString(SHIFT * i, s).wrap()
-                    })
-                    .size(32)
-                    .padding([5, 9]),
-                ),
-                StatefulQItem::SingleChoice {
-                    options,
-                    choice,
-                    columns,
-                    ..
-                } => {
-                    let options: Vec<_> = options
-                        .iter()
-                        .enumerate()
-                        .map(|(j, o)| {
-                            Radio::new(j, o.to_string(), *choice, |e| {
-                                StatefulActionMsg::UpdateBool(SHIFT * i + e, true).wrap()
-                            })
-                            .style(style::Radio)
-                            .text_size(32)
-                            .size(25)
-                        })
-                        .collect();
-                    Container::new(style::grid(options, *columns as usize, 15, 45))
-                }
-                StatefulQItem::MultiChoice {
-                    options,
-                    columns,
-                    choice,
-                    ..
-                } => {
-                    let options: Vec<_> = options
-                        .iter()
-                        .enumerate()
-                        .map(|(j, o)| {
-                            Checkbox::new(choice[j], o.to_string(), move |e| {
-                                StatefulActionMsg::UpdateBool(SHIFT * i + j, e).wrap()
-                            })
-                            .text_size(32)
-                            .size(25)
-                        })
-                        .collect();
-                    Container::new(style::grid(options, *columns as usize, 15, 45))
-                }
-                StatefulQItem::Slider {
-                    range,
-                    step,
-                    choice,
-                    precision,
-                    ..
-                } => Container::new(
-                    Row::new()
-                        .align_items(Alignment::Center)
-                        .spacing(30)
-                        .padding([0, 150])
-                        .push(
-                            Text::new(str_with_precision(range.0, *precision))
-                                .size(32)
-                                .vertical_alignment(Vertical::Center),
-                        )
-                        .push(
-                            Slider::new(RangeInclusive::new(range.0, range.1), *choice, move |v| {
-                                StatefulActionMsg::UpdateFloat(SHIFT * i, v).wrap()
-                            })
-                            .step(*step)
-                            .width(Length::Units(350)),
-                        )
-                        .push(
-                            Text::new(str_with_precision(range.1, *precision))
-                                .size(32)
-                                .vertical_alignment(Vertical::Center),
-                        )
-                        .push(Space::with_width(Length::Fill))
-                        .push(
-                            Text::new(str_with_precision(*choice, *precision))
-                                .size(32)
-                                .vertical_alignment(Vertical::Center),
-                        ),
-                ),
-            }
-            .width(Length::Fill)
-            .padding([0, 15])
-            .center_x();
-
-            content = content.push(Column::new().spacing(30).push(prompt).push(fields));
-        }
-
-        let content = Scrollable::new(content);
-        let submit = Button::new(
-            Text::new("Submit")
-                .size(34)
-                .horizontal_alignment(Horizontal::Center)
-                .vertical_alignment(Vertical::Center),
-        )
-        .padding([20, 60])
-        .style(style::Submit)
-        .on_press(StatefulActionMsg::Update(0x00).wrap());
-
-        Ok(Container::new(
-            Column::new()
-                .max_width(1200)
-                .align_items(Alignment::Center)
-                .spacing(40)
-                .push(content.height(Length::FillPortion(9)))
-                .push(Rule::horizontal(5))
-                .push(
-                    Container::new(submit)
-                        .width(Length::Fill)
-                        .height(Length::FillPortion(1))
-                        .center_x()
-                        .center_y(),
-                ),
-        )
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .padding(75)
-        .center_x()
-        .center_y()
-        .into())
+    fn show(
+        &mut self,
+        ctx: &egui::Context,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
+        CentralPanel::default().show(ctx, |ui| {});
+        // let mut content: Column<SyncCallback> = Column::new()
+        //     .spacing(30)
+        //     .padding([0, 15])
+        //     .align_items(Alignment::Start);
+        //
+        // for (i, question) in self.list.iter().enumerate() {
+        //     if i > 0 {
+        //         content = content.push(Rule::horizontal(5));
+        //     }
+        //
+        //     let prompt = match question {
+        //         StatefulQItem::SingleLine { prompt, .. }
+        //         | StatefulQItem::MultiLine { prompt, .. }
+        //         | StatefulQItem::SingleChoice { prompt, .. }
+        //         | StatefulQItem::MultiChoice { prompt, .. }
+        //         | StatefulQItem::Slider { prompt, .. } => Text::new(prompt).size(34),
+        //     };
+        //
+        //     let fields = match question {
+        //         StatefulQItem::SingleLine { input, .. } => Container::new(
+        //             TextInput::new("Your answer goes here", input, move |s| {
+        //                 StatefulActionMsg::UpdateString(SHIFT * i, s).wrap()
+        //             })
+        //             .size(32)
+        //             .padding([5, 9]),
+        //         ),
+        //         StatefulQItem::MultiLine { input, .. } => Container::new(
+        //             TextInput::new("Your answer goes here", input, move |s| {
+        //                 StatefulActionMsg::UpdateString(SHIFT * i, s).wrap()
+        //             })
+        //             .size(32)
+        //             .padding([5, 9]),
+        //         ),
+        //         StatefulQItem::SingleChoice {
+        //             options,
+        //             choice,
+        //             columns,
+        //             ..
+        //         } => {
+        //             let options: Vec<_> = options
+        //                 .iter()
+        //                 .enumerate()
+        //                 .map(|(j, o)| {
+        //                     Radio::new(j, o.to_string(), *choice, |e| {
+        //                         StatefulActionMsg::UpdateBool(SHIFT * i + e, true).wrap()
+        //                     })
+        //                     .style(style::Radio)
+        //                     .text_size(32)
+        //                     .size(25)
+        //                 })
+        //                 .collect();
+        //             Container::new(style::grid(options, *columns as usize, 15, 45))
+        //         }
+        //         StatefulQItem::MultiChoice {
+        //             options,
+        //             columns,
+        //             choice,
+        //             ..
+        //         } => {
+        //             let options: Vec<_> = options
+        //                 .iter()
+        //                 .enumerate()
+        //                 .map(|(j, o)| {
+        //                     Checkbox::new(choice[j], o.to_string(), move |e| {
+        //                         StatefulActionMsg::UpdateBool(SHIFT * i + j, e).wrap()
+        //                     })
+        //                     .text_size(32)
+        //                     .size(25)
+        //                 })
+        //                 .collect();
+        //             Container::new(style::grid(options, *columns as usize, 15, 45))
+        //         }
+        //         StatefulQItem::Slider {
+        //             range,
+        //             step,
+        //             choice,
+        //             precision,
+        //             ..
+        //         } => Container::new(
+        //             Row::new()
+        //                 .align_items(Alignment::Center)
+        //                 .spacing(30)
+        //                 .padding([0, 150])
+        //                 .push(
+        //                     Text::new(str_with_precision(range.0, *precision))
+        //                         .size(32)
+        //                         .vertical_alignment(Vertical::Center),
+        //                 )
+        //                 .push(
+        //                     Slider::new(RangeInclusive::new(range.0, range.1), *choice, move |v| {
+        //                         StatefulActionMsg::UpdateFloat(SHIFT * i, v).wrap()
+        //                     })
+        //                     .step(*step)
+        //                     .width(Length::Units(350)),
+        //                 )
+        //                 .push(
+        //                     Text::new(str_with_precision(range.1, *precision))
+        //                         .size(32)
+        //                         .vertical_alignment(Vertical::Center),
+        //                 )
+        //                 .push(Space::with_width(Length::Fill))
+        //                 .push(
+        //                     Text::new(str_with_precision(*choice, *precision))
+        //                         .size(32)
+        //                         .vertical_alignment(Vertical::Center),
+        //                 ),
+        //         ),
+        //     }
+        //     .width(Length::Fill)
+        //     .padding([0, 15])
+        //     .center_x();
+        //
+        //     content = content.push(Column::new().spacing(30).push(prompt).push(fields));
+        // }
+        //
+        // let content = Scrollable::new(content);
+        // let submit = Button::new(
+        //     Text::new("Submit")
+        //         .size(34)
+        //         .horizontal_alignment(Horizontal::Center)
+        //         .vertical_alignment(Vertical::Center),
+        // )
+        // .padding([20, 60])
+        // .style(style::Submit)
+        // .on_press(StatefulActionMsg::Update(0x00).wrap());
+        //
+        // Ok(Container::new(
+        //     Column::new()
+        //         .max_width(1200)
+        //         .align_items(Alignment::Center)
+        //         .spacing(40)
+        //         .push(content.height(Length::FillPortion(9)))
+        //         .push(Rule::horizontal(5))
+        //         .push(
+        //             Container::new(submit)
+        //                 .width(Length::Fill)
+        //                 .height(Length::FillPortion(1))
+        //                 .center_x()
+        //                 .center_y(),
+        //         ),
+        // )
+        // .width(Length::Fill)
+        // .height(Length::Fill)
+        // .padding(75)
+        // .center_x()
+        // .center_y()
+        // .into())
+        Ok(())
     }
 }

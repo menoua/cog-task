@@ -3,6 +3,9 @@ use crate::config::{Config, MediaBackend, TriggerType};
 use crate::error;
 use crate::error::Error::{BackendError, ResourceLoadError};
 use crate::resource::FrameBuffer;
+use eframe::egui::mutex::RwLock;
+use eframe::egui::{TextureId, Vec2};
+use eframe::epaint::TextureManager;
 use iced::pure::widget::image;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
@@ -10,8 +13,12 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-pub fn stream_from_file(path: &Path, config: &Config) -> Result<Stream, error::Error> {
-    Stream::new(path, config)
+pub fn stream_from_file(
+    tex_manager: Arc<RwLock<TextureManager>>,
+    path: &Path,
+    config: &Config,
+) -> Result<Stream, error::Error> {
+    Stream::new(tex_manager, path, config)
 }
 
 #[derive(Clone)]
@@ -29,7 +36,11 @@ impl Debug for Stream {
 
 impl Stream {
     /// Create a new video object from a given video file.
-    pub fn new(path: &Path, config: &Config) -> Result<Self, error::Error> {
+    pub fn new(
+        tex_manager: Arc<RwLock<TextureManager>>,
+        path: &Path,
+        config: &Config,
+    ) -> Result<Self, error::Error> {
         {
             File::open(path).map_err(|e| {
                 ResourceLoadError(format!("Failed to load video file ({path:?}):\n{e:#?}"))
@@ -53,9 +64,11 @@ impl Stream {
                 "Action type `stream` cannot be used with media backend `None`".to_owned(),
             )),
             MediaBackend::Ffmpeg => {
-                ffmpeg::Stream::new(path, config, media_mode).map(Stream::Ffmpeg)
+                ffmpeg::Stream::new(tex_manager, path, config, media_mode).map(Stream::Ffmpeg)
             }
-            MediaBackend::Gst => gst::Stream::new(path, config, media_mode).map(Stream::Gst),
+            MediaBackend::Gst => {
+                gst::Stream::new(tex_manager, path, config, media_mode).map(Stream::Gst)
+            }
         }
     }
 
@@ -191,7 +204,7 @@ impl Stream {
 
     pub fn cloned(
         &self,
-        frame: Arc<Mutex<Option<image::Handle>>>,
+        frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
         volume: Option<f32>,
     ) -> Result<Self, error::Error> {
         match self {

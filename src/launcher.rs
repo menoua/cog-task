@@ -31,7 +31,7 @@ pub struct Launcher {
     active_task: Option<String>,
     status: Status,
     sys_info: SystemInfo,
-    sync_queue: CallbackQueue<SyncCallback>,
+    sync_queue: CallbackQueue<LauncherCallback>,
 }
 
 impl Default for Launcher {
@@ -137,9 +137,12 @@ impl Launcher {
                     }
                     if !stderr.is_empty() {
                         eprintln!("\n{stderr}");
-                        buffer.push(Destination::default(), SyncCallback::TaskCrashed(stderr));
+                        buffer.push(
+                            Destination::default(),
+                            LauncherCallback::TaskCrashed(stderr),
+                        );
                     } else {
-                        buffer.push(Destination::default(), SyncCallback::TaskClosed);
+                        buffer.push(Destination::default(), LauncherCallback::TaskClosed);
                     }
                 }
                 Err(e) => {
@@ -148,7 +151,10 @@ impl Launcher {
                             bin/server relative to the launcher.\n{e:#?}"
                     );
                     println!("\nEE: {status}");
-                    buffer.push(Destination::default(), SyncCallback::TaskCrashed(status));
+                    buffer.push(
+                        Destination::default(),
+                        LauncherCallback::TaskCrashed(status),
+                    );
                 }
             }
         });
@@ -202,12 +208,12 @@ impl Launcher {
         );
     }
 
-    fn process(&mut self, msg: SyncCallback) {
+    fn process(&mut self, msg: LauncherCallback) {
         match (self.busy, msg) {
-            (true, SyncCallback::TaskClosed) => {
+            (true, LauncherCallback::TaskClosed) => {
                 self.busy = false;
             }
-            (true, SyncCallback::TaskCrashed(status)) => {
+            (true, LauncherCallback::TaskCrashed(status)) => {
                 self.status = Status::Result(status);
                 self.busy = false;
             }
@@ -231,7 +237,7 @@ impl Launcher {
 }
 
 #[derive(Debug, Clone)]
-pub enum SyncCallback {
+pub enum LauncherCallback {
     TaskCrashed(String),
     TaskClosed,
 }

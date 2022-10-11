@@ -1,12 +1,12 @@
 use crate::action::{Action, StatefulAction};
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
+use crate::callback::{CallbackQueue, Destination};
 use crate::config::{Config, TimePrecision};
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::SchedulerMsg;
-use crate::server::SyncCallback;
+use crate::scheduler::{AsyncCallback, SyncCallback};
 use iced::Command;
 use rodio::{Sink, Source};
 use serde::{Deserialize, Serialize};
@@ -189,7 +189,11 @@ impl StatefulAction for StatefulAudio {
         Ok(())
     }
 
-    fn start(&mut self) -> Result<Command<SyncCallback>, error::Error> {
+    fn start(
+        &mut self,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        _async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
                 "Link to audio thread could not be acquired for action `{}`",
@@ -204,15 +208,15 @@ impl StatefulAction for StatefulAudio {
         })?;
 
         let done = self.done.clone();
+        let mut sync_queue = sync_queue.clone();
+        thread::spawn(move || {
+            let link = link;
+            let _ = link.1.recv();
+            *done.lock().unwrap() = true;
+            sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
+        });
 
-        Ok(Command::perform(
-            async move {
-                let link = link;
-                let _ = link.1.recv();
-                *done.lock().unwrap() = true;
-            },
-            |()| SchedulerMsg::Advance.wrap(),
-        ))
+        Ok(())
     }
 }
 

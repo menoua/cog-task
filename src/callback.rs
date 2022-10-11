@@ -12,8 +12,8 @@ impl<T> CallbackQueue<T> {
     }
 
     #[inline(always)]
-    pub fn push(&mut self, dst: Destination, msg: T) {
-        self.0.lock().unwrap().push_back((dst, msg));
+    pub fn push(&mut self, dst: Destination, msg: impl Into<T>) {
+        self.0.lock().unwrap().push_back((dst, msg.into()));
     }
 
     #[inline(always)]

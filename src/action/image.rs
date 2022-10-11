@@ -1,10 +1,13 @@
 use crate::action::{Action, StatefulAction};
+use crate::callback::CallbackQueue;
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::server::SyncCallback;
+use crate::scheduler::{AsyncCallback, SyncCallback};
+use eframe::egui;
+use eframe::egui::{CentralPanel, TextureId, Vec2};
 use iced::pure::widget::{image, svg, Container};
 use iced::pure::Element;
 use iced::{ContentFit, Length};
@@ -17,7 +20,7 @@ use std::sync::Arc;
 pub struct Image {
     src: PathBuf,
     #[serde(default)]
-    width: Option<u16>,
+    width: Option<f32>,
     #[serde(default)]
     style: String,
 }
@@ -36,16 +39,18 @@ impl Action for Image {
         _io: &IO,
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         match res.fetch(&self.src)? {
-            ResourceValue::Image(image) => Ok(Box::new(StatefulImage {
+            ResourceValue::Image(texture, size) => Ok(Box::new(StatefulImage {
                 id,
                 done: false,
-                handle: image,
+                handle: texture,
+                size,
                 width: self.width,
             })),
-            ResourceValue::Svg(image) => Ok(Box::new(StatefulSvg {
+            ResourceValue::Svg(texture, size) => Ok(Box::new(StatefulSvg {
                 id,
                 done: false,
-                handle: image,
+                handle: texture,
+                size,
                 width: self.width,
             })),
             _ => Err(InvalidResourceError(format!(
@@ -60,8 +65,10 @@ impl Action for Image {
 pub struct StatefulImage {
     id: usize,
     done: bool,
-    handle: Arc<image::Handle>,
-    width: Option<u16>,
+    // handle: Arc<image::Handle>,
+    handle: TextureId,
+    size: Vec2,
+    width: Option<f32>,
 }
 
 impl StatefulAction for StatefulImage {
@@ -91,33 +98,23 @@ impl StatefulAction for StatefulImage {
         Ok(())
     }
 
-    fn view(&self, scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
-        let image = image::Image::new(self.handle.as_ref().clone());
-        Ok(if let Some(width) = self.width {
-            let width = (scale_factor * width as f32) as u16;
-            Container::new(
-                Container::new(
-                    image
-                        .content_fit(ContentFit::Contain)
-                        .width(Length::Units(width))
-                        .height(Length::Fill),
-                )
-                .width(Length::Units(width))
-                .height(Length::Fill)
-                .center_x()
-                .center_y(),
-            )
-        } else {
-            Container::new(image.content_fit(ContentFit::ScaleDown))
-                .height(Length::Fill)
-                .center_x()
-                .center_y()
-        }
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x()
-        .center_y()
-        .into())
+    fn show(
+        &mut self,
+        ctx: &egui::Context,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
+        CentralPanel::default().show(ctx, |ui| {
+            ui.centered_and_justified(|ui| {
+                if let Some(width) = self.width {
+                    let scale = width / self.size.x;
+                    ui.image(self.handle, self.size * scale);
+                } else {
+                    ui.image(self.handle, self.size);
+                }
+            })
+        });
+        Ok(())
     }
 }
 
@@ -125,8 +122,10 @@ impl StatefulAction for StatefulImage {
 pub struct StatefulSvg {
     id: usize,
     done: bool,
-    handle: Arc<svg::Handle>,
-    width: Option<u16>,
+    // handle: Arc<svg::Handle>,
+    handle: TextureId,
+    size: Vec2,
+    width: Option<f32>,
 }
 
 impl StatefulAction for StatefulSvg {
@@ -151,33 +150,23 @@ impl StatefulAction for StatefulSvg {
         Ok(())
     }
 
-    fn view(&self, scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
-        let image = svg::Svg::new(self.handle.as_ref().clone());
-        Ok(if let Some(width) = self.width {
-            let width = (scale_factor * width as f32) as u16;
-            Container::new(
-                Container::new(
-                    image
-                        .content_fit(ContentFit::Contain)
-                        .width(Length::Units(width))
-                        .height(Length::Fill),
-                )
-                .width(Length::Units(width))
-                .height(Length::Fill)
-                .center_x()
-                .center_y(),
-            )
-        } else {
-            Container::new(image.content_fit(ContentFit::ScaleDown))
-                .height(Length::Fill)
-                .center_x()
-                .center_y()
-        }
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x()
-        .center_y()
-        .into())
+    fn show(
+        &mut self,
+        ctx: &egui::Context,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
+        CentralPanel::default().show(ctx, |ui| {
+            ui.centered_and_justified(|ui| {
+                if let Some(width) = self.width {
+                    let scale = width / self.size.x;
+                    ui.image(self.handle, self.size * scale);
+                } else {
+                    ui.image(self.handle, self.size);
+                }
+            })
+        });
+        Ok(())
     }
 }
 
@@ -185,7 +174,7 @@ impl StatefulAction for StatefulSvg {
 #[serde(deny_unknown_fields)]
 pub struct Fixation {
     #[serde(default)]
-    width: Option<u16>,
+    width: Option<f32>,
     #[serde(default)]
     style: String,
 }

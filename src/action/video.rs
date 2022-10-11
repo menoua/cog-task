@@ -1,12 +1,15 @@
 use crate::action::{Action, StatefulAction};
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
+use crate::callback::{CallbackQueue, Destination};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::{monitor::Monitor, SchedulerMsg};
-use crate::server::SyncCallback;
+use crate::scheduler::monitor::Monitor;
+use crate::scheduler::{AsyncCallback, SyncCallback};
+use eframe::egui;
+use eframe::egui::{CentralPanel, TextureId, Vec2};
 use iced::pure::widget::{image, Container};
 use iced::pure::Element;
 use iced::{Command, ContentFit, Length};
@@ -116,7 +119,7 @@ impl Action for Video {
 pub struct StatefulVideo {
     id: usize,
     done: Arc<Mutex<bool>>,
-    frames: Arc<Vec<image::Handle>>,
+    frames: Arc<Vec<(TextureId, Vec2)>>,
     framerate: f64,
     position: Arc<Mutex<usize>>,
     width: Option<u16>,
@@ -146,18 +149,17 @@ impl StatefulAction for StatefulVideo {
     }
 
     #[inline(always)]
-    fn monitors(&self) -> Option<Monitor> {
-        Some(Monitor::Frames(self.framerate))
-    }
-
-    #[inline(always)]
     fn stop(&mut self) -> Result<(), error::Error> {
         *self.done.lock().unwrap() = true;
         Ok(())
     }
 
     #[inline(always)]
-    fn start(&mut self) -> Result<Command<SyncCallback>, error::Error> {
+    fn start(
+        &mut self,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
                 "Link to video thread could not be acquired for action `{}`",
@@ -172,49 +174,36 @@ impl StatefulAction for StatefulVideo {
         })?;
 
         let done = self.done.clone();
+        let mut sync_queue = sync_queue.clone();
+        thread::spawn(move || {
+            let link = link;
+            let _ = link.1.recv();
+            *done.lock().unwrap() = true;
+            sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
+        });
 
-        Ok(Command::batch([
-            Command::perform(async {}, |()| SchedulerMsg::Refresh(0).wrap()),
-            Command::perform(
-                async move {
-                    let link = link;
-                    let _ = link.1.recv();
-                    *done.lock().unwrap() = true;
-                },
-                |()| SchedulerMsg::Advance.wrap(),
-            ),
-        ]))
+        Ok(())
     }
 
-    fn view(&self, scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
-        let position = *self.position.lock().unwrap();
-        let image =
-            image::Image::new(self.frames[position].clone()).content_fit(ContentFit::ScaleDown);
+    fn show(
+        &mut self,
+        ctx: &egui::Context,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
+        let (texture, size) = self.frames[*self.position.lock().unwrap()];
 
-        Ok(if let Some(width) = self.width {
-            let width = (scale_factor * width as f32) as u16;
-            Container::new(
-                Container::new(
-                    image
-                        .content_fit(ContentFit::Contain)
-                        .width(Length::Units(width))
-                        .height(Length::Fill),
-                )
-                .width(Length::Units(width))
-                .height(Length::Fill)
-                .center_x()
-                .center_y(),
-            )
-        } else {
-            Container::new(image.content_fit(ContentFit::ScaleDown))
-                .height(Length::Fill)
-                .center_x()
-                .center_y()
-        }
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x()
-        .center_y()
-        .into())
+        CentralPanel::default().show(ctx, |ui| {
+            ui.centered_and_justified(|ui| {
+                if let Some(width) = self.width {
+                    let scale = width as f32 / size.x;
+                    ui.image(texture, size * scale);
+                } else {
+                    ui.image(texture, size);
+                }
+            })
+        });
+
+        Ok(())
     }
 }

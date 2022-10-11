@@ -10,7 +10,7 @@ use crate::config::Config;
 use crate::env::Env;
 use crate::logger::LoggerCallback;
 use crate::resource::ResourceMap;
-use crate::scheduler::{Scheduler, SchedulerMsg};
+use crate::scheduler::Scheduler;
 use crate::system::SystemInfo;
 use crate::task::block::Block;
 use crate::task::Task;
@@ -57,14 +57,12 @@ pub struct Server {
     _needs_refresh: bool,
     active_block: Option<usize>,
     capture_key: bool,
-    capture_fps: Option<f64>,
     animation_id: u32,
     status: Option<Result<String, error::Error>>,
     show_magnification: bool,
     bin_hash: String,
     sys_info: SystemInfo,
-    sync_queue: CallbackQueue<SyncCallback>,
-    async_queue: CallbackQueue<AsyncCallback>,
+    sync_queue: CallbackQueue<ServerCallback>,
 }
 
 impl Server {
@@ -92,14 +90,12 @@ impl Server {
             _needs_refresh: false,
             active_block: None,
             capture_key: false,
-            capture_fps: None,
             animation_id: 0,
             status: None,
             show_magnification: false,
             bin_hash,
             sys_info: SystemInfo::new(),
             sync_queue: CallbackQueue::new(),
-            async_queue: CallbackQueue::new(),
         })
     }
 
@@ -194,90 +190,56 @@ impl Server {
         &self.task
     }
 
-    fn process(&mut self, message: SyncCallback) {
-        match (self.page, message) {
-            (Page::Loading, SyncCallback::LoadComplete) => match Scheduler::new(self) {
-                Ok((scheduler, _)) => {
-                    self.scheduler = Some(scheduler);
-                    match self.scheduler.as_mut().unwrap().start() {
+    fn process(&mut self, callback: ServerCallback) {
+        match (self.page, callback) {
+            (Page::Loading, ServerCallback::LoadComplete) => match Scheduler::new(self) {
+                Ok(mut scheduler) => {
+                    match scheduler.start() {
                         Ok(_) => {
                             self.page = Page::Activity;
                             self.capture_key = true;
+                            if let Err(e) = scheduler.advance() {
+                                self.sync_queue
+                                    .push(Destination::default(), ServerCallback::BlockCrashed(e));
+                            }
                         }
                         Err(e) => {
                             self.sync_queue
-                                .push(Destination::default(), SyncCallback::BlockCrashed(e));
+                                .push(Destination::default(), ServerCallback::BlockCrashed(e));
                         }
                     }
+                    self.scheduler = Some(scheduler);
                 }
                 Err(e) => {
                     self.sync_queue
-                        .push(Destination::default(), SyncCallback::BlockCrashed(e));
+                        .push(Destination::default(), ServerCallback::BlockCrashed(e));
                 }
             },
-            (Page::Activity, SyncCallback::BlockFinished) => {
-                // self.status = Some(Ok("Success".to_owned()));
-                // self.page = Page::CleanUp;
-                // self.capture_key = false;
-                // self.capture_fps = None;
-                // self.animation_id = 0;
-                // thread::sleep(MIN_UPDATE_DELAY);
-                // Command::perform(
-                //     async move {
-                //         thread::sleep(Duration::from_millis(500));
-                //     },
-                //     |()| ServerMsg::DropScheduler,
-                // )
-            }
-            (Page::Activity, SyncCallback::BlockInterrupted) => {
-                // self.status = Some(Ok("Interrupted".to_owned()));
-                // self.page = Page::CleanUp;
-                // self.capture_key = false;
-                // self.capture_fps = None;
-                // self.animation_id = 0;
-                // thread::sleep(MIN_UPDATE_DELAY);
-                // Command::perform(
-                //     async move {
-                //         thread::sleep(Duration::from_millis(500));
-                //     },
-                //     |()| ServerMsg::DropScheduler,
-                // )
-            }
-            (Page::Loading | Page::Activity, SyncCallback::BlockCrashed(e)) => {
-                self.status = Some(Err(e.clone()));
+            (Page::Activity, ServerCallback::BlockFinished) => {
+                self.status = Some(Ok("Success".to_owned()));
                 self.page = Page::CleanUp;
                 self.capture_key = false;
-                self.capture_fps = None;
                 self.animation_id = 0;
-
-                self.async_queue.push(
-                    Destination::default(),
-                    AsyncCallback::Logger(LoggerCallback::Append(
-                        "mainevent".to_owned(),
-                        ("crash".to_owned(), Value::String(format!("{e:#?}"))),
-                    )),
-                );
 
                 self.drop_scheduler();
             }
-            (Page::Loading | Page::Activity, SyncCallback::Relay(_msg)) => {
-                // if let Some(scheduler) = self.scheduler.as_mut() {
-                //     let at_least_until = Instant::now() + MIN_UPDATE_DELAY;
-                //     match scheduler.update(msg) {
-                //         Ok(cmd) => {
-                //             // cmd
-                //         }
-                //         Err(e) => {
-                //             self.buffer
-                //                 .push_sync(Destination::default(), ServerMsg::CrashBlock(e));
-                //         }
-                //     }
-                // } else {
-                //     #[cfg(debug_assertions)]
-                //     println!("WW: Tried to send message to non-existent scheduler");
-                // }
+            (Page::Activity, ServerCallback::BlockInterrupted) => {
+                self.status = Some(Ok("Interrupted".to_owned()));
+                self.page = Page::CleanUp;
+                self.capture_key = false;
+                self.animation_id = 0;
+
+                self.drop_scheduler();
             }
-            (Page::CleanUp, SyncCallback::CleanupComplete(success)) => {
+            (Page::Loading | Page::Activity, ServerCallback::BlockCrashed(e)) => {
+                self.status = Some(Err(e.clone()));
+                self.page = Page::CleanUp;
+                self.capture_key = false;
+                self.animation_id = 0;
+
+                self.drop_scheduler();
+            }
+            (Page::CleanUp, ServerCallback::CleanupComplete(success)) => {
                 match (&self.status, success) {
                     (Some(Ok(status)), Ok(_)) if status.as_str() == "Success" => {
                         self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 = true;
@@ -304,6 +266,11 @@ impl Server {
         self.scale_factor as f64
     }
 
+    #[inline(always)]
+    pub(crate) fn callback_channel(&self) -> CallbackQueue<ServerCallback> {
+        self.sync_queue.clone()
+    }
+
     fn valid_subject_id(&self) -> bool {
         !self.subject.is_empty()
             && self
@@ -321,35 +288,30 @@ impl Server {
             match scheduler.stop() {
                 Ok(_) => self.sync_queue.push(
                     Destination::default(),
-                    SyncCallback::CleanupComplete(Ok(())),
+                    ServerCallback::CleanupComplete(Ok(())),
                 ),
                 Err(e) => self.sync_queue.push(
                     Destination::default(),
-                    SyncCallback::CleanupComplete(Err(e)),
+                    ServerCallback::CleanupComplete(Err(e)),
                 ),
             }
         } else {
             self.sync_queue.push(
                 Destination::default(),
-                SyncCallback::CleanupComplete(Ok(())),
+                ServerCallback::CleanupComplete(Ok(())),
             );
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum SyncCallback {
-    LoadComplete,                              // Callback
-    BlockFinished,                             // Callback
-    BlockInterrupted,                          // Callback
-    BlockCrashed(error::Error),                // Callback
+pub enum ServerCallback {
+    LoadComplete,               // Callback
+    BlockFinished,              // Callback
+    BlockInterrupted,           // Callback
+    BlockCrashed(error::Error), // Callback
     CleanupComplete(Result<(), error::Error>), // Callback
-    Relay(SchedulerMsg),                       // Callback
-}
-
-#[derive(Debug, Clone)]
-pub enum AsyncCallback {
-    Logger(LoggerCallback),
+                                // Relay(SchedulerMsg),                       // Callback
 }
 
 impl eframe::App for Server {
@@ -367,8 +329,9 @@ impl eframe::App for Server {
     // }
 
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        while let Some((_dest, message)) = self.sync_queue.pop() {
-            self.process(message);
+        while let Some((_dest, callback)) = self.sync_queue.pop() {
+            println!("Found callback: {callback:?}");
+            self.process(callback);
         }
 
         match self.page {

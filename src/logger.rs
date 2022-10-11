@@ -1,8 +1,9 @@
+use crate::callback::{CallbackQueue, Destination};
 use crate::config::{Config, LogFormat};
 use crate::error;
 use crate::error::Error::LoggerError;
-use crate::scheduler::{info::Info, SchedulerMsg};
-use crate::server::SyncCallback;
+use crate::scheduler::info::Info;
+use crate::scheduler::{AsyncCallback, SyncCallback};
 use iced::Command;
 use itertools::Itertools;
 use serde_json::Value;
@@ -39,10 +40,10 @@ impl LoggerCallback {
             LoggerCallback::Append(_, _) | LoggerCallback::Extend(_, _)
         )
     }
-
-    #[inline(always)]
-    pub fn wrap(self) -> SyncCallback {
-        SyncCallback::Relay(SchedulerMsg::Logger(self))
+}
+impl From<LoggerCallback> for AsyncCallback {
+    fn from(callback: LoggerCallback) -> Self {
+        AsyncCallback::Logger(callback)
     }
 }
 
@@ -126,20 +127,20 @@ impl Logger {
         Ok(())
     }
 
-    pub fn update(&mut self, msg: LoggerCallback) -> Result<Command<SyncCallback>, error::Error> {
-        let cmd = if msg.requires_flush() && !self.needs_flush {
-            Command::perform(
-                async {
-                    thread::sleep(Duration::from_secs(30));
-                    LoggerCallback::Flush
-                },
-                LoggerCallback::wrap,
-            )
-        } else {
-            Command::none()
-        };
+    pub fn update(
+        &mut self,
+        callback: LoggerCallback,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
+        if callback.requires_flush() && !self.needs_flush {
+            let mut async_queue = async_queue.clone();
+            thread::spawn(move || {
+                thread::sleep(Duration::from_secs(5));
+                async_queue.push(Destination::default(), LoggerCallback::Flush);
+            });
+        }
 
-        match msg {
+        match callback {
             LoggerCallback::Append(group, entry) => {
                 self.append(group, entry);
             }
@@ -158,7 +159,7 @@ impl Logger {
             }
         }
 
-        Ok(cmd)
+        Ok(())
     }
 }
 

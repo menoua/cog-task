@@ -1,12 +1,17 @@
 use crate::action::{Action, StatefulAction, StatefulActionMsg};
+use crate::callback::{CallbackQueue, Destination};
 use crate::config::Config;
 use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
 use crate::resource::text::Justification;
 use crate::resource::{text::text_or_file, ResourceMap};
-use crate::scheduler::SchedulerMsg;
-use crate::server::SyncCallback;
+use crate::scheduler::{AsyncCallback, SyncCallback};
+use crate::style::{style_ui, Style};
 use crate::{error, style};
+use eframe::egui;
+use eframe::egui::{CentralPanel, RichText, ScrollArea};
+use eframe::epaint::Color32;
+use egui_extras::{Size, StripBuilder};
 use iced::alignment::Vertical;
 use iced::pure::widget::{Button, Column, Container, Text};
 use iced::pure::Element;
@@ -18,6 +23,8 @@ use std::path::PathBuf;
 #[serde(deny_unknown_fields)]
 pub struct Instruction {
     text: String,
+    #[serde(default)]
+    header: String,
     #[serde(default = "defaults::justification")]
     justify: String,
     #[serde(default = "defaults::persistent")]
@@ -43,6 +50,7 @@ impl From<&str> for Instruction {
     fn from(text: &str) -> Self {
         Self {
             text: text.to_owned(),
+            header: "".to_owned(),
             justify: defaults::justification(),
             persistent: defaults::persistent(),
             style: "".to_owned(),
@@ -78,6 +86,7 @@ impl Action for Instruction {
         _io: &IO,
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         let text = res.fetch_text(&self.text)?;
+        let header = self.header.clone();
         let justify = match self.justify.to_lowercase().as_str() {
             "left" => Justification::Left,
             "center" => Justification::Center,
@@ -91,6 +100,7 @@ impl Action for Instruction {
             id,
             done: false,
             text,
+            header,
             justify,
             persistent: self.persistent,
             // style: Style::new("action-instruction", &self.style),
@@ -103,6 +113,7 @@ pub struct StatefulInstruction {
     id: usize,
     done: bool,
     text: String,
+    header: String,
     justify: Justification,
     persistent: bool,
 }
@@ -134,43 +145,94 @@ impl StatefulAction for StatefulInstruction {
         Ok(())
     }
 
-    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<SyncCallback>, error::Error> {
-        if let StatefulActionMsg::Update(0x00) = msg {
-            self.done = true;
-            Ok(Command::perform(async {}, |()| {
-                SchedulerMsg::Advance.wrap()
-            }))
-        } else {
-            Ok(Command::none())
-        }
+    fn show(
+        &mut self,
+        ctx: &egui::Context,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
+        CentralPanel::default().show(ctx, |ui| {
+            StripBuilder::new(ui)
+                .size(Size::exact(50.0))
+                .size(Size::exact(15.0))
+                .size(Size::remainder())
+                .size(Size::exact(15.0))
+                .size(Size::exact(50.0))
+                .vertical(|mut strip| {
+                    strip.cell(|ui| {
+                        ui.centered_and_justified(|ui| {
+                            ui.label(RichText::new(&self.header).color(Color32::BLACK).heading());
+                        });
+                    });
+
+                    strip.empty();
+
+                    strip.strip(|builder| {
+                        builder
+                            .size(Size::remainder())
+                            .size(Size::exact(760.0))
+                            .size(Size::remainder())
+                            .horizontal(|mut strip| {
+                                strip.empty();
+                                strip.cell(|ui| {
+                                    ScrollArea::vertical().show(ui, |ui| {
+                                        ui.centered_and_justified(|ui| {
+                                            ui.label(RichText::new(&self.text).size(18.0));
+                                        });
+                                    });
+                                });
+                                strip.empty();
+                            });
+                    });
+
+                    strip.empty();
+
+                    strip.strip(|builder| self.show_controls(builder, sync_queue));
+                });
+        });
+
+        Ok(())
     }
+}
 
-    fn view(&self, _scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
-        let content = Column::new()
-            .spacing(75)
-            .align_items(Alignment::Center)
-            .push(
-                Text::new(&self.text)
-                    .size(34)
-                    .horizontal_alignment(self.justify.into())
-                    .vertical_alignment(Vertical::Center),
-            )
-            .max_width(1200);
+impl StatefulInstruction {
+    fn show_controls(
+        &mut self,
+        builder: StripBuilder,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+    ) {
+        enum Interaction {
+            None,
+            Next,
+        }
 
-        Ok(Container::new(if self.persistent {
-            content
-        } else {
-            content.push(
-                Button::new(Text::new("Next").size(34))
-                    .padding([15, 60])
-                    .on_press(StatefulActionMsg::Update(0x00).wrap())
-                    .style(style::Submit),
-            )
-        })
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x()
-        .center_y()
-        .into())
+        let mut interaction = Interaction::None;
+
+        builder
+            .size(Size::remainder())
+            .size(Size::exact(100.0))
+            .size(Size::remainder())
+            .horizontal(|mut strip| {
+                strip.empty();
+
+                strip.cell(|ui| {
+                    ui.horizontal_centered(|ui| {
+                        style_ui(ui, Style::SubmitButton);
+                        if ui.button(RichText::new("Next").size(20.0)).clicked() {
+                            interaction = Interaction::Next;
+                        }
+                    });
+                });
+
+                strip.empty();
+            });
+
+        match interaction {
+            Interaction::None => {}
+            Interaction::Next => {
+                self.done = true;
+                sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
+            }
+        }
     }
 }

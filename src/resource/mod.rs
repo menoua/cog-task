@@ -4,8 +4,8 @@ pub mod stream;
 pub mod text;
 pub mod video;
 
+use crate::resource::image::{image_from_file, svg_from_bytes, svg_from_file};
 use audio::audio_from_file;
-use image::{image_from_file, svg_from_bytes, svg_from_file};
 use text::text_or_file;
 use video::video_from_file;
 
@@ -16,7 +16,10 @@ use crate::error;
 use crate::error::Error::ResourceLoadError;
 use crate::resource::stream::{stream_from_file, Stream};
 use crate::task::block::Block;
-use iced::pure::widget::{image as img, svg};
+use eframe::egui::mutex::RwLock;
+use eframe::egui::{TextureId, Vec2};
+use eframe::{egui, epaint};
+use egui::TextureHandle;
 use rodio::buffer::SamplesBuffer;
 use rodio::source::Buffered;
 use rodio::Source;
@@ -26,14 +29,16 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
-pub type FrameBuffer = Arc<Vec<img::Handle>>;
+pub type FrameBuffer = Arc<Vec<(TextureId, Vec2)>>;
 pub type AudioBuffer = Buffered<SamplesBuffer<i16>>;
 
 #[derive(Clone)]
 pub enum ResourceValue {
     Text(Arc<String>),
-    Image(Arc<img::Handle>),
-    Svg(Arc<svg::Handle>),
+    // Image(Arc<TextureHandle>),
+    // Svg(Arc<TextureHandle>),
+    Image(TextureId, Vec2),
+    Svg(TextureId, Vec2),
     Audio(AudioBuffer),
     Video(FrameBuffer, f64),
     Stream(Stream),
@@ -45,11 +50,11 @@ impl Debug for ResourceValue {
             ResourceValue::Text(_) => {
                 write!(f, "[Text]")
             }
-            ResourceValue::Image(_) => {
-                write!(f, "[Image]") // ({} x {})", image)
+            ResourceValue::Image(_, size) => {
+                write!(f, "[Image ({} x {})]", size.x, size.y)
             }
-            ResourceValue::Svg(_) => {
-                write!(f, "[Svg (vector graphic)]") // ({} x {})", image)
+            ResourceValue::Svg(_, size) => {
+                write!(f, "[Svg (vector graphic) ({} x {})]", size.x, size.y)
             }
             ResourceValue::Audio(buffer) => {
                 write!(
@@ -90,6 +95,7 @@ impl ResourceMap {
     pub fn preload_block(
         &mut self,
         resources: Vec<PathBuf>,
+        tex_manager: Arc<RwLock<epaint::TextureManager>>,
         config: &Config,
         env: &Env,
     ) -> Result<(), error::Error> {
@@ -101,9 +107,12 @@ impl ResourceMap {
 
         // Load default fixation image
         let src = PathBuf::from_str("fixation.svg").unwrap();
-        map.entry(src.clone()).or_insert_with(|| {
-            let data =
-                ResourceValue::Svg(Arc::new(svg_from_bytes(IMAGE_FIXATION.to_owned(), &src)));
+        map.entry(src.clone()).or_insert({
+            // let data =
+            //     ResourceValue::Svg(Arc::new(svg_from_bytes(IMAGE_FIXATION.to_owned(), &src)));
+            let tex_manager = tex_manager.clone();
+            let (texture, size) = svg_from_bytes(tex_manager, IMAGE_FIXATION.to_owned(), &src)?;
+            let data = ResourceValue::Svg(texture, size);
             println!("+ default fixation : {data:?}");
             data
         });
@@ -111,9 +120,12 @@ impl ResourceMap {
 
         // Load default rustacean image
         let src = PathBuf::from_str("rustacean.svg").unwrap();
-        map.entry(src.clone()).or_insert_with(|| {
-            let data =
-                ResourceValue::Svg(Arc::new(svg_from_bytes(IMAGE_RUSTACEAN.to_owned(), &src)));
+        map.entry(src.clone()).or_insert({
+            // let data =
+            //     ResourceValue::Svg(Arc::new(svg_from_bytes(IMAGE_RUSTACEAN.to_owned(), &src)));
+            let tex_manager = tex_manager.clone();
+            let (texture, size) = svg_from_bytes(tex_manager, IMAGE_RUSTACEAN.to_owned(), &src)?;
+            let data = ResourceValue::Svg(texture, size);
             println!("+ default rustacean : {data:?}");
             data
         });
@@ -160,18 +172,34 @@ impl ResourceMap {
                         })?;
                         Ok(ResourceValue::Text(Arc::new(text)))
                     }
-                    "png" | "jpg" | "jpeg" => {
-                        Ok(ResourceValue::Image(Arc::new(image_from_file(&path)?)))
+                    "png" | "jpg" | "jpeg" | "bmp" | "tiff" | "ico" => {
+                        // Ok(ResourceValue::Image(Arc::new(image_from_file(&path)?)))
+                        let tex_manager = tex_manager.clone();
+                        let (texture, size) = image_from_file(tex_manager, &path)?;
+                        Ok(ResourceValue::Image(texture, size))
                     }
-                    "svg" => Ok(ResourceValue::Svg(Arc::new(svg_from_file(&path)?))),
+                    "svg" => {
+                        // Ok(ResourceValue::Svg(Arc::new(svg_from_file(&path)?)))
+                        let tex_manager = tex_manager.clone();
+                        let (texture, size) = svg_from_file(tex_manager, &path)?;
+                        Ok(ResourceValue::Svg(texture, size))
+                    }
                     "wav" | "flac" | "ogg" => {
                         Ok(ResourceValue::Audio(audio_from_file(&path, &config)?))
                     }
                     "avi" | "gif" | "mkv" | "mov" | "mp4" | "mpg" | "webm" => {
-                        let (frames, framerate) = video_from_file(&path, &config)?;
+                        let tex_manager = tex_manager.clone();
+                        let (frames, framerate) = video_from_file(tex_manager, &path, &config)?;
                         Ok(ResourceValue::Video(frames, framerate))
                     }
-                    "stream" => Ok(ResourceValue::Stream(stream_from_file(&path, &config)?)),
+                    "stream" => {
+                        let tex_manager = tex_manager.clone();
+                        Ok(ResourceValue::Stream(stream_from_file(
+                            tex_manager,
+                            &path,
+                            &config,
+                        )?))
+                    }
                     _ => Err(ResourceLoadError(format!(
                         "Invalid extension `{extn}` with mode `{mode}` for data file `{src:?}`"
                     ))),

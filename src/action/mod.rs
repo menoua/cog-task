@@ -4,10 +4,11 @@ use crate::error::Error::{ActionViewError, InvalidNameError};
 use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::monitor::{Event, Monitor};
-use crate::scheduler::SchedulerMsg;
-use crate::server::SyncCallback;
+use crate::scheduler::{AsyncCallback, SyncCallback};
+use eframe::egui;
 use iced::pure::Element;
 use iced::Command;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};
 
@@ -23,9 +24,10 @@ pub mod simple;
 pub mod stream;
 pub mod video;
 
+pub use crate::action::image::{Fixation, Image};
+use crate::callback::CallbackQueue;
 pub use audio::Audio;
 pub use counter::Counter;
-pub use image::{Fixation, Image};
 pub use instruction::Instruction;
 pub use key_logger::KeyLogger;
 pub use nop::Nop;
@@ -89,19 +91,33 @@ pub trait StatefulAction: Debug {
     fn stop(&mut self) -> Result<(), error::Error>;
 
     #[inline(always)]
-    fn start(&mut self) -> Result<Command<SyncCallback>, error::Error> {
-        Ok(Command::none())
+    fn start(
+        &mut self,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
+        Ok(())
     }
 
     #[inline(always)]
-    fn update(&mut self, _msg: StatefulActionMsg) -> Result<Command<SyncCallback>, error::Error> {
-        Ok(Command::none())
+    fn update(
+        &mut self,
+        callback: ActionCallback,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
+        Ok(())
     }
 
     #[inline(always)]
-    fn view(&self, _scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
+    fn show(
+        &mut self,
+        ctx: &egui::Context,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
         Err(ActionViewError(format!(
-            "View not implemented for action `{}`",
+            "Show not implemented for action `{}`",
             self.id()
         )))
     }
@@ -118,12 +134,12 @@ pub enum StatefulActionMsg {
     UpdateEvent(Event),
 }
 
-impl StatefulActionMsg {
-    #[inline(always)]
-    pub fn wrap(self) -> SyncCallback {
-        SyncCallback::Relay(SchedulerMsg::Relay(self))
-    }
-}
+// impl StatefulActionMsg {
+//     #[inline(always)]
+//     pub fn wrap(self) -> SyncCallback {
+//         SyncCallback::Relay(SchedulerMsg::Relay(self))
+//     }
+// }
 
 #[derive(Debug)]
 pub struct ExtAction {
@@ -213,4 +229,9 @@ impl Style {
     // fn to_vec(&self) -> Vec<String> {
     //     self.0.clone()
     // }
+}
+
+#[derive(Debug, Clone)]
+pub enum ActionCallback {
+    KeyPress(HashSet<egui::Key>),
 }

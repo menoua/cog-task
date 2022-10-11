@@ -1,8 +1,8 @@
 use crate::callback::Destination;
 use crate::error::Error;
 use crate::scheduler::Scheduler;
-use crate::server::{Page, Server, SyncCallback};
-use crate::style::{style_ui, Style};
+use crate::server::{Page, Server, ServerCallback};
+use crate::style::{style_ui, Style, CUSTOM_RED, FOREST_GREEN};
 use crate::task::block::Block;
 use eframe::egui;
 use eframe::egui::{Color32, RichText, ScrollArea, Window};
@@ -13,45 +13,51 @@ use std::thread;
 impl Server {
     pub(crate) fn show_selection(&mut self, ctx: &egui::Context) {
         CentralPanel::default().show(ctx, |ui| {
-            StripBuilder::new(ui)
-                .size(Size::exact(50.0))
-                .size(Size::exact(15.0))
-                .size(Size::remainder())
-                .size(Size::exact(15.0))
-                .size(Size::exact(50.0))
-                .vertical(|mut strip| {
-                    strip.cell(|ui| {
-                        ui.centered_and_justified(|ui| {
-                            ui.label(
-                                RichText::new(self.task.title())
-                                    .color(Color32::BLACK)
-                                    .heading(),
-                            );
-                        });
-                    });
-
-                    strip.empty();
-
-                    strip.strip(|builder| {
-                        builder
-                            .size(Size::remainder())
-                            .size(Size::exact(760.0))
-                            .size(Size::remainder())
-                            .horizontal(|mut strip| {
-                                strip.empty();
-                                strip.cell(|ui| self.show_selection_blocks(ui));
-                                strip.empty();
+            ui.add_enabled_ui(self.status.is_none(), |ui| {
+                StripBuilder::new(ui)
+                    .size(Size::exact(50.0))
+                    .size(Size::exact(15.0))
+                    .size(Size::remainder())
+                    .size(Size::exact(15.0))
+                    .size(Size::exact(50.0))
+                    .vertical(|mut strip| {
+                        strip.cell(|ui| {
+                            ui.centered_and_justified(|ui| {
+                                ui.label(
+                                    RichText::new(self.task.title())
+                                        .color(Color32::BLACK)
+                                        .heading(),
+                                );
                             });
+                        });
+
+                        strip.empty();
+
+                        strip.strip(|builder| {
+                            builder
+                                .size(Size::remainder())
+                                .size(Size::exact(760.0))
+                                .size(Size::remainder())
+                                .horizontal(|mut strip| {
+                                    strip.empty();
+                                    strip.cell(|ui| self.show_selection_blocks(ui));
+                                    strip.empty();
+                                });
+                        });
+
+                        strip.empty();
+
+                        strip.strip(|builder| self.show_selection_controls(builder));
                     });
-
-                    strip.empty();
-
-                    strip.strip(|builder| self.show_selection_controls(builder));
-                });
+            });
         });
 
         if self.status.is_some() {
             self.show_selection_status(ctx);
+        }
+
+        if ctx.input().key_pressed(egui::Key::Escape) {
+            self.status = None;
         }
     }
 
@@ -147,13 +153,14 @@ impl Server {
                     let resources = block.resources(&config);
                     let mut queue = self.sync_queue.clone();
                     let mut resource_map = self.resources().clone();
+                    let mut tex_manager = ui.ctx().tex_manager();
                     thread::spawn(move || {
-                        match resource_map.preload_block(resources, &config, &env) {
+                        match resource_map.preload_block(resources, tex_manager, &config, &env) {
                             Ok(()) => {
-                                queue.push(Destination::default(), SyncCallback::LoadComplete)
+                                queue.push(Destination::default(), ServerCallback::LoadComplete)
                             }
                             Err(e) => {
-                                queue.push(Destination::default(), SyncCallback::BlockCrashed(e))
+                                queue.push(Destination::default(), ServerCallback::BlockCrashed(e))
                             }
                         }
                     });
@@ -231,7 +238,7 @@ impl Server {
                     ui.label(
                         RichText::from(format!("{:#?}", status))
                             .size(12.0)
-                            .color(Color32::RED),
+                            .color(CUSTOM_RED),
                     );
                 });
             }

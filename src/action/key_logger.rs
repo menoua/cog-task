@@ -1,4 +1,5 @@
-use crate::action::{Action, StatefulAction, StatefulActionMsg};
+use crate::action::{Action, ActionCallback, StatefulAction, StatefulActionMsg};
+use crate::callback::{CallbackQueue, Destination};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::InvalidNameError;
@@ -6,7 +7,7 @@ use crate::io::IO;
 use crate::logger::LoggerCallback;
 use crate::resource::ResourceMap;
 use crate::scheduler::monitor::{Event, Monitor};
-use crate::server::SyncCallback;
+use crate::scheduler::{AsyncCallback, SyncCallback};
 use iced::Command;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -92,16 +93,24 @@ impl StatefulAction for StatefulKeyLogger {
         Ok(())
     }
 
-    fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<SyncCallback>, error::Error> {
-        if let StatefulActionMsg::UpdateEvent(Event::Key(key)) = msg {
+    fn update(
+        &mut self,
+        callback: ActionCallback,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
+        if let ActionCallback::KeyPress(keys) = callback {
             let group = self.group.clone();
-            let entry = ("key".to_string(), Value::String(format!("{key:?}")));
-            Ok(Command::perform(
-                async move { LoggerCallback::Append(group, entry) },
-                LoggerCallback::wrap,
-            ))
-        } else {
-            Ok(Command::none())
+            let entry = (
+                "key".to_string(),
+                Value::Array(
+                    keys.into_iter()
+                        .map(|k| Value::String(format!("{k:?}")))
+                        .collect(),
+                ),
+            );
+            async_queue.push(Destination::default(), LoggerCallback::Append(group, entry));
         }
+        Ok(())
     }
 }

@@ -1,12 +1,15 @@
 use crate::action::{Action, StatefulAction};
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
+use crate::callback::{CallbackQueue, Destination};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError, TaskDefinitionError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::{monitor::Monitor, SchedulerMsg};
-use crate::server::SyncCallback;
+use crate::scheduler::monitor::Monitor;
+use crate::scheduler::{AsyncCallback, SyncCallback};
+use eframe::egui;
+use eframe::egui::{CentralPanel, TextureId, Vec2};
 use iced::pure::widget::{image, Container};
 use iced::pure::Element;
 use iced::{Command, ContentFit, Length};
@@ -142,7 +145,7 @@ impl Action for Stream {
 pub struct StatefulStream {
     id: usize,
     done: Arc<Mutex<Result<bool, error::Error>>>,
-    frame: Arc<Mutex<Option<image::Handle>>>,
+    frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
     framerate: f64,
     width: Option<u16>,
     looping: bool,
@@ -172,21 +175,16 @@ impl StatefulAction for StatefulStream {
     }
 
     #[inline(always)]
-    fn monitors(&self) -> Option<Monitor> {
-        if self.framerate > 0.0 {
-            Some(Monitor::Frames(self.framerate))
-        } else {
-            None
-        }
-    }
-
-    #[inline(always)]
     fn stop(&mut self) -> Result<(), error::Error> {
         *self.done.lock().unwrap() = Ok(true);
         Ok(())
     }
 
-    fn start(&mut self) -> Result<Command<SyncCallback>, error::Error> {
+    fn start(
+        &mut self,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
                 "Link to streaming thread could not be acquired for action `{}`",
@@ -208,59 +206,81 @@ impl StatefulAction for StatefulStream {
             ))
         })?;
 
-        Ok(Command::batch([
-            Command::perform(async {}, |()| SchedulerMsg::Refresh(0).wrap()),
-            Command::perform(
-                async move {
-                    let link = link;
-                    let _ = link.1.recv();
-                    *done.lock().unwrap() = match join_handle.join() {
-                        Ok(Ok(_)) => Ok(true),
-                        Ok(Err(e)) => Err(e),
-                        Err(e) => Err(InternalError(format!(
-                            "Failed to graciously close stream decoder thread:\n{e:#?}"
-                        ))),
-                    };
-                },
-                |()| SchedulerMsg::Advance.wrap(),
-            ),
-        ]))
+        let mut sync_queue = sync_queue.clone();
+        thread::spawn(move || {
+            let link = link;
+            let _ = link.1.recv();
+            *done.lock().unwrap() = match join_handle.join() {
+                Ok(Ok(_)) => Ok(true),
+                Ok(Err(e)) => Err(e),
+                Err(e) => Err(InternalError(format!(
+                    "Failed to graciously close stream decoder thread:\n{e:#?}"
+                ))),
+            };
+            sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
+        });
+
+        Ok(())
     }
 
-    fn view(&self, scale_factor: f32) -> Result<Element<'_, SyncCallback>, error::Error> {
-        let image = image::Image::new(
-            self.frame
-                .lock()
-                .unwrap()
-                .clone()
-                .unwrap_or_else(|| image::Handle::from_pixels(0, 0, vec![])),
-        );
+    fn show(
+        &mut self,
+        ctx: &egui::Context,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
+        let (texture, size) = self
+            .frame
+            .lock()
+            .unwrap()
+            .clone()
+            .unwrap_or_else(|| (TextureId::default(), Vec2::splat(1.0)));
 
-        Ok(if let Some(width) = self.width {
-            let width = (scale_factor * width as f32) as u16;
-            Container::new(
-                Container::new(
-                    image
-                        .content_fit(ContentFit::Contain)
-                        .width(Length::Units(width))
-                        .height(Length::Fill),
-                )
-                .width(Length::Units(width))
-                .height(Length::Fill)
-                .center_x()
-                .center_y(),
-            )
-        } else {
-            Container::new(image.content_fit(ContentFit::ScaleDown))
-                .height(Length::Fill)
-                .center_x()
-                .center_y()
-        }
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x()
-        .center_y()
-        .into())
+        CentralPanel::default().show(ctx, |ui| {
+            ui.centered_and_justified(|ui| {
+                if let Some(width) = self.width {
+                    let scale = width as f32 / size.x;
+                    ui.image(texture, size * scale);
+                } else {
+                    ui.image(texture, size);
+                }
+            })
+        });
+
+        // let image = image::Image::new(
+        //     self.frame
+        //         .lock()
+        //         .unwrap()
+        //         .clone()
+        //         .unwrap_or_else(|| image::Handle::from_pixels(0, 0, vec![])),
+        // );
+        //
+        // Ok(if let Some(width) = self.width {
+        //     let width = (scale_factor * width as f32) as u16;
+        //     Container::new(
+        //         Container::new(
+        //             image
+        //                 .content_fit(ContentFit::Contain)
+        //                 .width(Length::Units(width))
+        //                 .height(Length::Fill),
+        //         )
+        //         .width(Length::Units(width))
+        //         .height(Length::Fill)
+        //         .center_x()
+        //         .center_y(),
+        //     )
+        // } else {
+        //     Container::new(image.content_fit(ContentFit::ScaleDown))
+        //         .height(Length::Fill)
+        //         .center_x()
+        //         .center_y()
+        // }
+        // .width(Length::Fill)
+        // .height(Length::Fill)
+        // .center_x()
+        // .center_y()
+        // .into())
+        Ok(())
     }
 }
 

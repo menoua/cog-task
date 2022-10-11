@@ -5,6 +5,9 @@ use crate::error::Error::{
     BackendError, InternalError, InvalidConfigError, ResourceLoadError, StreamDecodingError,
 };
 use crate::resource::FrameBuffer;
+use eframe::egui::mutex::RwLock;
+use eframe::egui::{ColorImage, ImageData, TextureFilter, TextureId, Vec2};
+use eframe::epaint::TextureManager;
 use gst::prelude::*;
 use gstreamer as gst;
 use gstreamer_app as gst_app;
@@ -38,11 +41,17 @@ pub struct Stream {
     duration: Duration,
     is_eos: bool,
     paused: bool,
+    tex_manager: Arc<RwLock<TextureManager>>,
 }
 
 impl MediaStream for Stream {
     /// Create a new video object from a given video file.
-    fn new(path: &Path, _config: &Config, media_mode: MediaMode) -> Result<Self, error::Error> {
+    fn new(
+        tex_manager: Arc<RwLock<TextureManager>>,
+        path: &Path,
+        _config: &Config,
+        media_mode: MediaMode,
+    ) -> Result<Self, error::Error> {
         init()?;
 
         let (source, playbin) = launch(path, &MediaMode::Query, None)?;
@@ -103,12 +112,13 @@ impl MediaStream for Stream {
             duration,
             is_eos: false,
             paused: true,
+            tex_manager,
         })
     }
 
     fn cloned(
         &self,
-        frame: Arc<Mutex<Option<image::Handle>>>,
+        frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
         volume: Option<f32>,
     ) -> Result<Self, error::Error> {
         let (source, playbin) = launch(&self.path, &self.media_mode, volume)?;
@@ -117,7 +127,9 @@ impl MediaStream for Stream {
         let video_sink = get_video_sink(&playbin, true);
         if let Some(sink) = video_sink {
             sink.set_max_buffers(5 * self.frame_rate.ceil() as u32);
+            let path = self.path.clone();
             let [width, height] = self.size();
+            let tex_manager = self.tex_manager.clone();
 
             thread::spawn(move || {
                 sink.set_callbacks(
@@ -127,12 +139,17 @@ impl MediaStream for Stream {
                             let buffer = sample.buffer().ok_or(gst::FlowError::Error)?;
                             let map = buffer.map_readable().map_err(|_| gst::FlowError::Error)?;
 
-                            *frame.lock().map_err(|_| gst::FlowError::Error)? =
-                                Some(image::Handle::from_pixels(
-                                    width,
-                                    height,
-                                    map.as_slice().to_owned(),
-                                ));
+                            *frame.lock().map_err(|_| gst::FlowError::Error)? = Some((
+                                tex_manager.write().alloc(
+                                    format!("{:?}:@:[current]", path),
+                                    ImageData::Color(ColorImage::from_rgba_unmultiplied(
+                                        [width as _, height as _],
+                                        map.as_slice(),
+                                    )),
+                                    TextureFilter::Linear,
+                                ),
+                                Vec2::new(width as _, height as _),
+                            ));
 
                             Ok(gst::FlowSuccess::Ok)
                         })
@@ -154,6 +171,7 @@ impl MediaStream for Stream {
             duration: self.duration,
             is_eos: self.is_eos,
             paused: self.paused,
+            tex_manager: self.tex_manager.clone(),
         })
     }
 
@@ -261,10 +279,16 @@ impl MediaStream for Stream {
                 ))
             })?;
 
-            frames.push(image::Handle::from_pixels(
-                self.frame_size[0] as _,
-                self.frame_size[1] as _,
-                map.as_slice().to_owned(),
+            frames.push((
+                self.tex_manager.write().alloc(
+                    format!("{:?}:@:{}", self.path, frames.len()),
+                    ImageData::Color(ColorImage::from_rgba_unmultiplied(
+                        [self.frame_size[0] as _, self.frame_size[1] as _],
+                        map.as_slice(),
+                    )),
+                    TextureFilter::Linear,
+                ),
+                Vec2::new(self.frame_size[0] as _, self.frame_size[1] as _),
             ));
         }
         println!("Took {:?} to pull samples for video.", Instant::now() - t1);
