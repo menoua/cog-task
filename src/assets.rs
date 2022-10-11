@@ -1,6 +1,6 @@
+use crate::style::TEXT_SIZE_ICON;
 use eframe::egui;
 use eframe::egui::{FontData, FontDefinitions, FontFamily, FontId, RichText, WidgetText};
-use iced::Font;
 use spin_sleep::SpinStrategy;
 
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -19,18 +19,6 @@ pub const SPIN_STRATEGY: SpinStrategy = SpinStrategy::SpinLoopHint;
 pub const IMAGE_FIXATION: &[u8] = include_bytes!("assets/fixation.svg");
 pub const IMAGE_RUSTACEAN: &[u8] = include_bytes!("assets/rustacean.svg");
 
-// pub const FONT_ICONS_BRANDS: Font = Font::External {
-//     name: "fa-brands",
-//     bytes: include_bytes!("assets/fonts/fa-6-brands-regular-400.otf"),
-// };
-// pub const FONT_ICONS_REGULAR: Font = Font::External {
-//     name: "fa-regular",
-//     bytes: include_bytes!("assets/fonts/fa-6-free-regular-400.otf"),
-// };
-// pub const FONT_ICONS_SOLID: Font = Font::External {
-//     name: "fa-solid",
-//     bytes: include_bytes!("assets/fonts/fa-6-free-solid-900.otf"),
-// };
 pub const FONT_ICONS_BRANDS: &[u8] = include_bytes!("assets/fonts/fa-6-brands-regular-400.otf");
 pub const FONT_ICONS_REGULAR: &[u8] = include_bytes!("assets/fonts/fa-6-free-regular-400.otf");
 pub const FONT_ICONS_SOLID: &[u8] = include_bytes!("assets/fonts/fa-6-free-solid-900.otf");
@@ -60,7 +48,10 @@ impl From<Icon> for RichText {
             Icon::FolderTree => "\u{f802}",
             Icon::MagnifyingGlass => "\u{f002}",
         })
-        .font(FontId::new(10.0, FontFamily::Name("fa_free".into())))
+        .font(FontId::new(
+            TEXT_SIZE_ICON,
+            FontFamily::Name("fa_free".into()),
+        ))
     }
 }
 impl From<Icon> for WidgetText {

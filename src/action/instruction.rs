@@ -6,16 +6,14 @@ use crate::io::IO;
 use crate::resource::text::Justification;
 use crate::resource::{text::text_or_file, ResourceMap};
 use crate::scheduler::{AsyncCallback, SyncCallback};
+use crate::style::text::body;
 use crate::style::{style_ui, Style};
+use crate::template::header_body_controls;
 use crate::{error, style};
 use eframe::egui;
 use eframe::egui::{CentralPanel, RichText, ScrollArea};
 use eframe::epaint::Color32;
 use egui_extras::{Size, StripBuilder};
-use iced::alignment::Vertical;
-use iced::pure::widget::{Button, Column, Container, Text};
-use iced::pure::Element;
-use iced::{Alignment, Command, Length};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -152,43 +150,31 @@ impl StatefulAction for StatefulInstruction {
         async_queue: &mut CallbackQueue<AsyncCallback>,
     ) -> Result<(), error::Error> {
         CentralPanel::default().show(ctx, |ui| {
-            StripBuilder::new(ui)
-                .size(Size::exact(50.0))
-                .size(Size::exact(15.0))
-                .size(Size::remainder())
-                .size(Size::exact(15.0))
-                .size(Size::exact(50.0))
-                .vertical(|mut strip| {
-                    strip.cell(|ui| {
-                        ui.centered_and_justified(|ui| {
-                            ui.label(RichText::new(&self.header).color(Color32::BLACK).heading());
-                        });
-                    });
-
-                    strip.empty();
-
-                    strip.strip(|builder| {
-                        builder
-                            .size(Size::remainder())
-                            .size(Size::exact(760.0))
-                            .size(Size::remainder())
-                            .horizontal(|mut strip| {
-                                strip.empty();
-                                strip.cell(|ui| {
-                                    ScrollArea::vertical().show(ui, |ui| {
-                                        ui.centered_and_justified(|ui| {
-                                            ui.label(RichText::new(&self.text).size(18.0));
-                                        });
+            header_body_controls(ui, |mut strip| {
+                strip.cell(|ui| {
+                    ui.centered_and_justified(|ui| ui.heading(&self.header));
+                });
+                strip.empty();
+                strip.strip(|builder| {
+                    builder
+                        .size(Size::remainder())
+                        .size(Size::exact(1520.0))
+                        .size(Size::remainder())
+                        .horizontal(|mut strip| {
+                            strip.empty();
+                            strip.cell(|ui| {
+                                ScrollArea::vertical().show(ui, |ui| {
+                                    ui.centered_and_justified(|ui| {
+                                        ui.label(body(&self.text));
                                     });
                                 });
-                                strip.empty();
                             });
-                    });
-
-                    strip.empty();
-
-                    strip.strip(|builder| self.show_controls(builder, sync_queue));
+                            strip.empty();
+                        });
                 });
+                strip.empty();
+                strip.strip(|builder| self.show_controls(builder, sync_queue));
+            });
         });
 
         Ok(())
@@ -210,7 +196,7 @@ impl StatefulInstruction {
 
         builder
             .size(Size::remainder())
-            .size(Size::exact(100.0))
+            .size(Size::exact(200.0))
             .size(Size::remainder())
             .horizontal(|mut strip| {
                 strip.empty();
@@ -218,7 +204,7 @@ impl StatefulInstruction {
                 strip.cell(|ui| {
                     ui.horizontal_centered(|ui| {
                         style_ui(ui, Style::SubmitButton);
-                        if ui.button(RichText::new("Next").size(20.0)).clicked() {
+                        if ui.button(RichText::new("Next").size(40.0)).clicked() {
                             interaction = Interaction::Next;
                         }
                     });

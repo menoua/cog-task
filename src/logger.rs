@@ -4,7 +4,6 @@ use crate::error;
 use crate::error::Error::LoggerError;
 use crate::scheduler::info::Info;
 use crate::scheduler::{AsyncCallback, SyncCallback};
-use iced::Command;
 use itertools::Itertools;
 use serde_json::Value;
 use std::collections::HashMap;

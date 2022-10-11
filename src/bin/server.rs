@@ -1,7 +1,5 @@
 use cog_task::assets::VERSION;
 use cog_task::server::Server;
-use iced::pure::Application;
-use iced::{window, Error, Settings};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 

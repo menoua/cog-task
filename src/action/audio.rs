@@ -7,7 +7,6 @@ use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::{AsyncCallback, SyncCallback};
-use iced::Command;
 use rodio::{Sink, Source};
 use serde::{Deserialize, Serialize};
 use spin_sleep::SpinSleeper;

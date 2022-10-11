@@ -1,327 +1,39 @@
 use crate::assets::{FONT_ICONS_BRANDS, FONT_ICONS_REGULAR, FONT_ICONS_SOLID};
 use eframe::egui;
+use eframe::egui::{FontId, TextStyle};
 use egui::{Color32, FontData, FontDefinitions, FontFamily, Rgba, Rounding, Stroke, Vec2};
-use iced::pure::widget::{button, radio, Column, Row};
-use iced::pure::Element;
-use iced::{Alignment, Background, Color};
-use iced_aw::pure::card;
+use std::convert::Into;
 use std::time::{Duration, Instant};
 
-pub const SCREEN_SIZE: Vec2 = Vec2::new(960.0, 540.0);
-static mut RESCALE_TIMER: Option<Instant> = None;
+pub const SCREEN_SIZE: Vec2 = Vec2::new(1920.0, 1080.0);
 
-pub fn grid<'a, Message: 'static>(
-    iter: Vec<impl Into<Element<'a, Message>>>,
-    columns: usize,
-    row_gap: u16,
-    col_gap: u16,
-) -> Column<'a, Message> {
-    let mut col: Column<Message> = Column::new()
-        .spacing(row_gap)
-        .align_items(Alignment::Center);
-    let mut row: Row<Message> = Row::new().spacing(col_gap).align_items(Alignment::Center);
-    for (j, o) in iter.into_iter().enumerate() {
-        if j % columns == 0 && j > 0 {
-            col = col.push(row);
-            row = Row::new().spacing(col_gap).align_items(Alignment::Center);
-        }
-        row = row.push(o);
-    }
-    col.push(row)
-}
+pub const TEXT_SIZE_HEADING: f32 = 42.0;
+pub const TEXT_SIZE_BODY: f32 = 34.0;
+pub const TEXT_SIZE_MONOSPACE: f32 = 28.0;
+pub const TEXT_SIZE_BUTTON1: f32 = 38.0;
+pub const TEXT_SIZE_BUTTON2: f32 = 34.0;
+pub const TEXT_SIZE_TOOLTIP: f32 = 20.0;
+pub const TEXT_SIZE_ICON: f32 = 32.0;
 
-pub const ACTIVE_BLUE_OLD: Color = Color::from_rgb(
-    0x72 as f32 / 255.0,
-    0x89 as f32 / 255.0,
-    0xDA as f32 / 255.0,
-);
-pub const FOREST_GREEN_OLD: Color = Color::from_rgb(
-    0x22 as f32 / 255.0,
-    0x8B as f32 / 255.0,
-    0x22 as f32 / 255.0,
-);
-pub static CUSTOM_RED_OLD: Color = Color::from_rgb(
-    0xC0 as f32 / 255.0,
-    0x1C as f32 / 255.0,
-    0x1C as f32 / 255.0,
-);
-pub const LIGHT_GRAY_OLD: Color = Color::from_rgb(
-    0xC2 as f32 / 255.0,
-    0xC2 as f32 / 255.0,
-    0xC2 as f32 / 255.0,
-);
-
-const HOVERED_OLD: Color = Color::from_rgb(
-    0x67 as f32 / 255.0,
-    0x7B as f32 / 255.0,
-    0xC4 as f32 / 255.0,
-);
-
-pub const BACKGROUND_OLD: Color = Color::from_rgb(
-    0x2F as f32 / 255.0,
-    0x31 as f32 / 255.0,
-    0x36 as f32 / 255.0,
-);
-
-const BORDER_RADIUS_OLD: f32 = 35.0;
-
-pub struct Submit;
-impl button::StyleSheet for Submit {
-    fn active(&self) -> button::Style {
-        button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.2,
-                ..LIGHT_GRAY_OLD
-            })),
-            border_radius: BORDER_RADIUS_OLD,
-            text_color: FOREST_GREEN_OLD,
-            ..button::Style::default()
-        }
-    }
-
-    fn hovered(&self) -> button::Style {
-        button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.4,
-                ..LIGHT_GRAY_OLD
-            })),
-            ..self.active()
-        }
-    }
-
-    fn pressed(&self) -> button::Style {
-        button::Style {
-            border_width: 3.0,
-            border_color: Color::WHITE,
-            ..self.hovered()
-        }
-    }
-}
-
-pub struct Cancel;
-impl button::StyleSheet for Cancel {
-    fn active(&self) -> button::Style {
-        button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.2,
-                ..LIGHT_GRAY_OLD
-            })),
-            border_radius: BORDER_RADIUS_OLD,
-            text_color: CUSTOM_RED_OLD,
-            ..button::Style::default()
-        }
-    }
-
-    fn hovered(&self) -> button::Style {
-        button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.4,
-                ..LIGHT_GRAY_OLD
-            })),
-            ..self.active()
-        }
-    }
-
-    fn pressed(&self) -> button::Style {
-        button::Style {
-            border_width: 3.0,
-            border_color: Color::WHITE,
-            ..self.hovered()
-        }
-    }
-}
-
-pub struct Select;
-impl button::StyleSheet for Select {
-    fn active(&self) -> button::Style {
-        button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.4,
-                ..LIGHT_GRAY_OLD
-            })),
-            border_radius: BORDER_RADIUS_OLD,
-            text_color: Color::BLACK,
-            ..button::Style::default()
-        }
-    }
-
-    fn hovered(&self) -> button::Style {
-        button::Style {
-            background: Some(Background::Color(HOVERED_OLD)),
-            text_color: Color::WHITE,
-            ..self.active()
-        }
-    }
-
-    fn pressed(&self) -> button::Style {
-        button::Style {
-            border_width: 3.0,
-            border_color: Color::WHITE,
-            ..self.hovered()
-        }
-    }
-}
-
-pub struct Done;
-impl button::StyleSheet for Done {
-    fn active(&self) -> button::Style {
-        button::Style {
-            background: None,
-            border_radius: BORDER_RADIUS_OLD,
-            text_color: FOREST_GREEN_OLD,
-            ..button::Style::default()
-        }
-    }
-
-    fn hovered(&self) -> button::Style {
-        button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.1,
-                ..LIGHT_GRAY_OLD
-            })),
-            ..self.active()
-        }
-    }
-
-    fn pressed(&self) -> button::Style {
-        button::Style {
-            border_width: 3.0,
-            border_color: Color::WHITE,
-            ..self.hovered()
-        }
-    }
-}
-
-pub struct Transparent;
-impl button::StyleSheet for Transparent {
-    fn active(&self) -> button::Style {
-        button::Style {
-            background: None,
-            border_radius: BORDER_RADIUS_OLD,
-            text_color: Color::BLACK,
-            ..button::Style::default()
-        }
-    }
-
-    fn hovered(&self) -> button::Style {
-        button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.1,
-                ..LIGHT_GRAY_OLD
-            })),
-            ..self.active()
-        }
-    }
-
-    fn pressed(&self) -> button::Style {
-        button::Style {
-            border_width: 3.0,
-            border_color: Color::WHITE,
-            ..self.hovered()
-        }
-    }
-}
-
-pub struct TransparentCancel;
-impl button::StyleSheet for TransparentCancel {
-    fn active(&self) -> button::Style {
-        button::Style {
-            background: None,
-            border_radius: BORDER_RADIUS_OLD,
-            text_color: CUSTOM_RED_OLD,
-            ..button::Style::default()
-        }
-    }
-
-    fn hovered(&self) -> button::Style {
-        button::Style {
-            background: Some(Background::Color(Color {
-                a: 0.1,
-                ..LIGHT_GRAY_OLD
-            })),
-            ..self.active()
-        }
-    }
-
-    fn pressed(&self) -> button::Style {
-        button::Style {
-            border_width: 3.0,
-            border_color: Color::WHITE,
-            ..self.hovered()
-        }
-    }
-}
-
-pub struct Radio;
-impl radio::StyleSheet for Radio {
-    fn active(&self) -> radio::Style {
-        radio::Style {
-            background: Background::Color(Color::WHITE),
-            dot_color: ACTIVE_BLUE_OLD,
-            border_width: 3.0,
-            border_color: LIGHT_GRAY_OLD,
-            text_color: Some(Color::BLACK),
-        }
-    }
-
-    fn hovered(&self) -> radio::Style {
-        radio::Style {
-            border_color: ACTIVE_BLUE_OLD,
-            ..self.active()
-        }
-    }
-}
-
-pub struct Status;
-impl card::StyleSheet for Status {
-    fn active(&self) -> card::Style {
-        card::Style {
-            border_radius: 7.5,
-            head_background: Background::Color(ACTIVE_BLUE_OLD),
-            head_text_color: Color::WHITE,
-            body_background: Background::Color(Color::WHITE),
-            body_text_color: Color::BLACK,
-            close_color: Color::WHITE,
-            ..card::Style::default()
-        }
-    }
-}
-
-pub struct Success;
-impl card::StyleSheet for Success {
-    fn active(&self) -> card::Style {
-        card::Style {
-            border_radius: 7.5,
-            head_background: Background::Color(FOREST_GREEN_OLD),
-            head_text_color: Color::WHITE,
-            body_background: Background::Color(Color::WHITE),
-            body_text_color: Color::BLACK,
-            close_color: Color::WHITE,
-            ..card::Style::default()
-        }
-    }
-}
-
-pub struct Error;
-impl card::StyleSheet for Error {
-    fn active(&self) -> card::Style {
-        card::Style {
-            border_radius: 7.5,
-            head_background: Background::Color(CUSTOM_RED_OLD),
-            head_text_color: Color::WHITE,
-            body_background: Background::Color(Color::WHITE),
-            body_text_color: Color::BLACK,
-            close_color: Color::WHITE,
-            ..card::Style::default()
-        }
-    }
-}
-
-pub const LIGHT_GRAY: Rgba = Rgba::from_rgb(
-    0xC2 as f32 / 255.0,
-    0xC2 as f32 / 255.0,
-    0xC2 as f32 / 255.0,
-);
+// pub struct Radio;
+// impl radio::StyleSheet for Radio {
+//     fn active(&self) -> radio::Style {
+//         radio::Style {
+//             background: Background::Color(Color::WHITE),
+//             dot_color: ACTIVE_BLUE_OLD,
+//             border_width: 3.0,
+//             border_color: LIGHT_GRAY_OLD,
+//             text_color: Some(Color::BLACK),
+//         }
+//     }
+//
+//     fn hovered(&self) -> radio::Style {
+//         radio::Style {
+//             border_color: ACTIVE_BLUE_OLD,
+//             ..self.active()
+//         }
+//     }
+// }
 
 pub const HOVERED: Rgba = Rgba::from_rgb(
     0x67 as f32 / 255.0,
@@ -335,10 +47,28 @@ pub const FOREST_GREEN: Rgba = Rgba::from_rgb(
     0x22 as f32 / 255.0,
 );
 
-pub static CUSTOM_RED: Rgba = Rgba::from_rgb(
+pub const CUSTOM_RED: Rgba = Rgba::from_rgb(
     0xC0 as f32 / 255.0,
     0x1C as f32 / 255.0,
     0x1C as f32 / 255.0,
+);
+
+pub const CUSTOM_ORANGE: Rgba = Rgba::from_rgb(
+    0xFF as f32 / 255.0,
+    0x6D as f32 / 255.0,
+    0x0A as f32 / 255.0,
+);
+
+pub const CUSTOM_BLUE: Rgba = Rgba::from_rgb(
+    0x00 as f32 / 255.0,
+    0x33 as f32 / 255.0,
+    0x66 as f32 / 255.0,
+);
+
+pub const ACTIVE_BLUE: Rgba = Rgba::from_rgb(
+    0x72 as f32 / 255.0,
+    0x89 as f32 / 255.0,
+    0xDA as f32 / 255.0,
 );
 
 pub enum Style {
@@ -346,64 +76,149 @@ pub enum Style {
     SelectButton,
     CancelButton,
     SubmitButton,
+    TodoButton,
+    DoneButton,
+    InterruptedButton,
+    FailedButton,
+    SoftFailedButton,
+    SingleLineTextEdit,
 }
 
 pub fn style_ui(ui: &mut egui::Ui, style: Style) {
     match style {
         Style::IconControls => {
-            ui.spacing_mut().item_spacing = Vec2::splat(4.0);
-            ui.spacing_mut().button_padding = Vec2::splat(4.0);
-            ui.visuals_mut().button_frame = false;
-            ui.visuals_mut().widgets.active.rounding = Rounding::same(10.0);
-            ui.visuals_mut().widgets.hovered.rounding = Rounding::same(10.0);
-            ui.visuals_mut().widgets.inactive.rounding = Rounding::same(10.0);
-            ui.visuals_mut().widgets.noninteractive.rounding = Rounding::same(10.0);
+            let rounding = Rounding::same(30.0);
+            ui.spacing_mut().item_spacing = Vec2::splat(10.0);
+            ui.spacing_mut().button_padding = Vec2::splat(10.0);
+            ui.visuals_mut().widgets.inactive.bg_fill = Color32::TRANSPARENT;
+            ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::none();
+            ui.visuals_mut().widgets.inactive.rounding = rounding;
+            ui.visuals_mut().widgets.hovered.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.2).into();
+            ui.visuals_mut().widgets.hovered.bg_stroke = Stroke::new(1.5, Color32::LIGHT_GRAY);
+            ui.visuals_mut().widgets.hovered.rounding = rounding;
+            ui.visuals_mut().widgets.active.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.4).into();
+            ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(3.0, Color32::DARK_GRAY);
+            ui.visuals_mut().widgets.active.rounding = rounding;
+            ui.visuals_mut().widgets.noninteractive.bg_fill = Color32::TRANSPARENT;
+            ui.visuals_mut().widgets.noninteractive.bg_stroke = Stroke::none();
+            ui.visuals_mut().widgets.noninteractive.rounding = rounding;
         }
         Style::SelectButton => {
-            let rounding = Rounding::same(15.0);
-            ui.spacing_mut().item_spacing = Vec2::splat(5.0);
-            ui.spacing_mut().button_padding = Vec2::new(10.0, 4.0);
+            let rounding = Rounding::same(40.0);
+            ui.spacing_mut().item_spacing = Vec2::splat(10.0);
+            ui.spacing_mut().button_padding = Vec2::new(20.0, 8.0);
             ui.visuals_mut().widgets.inactive.rounding = rounding;
-            ui.visuals_mut().widgets.inactive.bg_fill = LIGHT_GRAY.multiply(0.4).into();
-            ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(1.0, Color32::BLACK);
+            ui.visuals_mut().widgets.inactive.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.2).into();
+            ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::new(2.0, Color32::LIGHT_GRAY);
+            ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.0, Color32::BLACK);
             ui.visuals_mut().widgets.hovered.rounding = rounding;
-            ui.visuals_mut().widgets.hovered.bg_fill = HOVERED.into();
-            ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(1.0, Color32::BLACK);
+            ui.visuals_mut().widgets.hovered.bg_fill = HOVERED.multiply(0.2).into();
+            ui.visuals_mut().widgets.hovered.bg_stroke = Stroke::new(3.0, Color32::LIGHT_GRAY);
+            ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.0, Color32::BLACK);
             ui.visuals_mut().widgets.active.rounding = rounding;
-            ui.visuals_mut().widgets.active.bg_fill = HOVERED.into();
-            ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(1.5, Color32::WHITE);
-            ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(1.0, Color32::WHITE);
+            ui.visuals_mut().widgets.active.bg_fill = HOVERED.multiply(0.2).into();
+            ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(4.0, Color32::DARK_GRAY);
+            ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.0, Color32::WHITE);
             ui.visuals_mut().widgets.noninteractive.rounding = rounding;
         }
         Style::CancelButton => {
-            let rounding = Rounding::same(25.0);
-            ui.spacing_mut().button_padding = Vec2::new(30.0, 10.0);
+            let rounding = Rounding::same(50.0);
+            ui.spacing_mut().button_padding = Vec2::new(60.0, 20.0);
             ui.visuals_mut().widgets.inactive.rounding = rounding;
-            ui.visuals_mut().widgets.inactive.bg_fill = LIGHT_GRAY.multiply(0.2).into();
-            ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(1.0, CUSTOM_RED);
+            ui.visuals_mut().widgets.inactive.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.2).into();
+            ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::new(2.0, Color32::LIGHT_GRAY);
+            ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.0, CUSTOM_RED);
             ui.visuals_mut().widgets.hovered.rounding = rounding;
-            ui.visuals_mut().widgets.hovered.bg_fill = LIGHT_GRAY.multiply(0.4).into();
-            ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(1.0, CUSTOM_RED);
+            ui.visuals_mut().widgets.hovered.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.4).into();
+            ui.visuals_mut().widgets.hovered.bg_stroke = Stroke::new(3.0, Color32::LIGHT_GRAY);
+            ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.0, CUSTOM_RED);
             ui.visuals_mut().widgets.active.rounding = rounding;
-            ui.visuals_mut().widgets.active.bg_fill = LIGHT_GRAY.multiply(0.4).into();
-            ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(1.5, CUSTOM_RED);
-            ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(1.0, CUSTOM_RED);
+            ui.visuals_mut().widgets.active.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.4).into();
+            ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(4.0, CUSTOM_RED);
+            ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.0, CUSTOM_RED);
             ui.visuals_mut().widgets.noninteractive.rounding = rounding;
+            ui.visuals_mut().override_text_color = Some(CUSTOM_RED.into());
         }
         Style::SubmitButton => {
-            let rounding = Rounding::same(25.0);
-            ui.spacing_mut().button_padding = Vec2::new(30.0, 10.0);
+            let rounding = Rounding::same(50.0);
+            ui.spacing_mut().button_padding = Vec2::new(60.0, 20.0);
             ui.visuals_mut().widgets.inactive.rounding = rounding;
-            ui.visuals_mut().widgets.inactive.bg_fill = LIGHT_GRAY.multiply(0.2).into();
-            ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(1.0, FOREST_GREEN);
+            ui.visuals_mut().widgets.inactive.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.2).into();
+            ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::new(2.0, Color32::LIGHT_GRAY);
+            ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.0, FOREST_GREEN);
             ui.visuals_mut().widgets.hovered.rounding = rounding;
-            ui.visuals_mut().widgets.hovered.bg_fill = LIGHT_GRAY.multiply(0.4).into();
-            ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(1.0, FOREST_GREEN);
+            ui.visuals_mut().widgets.hovered.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.4).into();
+            ui.visuals_mut().widgets.hovered.bg_stroke = Stroke::new(3.0, Color32::LIGHT_GRAY);
+            ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.0, FOREST_GREEN);
             ui.visuals_mut().widgets.active.rounding = rounding;
-            ui.visuals_mut().widgets.active.bg_fill = LIGHT_GRAY.multiply(0.4).into();
-            ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(1.5, FOREST_GREEN);
-            ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(1.0, FOREST_GREEN);
+            ui.visuals_mut().widgets.active.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.4).into();
+            ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(4.0, FOREST_GREEN);
+            ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.0, FOREST_GREEN);
             ui.visuals_mut().widgets.noninteractive.rounding = rounding;
+            ui.visuals_mut().override_text_color = Some(FOREST_GREEN.into());
+        }
+        Style::SingleLineTextEdit => {
+            let rounding = Rounding::same(8.0);
+            ui.visuals_mut().widgets.inactive.rounding = rounding;
+            ui.visuals_mut().widgets.hovered.rounding = rounding;
+            ui.visuals_mut().widgets.active.rounding = rounding;
+            ui.visuals_mut().widgets.noninteractive.rounding = rounding;
+        }
+        Style::TodoButton => {
+            let rounding = Rounding::same(40.0);
+            ui.spacing_mut().button_padding = Vec2::new(30.0, 15.0);
+            ui.visuals_mut().widgets.inactive.rounding = rounding;
+            ui.visuals_mut().widgets.inactive.bg_fill = Color32::TRANSPARENT;
+            ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::new(2.0, Color32::LIGHT_GRAY);
+            ui.visuals_mut().widgets.hovered.rounding = rounding;
+            ui.visuals_mut().widgets.hovered.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.2).into();
+            ui.visuals_mut().widgets.hovered.bg_stroke = Stroke::new(3.0, Color32::LIGHT_GRAY);
+            ui.visuals_mut().widgets.active.rounding = rounding;
+            ui.visuals_mut().widgets.active.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.4).into();
+            ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(4.0, ACTIVE_BLUE);
+            ui.visuals_mut().widgets.noninteractive.rounding = rounding;
+        }
+        Style::DoneButton => {
+            let rounding = Rounding::same(40.0);
+            ui.spacing_mut().button_padding = Vec2::new(30.0, 15.0);
+            ui.visuals_mut().widgets.inactive.rounding = rounding;
+            ui.visuals_mut().widgets.inactive.bg_fill = Color32::TRANSPARENT;
+            ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::none();
+            ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.0, Color32::LIGHT_GRAY);
+            ui.visuals_mut().widgets.hovered.rounding = rounding;
+            ui.visuals_mut().widgets.hovered.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.2).into();
+            ui.visuals_mut().widgets.hovered.bg_stroke = Stroke::none();
+            ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(4.0, Color32::LIGHT_GRAY);
+            ui.visuals_mut().widgets.active.rounding = rounding;
+            ui.visuals_mut().widgets.active.bg_fill =
+                Rgba::from(Color32::LIGHT_GRAY).multiply(0.4).into();
+            ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(4.0, ACTIVE_BLUE);
+            ui.visuals_mut().widgets.noninteractive.rounding = rounding;
+            ui.visuals_mut().override_text_color = Some(FOREST_GREEN.into());
+        }
+        Style::InterruptedButton => {
+            style_ui(ui, Style::TodoButton);
+            ui.visuals_mut().override_text_color = Some(CUSTOM_BLUE.into());
+        }
+        Style::FailedButton => {
+            style_ui(ui, Style::TodoButton);
+            ui.visuals_mut().override_text_color = Some(CUSTOM_RED.into());
+        }
+        Style::SoftFailedButton => {
+            style_ui(ui, Style::TodoButton);
+            ui.visuals_mut().override_text_color = Some(CUSTOM_ORANGE.into());
         }
     }
 }
@@ -451,9 +266,42 @@ pub fn init(ctx: &egui::Context) {
 
     // Tell egui to use these fonts:
     ctx.set_fonts(fonts);
+
+    // Redefine text_styles sizes
+    let mut style = (*ctx.style()).clone();
+    style.text_styles = [
+        (
+            TextStyle::Heading,
+            FontId::new(TEXT_SIZE_HEADING, FontFamily::Proportional),
+        ),
+        (
+            TextStyle::Body,
+            FontId::new(TEXT_SIZE_BODY, FontFamily::Proportional),
+        ),
+        (
+            TextStyle::Monospace,
+            FontId::new(TEXT_SIZE_MONOSPACE, FontFamily::Proportional),
+        ),
+        (
+            TextStyle::Button,
+            FontId::new(TEXT_SIZE_BUTTON2, FontFamily::Proportional),
+        ),
+        (
+            TextStyle::Small,
+            FontId::new(TEXT_SIZE_TOOLTIP, FontFamily::Proportional),
+        ),
+    ]
+    .into();
+    ctx.set_style(style);
+
+    let mut visuals = egui::Visuals::light();
+    visuals.override_text_color = Some(Color32::BLACK);
+    ctx.set_visuals(visuals);
 }
 
 pub fn set_fullscreen_scale(ctx: &egui::Context, scale: f32) {
+    static mut RESCALE_TIMER: Option<Instant> = None;
+
     let curr = ctx.pixels_per_point();
     let size = ctx.input().screen_rect().size();
     let mut scale = (size.x / SCREEN_SIZE.x).min(size.y / SCREEN_SIZE.y) * scale;
@@ -478,4 +326,46 @@ pub fn set_fullscreen_scale(ctx: &egui::Context, scale: f32) {
     }
 
     ctx.set_pixels_per_point(curr * scale);
+}
+
+pub mod text {
+    use super::*;
+    use eframe::egui::{Color32, RichText};
+
+    #[inline(always)]
+    pub fn heading(text: impl Into<String>) -> RichText {
+        RichText::new(text).heading()
+    }
+
+    #[inline(always)]
+    pub fn body(text: impl Into<String>) -> RichText {
+        RichText::new(text).size(TEXT_SIZE_BODY)
+    }
+
+    #[inline(always)]
+    pub fn inactive(text: impl Into<String>) -> RichText {
+        RichText::new(text)
+            .size(TEXT_SIZE_BODY)
+            .color(Color32::LIGHT_GRAY)
+    }
+
+    #[inline(always)]
+    pub fn button1(text: impl Into<String>) -> RichText {
+        RichText::new(text).size(TEXT_SIZE_BUTTON1)
+    }
+
+    #[inline(always)]
+    pub fn button2(text: impl Into<String>) -> RichText {
+        RichText::new(text).size(TEXT_SIZE_BUTTON2)
+    }
+
+    #[inline(always)]
+    pub fn tooltip(text: impl Into<String>) -> RichText {
+        RichText::new(text).size(TEXT_SIZE_TOOLTIP)
+    }
+
+    #[inline(always)]
+    pub fn icon(text: impl Into<String>) -> RichText {
+        RichText::new(text).size(TEXT_SIZE_ICON)
+    }
 }

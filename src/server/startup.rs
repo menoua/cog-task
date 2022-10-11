@@ -1,58 +1,43 @@
 use crate::assets::Icon;
 use crate::server::{Page, Server};
 use crate::style;
-use crate::style::{style_ui, Style};
+use crate::style::text::{body, heading, inactive, tooltip};
+use crate::style::{style_ui, Style, CUSTOM_RED, FOREST_GREEN, TEXT_SIZE_ICON};
+use crate::template::header_body_controls;
 use crate::util::{f32_with_precision, str_with_precision};
 use eframe::egui;
+use eframe::egui::{FontSelection, TextStyle};
 use egui::{CentralPanel, Color32, RichText, ScrollArea, TextEdit, Widget};
 use egui_extras::{Size, StripBuilder};
 
 impl Server {
     pub(crate) fn show_startup(&mut self, ctx: &egui::Context) {
         CentralPanel::default().show(ctx, |ui| {
-            StripBuilder::new(ui)
-                .size(Size::exact(50.0))
-                .size(Size::exact(15.0))
-                .size(Size::remainder())
-                .size(Size::exact(15.0))
-                .size(Size::exact(50.0))
-                .vertical(|mut strip| {
-                    strip.cell(|ui| {
-                        ui.centered_and_justified(|ui| {
-                            ui.label(
-                                RichText::new(self.task.title())
-                                    .color(Color32::BLACK)
-                                    .heading(),
-                            );
-                        });
-                    });
-
-                    strip.empty();
-
-                    strip.strip(|builder| {
-                        builder
-                            .size(Size::remainder())
-                            .size(Size::exact(760.0))
-                            .size(Size::remainder())
-                            .horizontal(|mut strip| {
-                                strip.empty();
-                                strip.cell(|ui| {
-                                    ScrollArea::vertical().show(ui, |ui| {
-                                        ui.centered_and_justified(|ui| {
-                                            ui.label(
-                                                RichText::new(self.task.description()).size(18.0),
-                                            );
-                                        });
+            header_body_controls(ui, |strip| {
+                strip.cell(|ui| {
+                    ui.centered_and_justified(|ui| ui.heading(self.task.title()));
+                });
+                strip.empty();
+                strip.strip(|builder| {
+                    builder
+                        .size(Size::remainder())
+                        .size(Size::exact(1520.0))
+                        .size(Size::remainder())
+                        .horizontal(|mut strip| {
+                            strip.empty();
+                            strip.cell(|ui| {
+                                ScrollArea::vertical().show(ui, |ui| {
+                                    ui.centered_and_justified(|ui| {
+                                        ui.label(self.task.description());
                                     });
                                 });
-                                strip.empty();
                             });
-                    });
-
-                    strip.empty();
-
-                    strip.strip(|builder| self.show_startup_controls(builder));
+                            strip.empty();
+                        });
                 });
+                strip.empty();
+                strip.strip(|builder| self.show_startup_controls(builder));
+            });
         });
     }
 
@@ -61,8 +46,6 @@ impl Server {
             None,
             Quit,
             ToggleMagnification,
-            ZoomIn,
-            ZoomOut,
             Start,
         }
 
@@ -70,16 +53,16 @@ impl Server {
 
         builder
             .size(Size::remainder())
+            .size(Size::exact(200.0))
             .size(Size::exact(100.0))
-            .size(Size::exact(50.0))
-            .size(Size::exact(25.0))
-            .size(Size::exact(75.0))
-            .size(Size::exact(90.0))
-            .size(Size::exact(75.0))
-            .size(Size::exact(5.0))
+            .size(Size::exact(60.0))
+            .size(Size::exact(180.0))
+            .size(Size::exact(180.0))
+            .size(Size::exact(150.0))
+            .size(Size::exact(10.0))
+            .size(Size::exact(250.0))
             .size(Size::exact(100.0))
-            .size(Size::exact(50.0))
-            .size(Size::exact(100.0))
+            .size(Size::exact(200.0))
             .size(Size::remainder())
             .horizontal(|mut strip| {
                 strip.empty();
@@ -87,7 +70,7 @@ impl Server {
                 strip.cell(|ui| {
                     ui.horizontal_centered(|ui| {
                         style_ui(ui, Style::CancelButton);
-                        if ui.button(RichText::new("Quit").size(20.0)).clicked() {
+                        if ui.button(style::text::button1("Quit")).clicked() {
                             interaction = Interaction::Quit;
                         }
                     });
@@ -98,7 +81,11 @@ impl Server {
                 strip.cell(|ui| {
                     ui.horizontal_centered(|ui| {
                         style_ui(ui, Style::IconControls);
-                        if ui.button(Icon::MagnifyingGlass.size(16.0)).clicked() {
+                        if ui
+                            .button(Icon::MagnifyingGlass)
+                            .on_hover_text(tooltip("Magnification"))
+                            .clicked()
+                        {
                             interaction = Interaction::ToggleMagnification;
                         }
                     });
@@ -128,7 +115,7 @@ impl Server {
 
                 strip.cell(|ui| {
                     ui.horizontal_centered(|ui| {
-                        ui.label(RichText::new("Subject ID:").size(18.0));
+                        ui.label(body("Subject ID:"));
                     });
                 });
 
@@ -136,8 +123,9 @@ impl Server {
 
                 strip.cell(|ui| {
                     ui.horizontal_centered(|ui| {
+                        style_ui(ui, Style::SingleLineTextEdit);
                         TextEdit::singleline(&mut self.subject)
-                            .hint_text("Enter Subject ID")
+                            .hint_text(inactive("Enter Subject ID"))
                             .ui(ui);
                     });
                 });
@@ -149,7 +137,7 @@ impl Server {
                         style_ui(ui, Style::SubmitButton);
                         let enabled = self.valid_subject_id();
                         ui.add_enabled_ui(enabled, |ui| {
-                            if ui.button(RichText::new("Start").size(20.0)).clicked() {
+                            if ui.button(style::text::button1("Start")).clicked() {
                                 interaction = Interaction::Start;
                             }
                         });
@@ -163,12 +151,6 @@ impl Server {
             Interaction::None => {}
             Interaction::Quit => std::process::exit(0),
             Interaction::ToggleMagnification => self.show_magnification = !self.show_magnification,
-            Interaction::ZoomIn => {
-                self.scale_factor = f32_with_precision(self.scale_factor + 0.2, 1).min(1.2);
-            }
-            Interaction::ZoomOut => {
-                self.scale_factor = f32_with_precision(self.scale_factor - 0.2, 1).max(0.8);
-            }
             Interaction::Start => {
                 self.page = Page::Selection;
                 println!("\n{:#?}", self.task.config());

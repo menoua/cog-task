@@ -35,10 +35,7 @@ pub type AudioBuffer = Buffered<SamplesBuffer<i16>>;
 #[derive(Clone)]
 pub enum ResourceValue {
     Text(Arc<String>),
-    // Image(Arc<TextureHandle>),
-    // Svg(Arc<TextureHandle>),
     Image(TextureId, Vec2),
-    Svg(TextureId, Vec2),
     Audio(AudioBuffer),
     Video(FrameBuffer, f64),
     Stream(Stream),
@@ -52,9 +49,6 @@ impl Debug for ResourceValue {
             }
             ResourceValue::Image(_, size) => {
                 write!(f, "[Image ({} x {})]", size.x, size.y)
-            }
-            ResourceValue::Svg(_, size) => {
-                write!(f, "[Svg (vector graphic) ({} x {})]", size.x, size.y)
             }
             ResourceValue::Audio(buffer) => {
                 write!(
@@ -108,11 +102,9 @@ impl ResourceMap {
         // Load default fixation image
         let src = PathBuf::from_str("fixation.svg").unwrap();
         map.entry(src.clone()).or_insert({
-            // let data =
-            //     ResourceValue::Svg(Arc::new(svg_from_bytes(IMAGE_FIXATION.to_owned(), &src)));
             let tex_manager = tex_manager.clone();
-            let (texture, size) = svg_from_bytes(tex_manager, IMAGE_FIXATION.to_owned(), &src)?;
-            let data = ResourceValue::Svg(texture, size);
+            let (texture, size) = svg_from_bytes(tex_manager, IMAGE_FIXATION, &src)?;
+            let data = ResourceValue::Image(texture, size);
             println!("+ default fixation : {data:?}");
             data
         });
@@ -121,11 +113,9 @@ impl ResourceMap {
         // Load default rustacean image
         let src = PathBuf::from_str("rustacean.svg").unwrap();
         map.entry(src.clone()).or_insert({
-            // let data =
-            //     ResourceValue::Svg(Arc::new(svg_from_bytes(IMAGE_RUSTACEAN.to_owned(), &src)));
             let tex_manager = tex_manager.clone();
-            let (texture, size) = svg_from_bytes(tex_manager, IMAGE_RUSTACEAN.to_owned(), &src)?;
-            let data = ResourceValue::Svg(texture, size);
+            let (texture, size) = svg_from_bytes(tex_manager, IMAGE_RUSTACEAN, &src)?;
+            let data = ResourceValue::Image(texture, size);
             println!("+ default rustacean : {data:?}");
             data
         });
@@ -173,16 +163,14 @@ impl ResourceMap {
                         Ok(ResourceValue::Text(Arc::new(text)))
                     }
                     "png" | "jpg" | "jpeg" | "bmp" | "tiff" | "ico" => {
-                        // Ok(ResourceValue::Image(Arc::new(image_from_file(&path)?)))
                         let tex_manager = tex_manager.clone();
                         let (texture, size) = image_from_file(tex_manager, &path)?;
                         Ok(ResourceValue::Image(texture, size))
                     }
                     "svg" => {
-                        // Ok(ResourceValue::Svg(Arc::new(svg_from_file(&path)?)))
                         let tex_manager = tex_manager.clone();
                         let (texture, size) = svg_from_file(tex_manager, &path)?;
-                        Ok(ResourceValue::Svg(texture, size))
+                        Ok(ResourceValue::Image(texture, size))
                     }
                     "wav" | "flac" | "ogg" => {
                         Ok(ResourceValue::Audio(audio_from_file(&path, &config)?))

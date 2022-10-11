@@ -111,14 +111,14 @@ impl StatefulAction for StatefulCounter {
         CentralPanel::default().show(ctx, |ui| {
             StripBuilder::new(ui)
                 .size(Size::remainder())
-                .size(Size::exact(200.0))
+                .size(Size::exact(400.0))
                 .size(Size::remainder())
                 .horizontal(|mut strip| {
                     strip.empty();
                     strip.strip(|builder| {
                         builder
                             .size(Size::remainder())
-                            .size(Size::exact(40.0))
+                            .size(Size::exact(80.0))
                             .size(Size::remainder())
                             .vertical(|mut strip| {
                                 strip.empty();

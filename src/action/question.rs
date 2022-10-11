@@ -11,13 +11,6 @@ use crate::style;
 use crate::util::{f32_with_precision, f64_with_precision, str_with_precision};
 use eframe::egui;
 use eframe::egui::CentralPanel;
-use iced::alignment::{Horizontal, Vertical};
-use iced::pure::widget::{
-    Button, Checkbox, Column, Container, Radio, Row, Rule, Scrollable, Slider, Space, Text,
-    TextInput,
-};
-use iced::pure::Element;
-use iced::{Alignment, Command, Length};
 use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 use std::ops::RangeInclusive;

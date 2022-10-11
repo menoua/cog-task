@@ -7,7 +7,6 @@ use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::flow::{Flow, Timer};
 use crate::scheduler::{AsyncCallback, SyncCallback};
-use iced::Command;
 use petgraph::prelude::{NodeIndex, StableGraph};
 use petgraph::stable_graph::{Edges, NodeIndices};
 use petgraph::{Directed, Direction, EdgeDirection};

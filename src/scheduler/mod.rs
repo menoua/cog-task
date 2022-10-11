@@ -12,11 +12,7 @@ use crate::scheduler::info::Info;
 use crate::scheduler::monitor::{Event, Monitor};
 use crate::server::{Server, ServerCallback};
 use eframe::egui;
-use eframe::egui::{CentralPanel, Color32, RichText};
-use iced::keyboard::KeyCode;
-use iced::pure::widget::Column;
-use iced::pure::Element;
-use iced::Command;
+use eframe::egui::{CentralPanel, Color32, CursorIcon, RichText};
 use itertools::Itertools;
 use num_traits::Zero;
 use petgraph::prelude::EdgeRef;
@@ -105,7 +101,7 @@ impl Scheduler {
 
         let sync_queue = CallbackQueue::new();
         let mut async_queue = CallbackQueue::new();
-        let server_queue = CallbackQueue::new();
+        let server_queue = server.callback_channel();
 
         {
             let mut logger = Logger::new(&info, &config)?;
@@ -175,7 +171,6 @@ impl Scheduler {
     fn process(&mut self, callback: SyncCallback) -> Result<(), error::Error> {
         match callback {
             SyncCallback::UpdateGraph => {
-                println!("Advancing...");
                 self.advance()
             }
         }
@@ -434,7 +429,7 @@ impl Scheduler {
                     }
                 }
 
-                // #[cfg(debug_assertions)]
+                #[cfg(debug_assertions)]
                 println!("[=> Action complete {} @ {:?}]", v.index(), time);
             }
             done = over;
@@ -444,7 +439,7 @@ impl Scheduler {
             .retain(|&i| self.graph.contains_node(self.nodes[i]));
         self.ready = ready;
         self.start_queue()?;
-        // #[cfg(debug_assertions)]
+        #[cfg(debug_assertions)]
         println!("Active -> {:?}", self.active);
         Ok(())
     }
@@ -533,7 +528,9 @@ impl Scheduler {
             }
         }
 
-        CentralPanel::default().show(ctx, |ui| {});
+        CentralPanel::default().show(ctx, |ui| {
+            ui.output().cursor_icon = CursorIcon::None;
+        });
         Ok(())
     }
 

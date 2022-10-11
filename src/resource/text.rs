@@ -1,4 +1,3 @@
-use iced::alignment::Horizontal;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::str::FromStr;
@@ -11,15 +10,15 @@ pub enum Justification {
     Right,
 }
 
-impl From<Justification> for Horizontal {
-    fn from(j: Justification) -> Self {
-        match j {
-            Justification::Left => Horizontal::Left,
-            Justification::Center => Horizontal::Center,
-            Justification::Right => Horizontal::Right,
-        }
-    }
-}
+// impl From<Justification> for Horizontal {
+//     fn from(j: Justification) -> Self {
+//         match j {
+//             Justification::Left => Horizontal::Left,
+//             Justification::Center => Horizontal::Center,
+//             Justification::Right => Horizontal::Right,
+//         }
+//     }
+// }
 
 pub fn text_or_file(text: &str) -> Option<PathBuf> {
     let parts: Vec<_> = text.split_whitespace().collect();

@@ -14,4 +14,5 @@ pub mod server;
 pub mod style;
 pub mod system;
 pub mod task;
+pub mod template;
 pub mod util;

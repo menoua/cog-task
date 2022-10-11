@@ -7,10 +7,7 @@ use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::{AsyncCallback, SyncCallback};
 use eframe::egui;
-use eframe::egui::{CentralPanel, TextureId, Vec2};
-use iced::pure::widget::{image, svg, Container};
-use iced::pure::Element;
-use iced::{ContentFit, Length};
+use eframe::egui::{CentralPanel, CursorIcon, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -40,13 +37,6 @@ impl Action for Image {
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         match res.fetch(&self.src)? {
             ResourceValue::Image(texture, size) => Ok(Box::new(StatefulImage {
-                id,
-                done: false,
-                handle: texture,
-                size,
-                width: self.width,
-            })),
-            ResourceValue::Svg(texture, size) => Ok(Box::new(StatefulSvg {
                 id,
                 done: false,
                 handle: texture,
@@ -105,58 +95,8 @@ impl StatefulAction for StatefulImage {
         async_queue: &mut CallbackQueue<AsyncCallback>,
     ) -> Result<(), error::Error> {
         CentralPanel::default().show(ctx, |ui| {
-            ui.centered_and_justified(|ui| {
-                if let Some(width) = self.width {
-                    let scale = width / self.size.x;
-                    ui.image(self.handle, self.size * scale);
-                } else {
-                    ui.image(self.handle, self.size);
-                }
-            })
-        });
-        Ok(())
-    }
-}
+            ui.output().cursor_icon = CursorIcon::None;
 
-#[derive(Debug)]
-pub struct StatefulSvg {
-    id: usize,
-    done: bool,
-    // handle: Arc<svg::Handle>,
-    handle: TextureId,
-    size: Vec2,
-    width: Option<f32>,
-}
-
-impl StatefulAction for StatefulSvg {
-    fn id(&self) -> usize {
-        self.id
-    }
-
-    fn is_over(&self) -> Result<bool, error::Error> {
-        Ok(self.done)
-    }
-
-    fn is_visual(&self) -> bool {
-        true
-    }
-
-    fn is_static(&self) -> bool {
-        true
-    }
-
-    fn stop(&mut self) -> Result<(), error::Error> {
-        self.done = true;
-        Ok(())
-    }
-
-    fn show(
-        &mut self,
-        ctx: &egui::Context,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
-    ) -> Result<(), error::Error> {
-        CentralPanel::default().show(ctx, |ui| {
             ui.centered_and_justified(|ui| {
                 if let Some(width) = self.width {
                     let scale = width / self.size.x;

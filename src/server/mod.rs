@@ -8,6 +8,7 @@ use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 use crate::callback::{CallbackQueue, Destination};
 use crate::config::Config;
 use crate::env::Env;
+use crate::error::Error;
 use crate::logger::LoggerCallback;
 use crate::resource::ResourceMap;
 use crate::scheduler::Scheduler;
@@ -19,7 +20,6 @@ use eframe::egui;
 use eframe::egui::{CentralPanel, Rect, Sense};
 use eframe::glow::HasContext;
 use egui_extras::{Size, StripBuilder};
-use iced::{window, Button};
 use serde_json::Value;
 use spin_sleep::SpinSleeper;
 use std::path::PathBuf;
@@ -38,10 +38,13 @@ pub enum Page {
     CleanUp,
 }
 
-pub enum Status {
+#[derive(Debug, Clone)]
+pub enum Progress {
     None,
-    Success(String),
-    Failure(anyhow::Error),
+    Success,
+    Interrupt,
+    Failure(error::Error),
+    CleanupError(error::Error),
 }
 
 pub struct Server {
@@ -53,12 +56,12 @@ pub struct Server {
     resources: ResourceMap,
     scheduler: Option<Scheduler>,
     page: Page,
-    blocks: Vec<(String, bool)>,
+    blocks: Vec<(String, Progress)>,
     _needs_refresh: bool,
     active_block: Option<usize>,
     capture_key: bool,
     animation_id: u32,
-    status: Option<Result<String, error::Error>>,
+    status: Progress,
     show_magnification: bool,
     bin_hash: String,
     sys_info: SystemInfo,
@@ -72,7 +75,7 @@ impl Server {
         let blocks = task
             .block_labels()
             .into_iter()
-            .map(|label| (label, false))
+            .map(|label| (label, Progress::None))
             .collect();
 
         println!("Saving output to: {:?}", env.output());
@@ -91,7 +94,7 @@ impl Server {
             active_block: None,
             capture_key: false,
             animation_id: 0,
-            status: None,
+            status: Progress::None,
             show_magnification: false,
             bin_hash,
             sys_info: SystemInfo::new(),
@@ -216,49 +219,34 @@ impl Server {
                 }
             },
             (Page::Activity, ServerCallback::BlockFinished) => {
-                self.status = Some(Ok("Success".to_owned()));
+                self.status = Progress::Success;
                 self.page = Page::CleanUp;
-                self.capture_key = false;
-                self.animation_id = 0;
-
                 self.drop_scheduler();
             }
             (Page::Activity, ServerCallback::BlockInterrupted) => {
-                self.status = Some(Ok("Interrupted".to_owned()));
+                self.status = Progress::Interrupt;
                 self.page = Page::CleanUp;
-                self.capture_key = false;
-                self.animation_id = 0;
-
                 self.drop_scheduler();
             }
             (Page::Loading | Page::Activity, ServerCallback::BlockCrashed(e)) => {
-                self.status = Some(Err(e.clone()));
+                self.status = Progress::Failure(e);
                 self.page = Page::CleanUp;
-                self.capture_key = false;
-                self.animation_id = 0;
-
                 self.drop_scheduler();
             }
             (Page::CleanUp, ServerCallback::CleanupComplete(success)) => {
-                match (&self.status, success) {
-                    (Some(Ok(status)), Ok(_)) if status.as_str() == "Success" => {
-                        self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 = true;
-                    }
-                    (Some(Ok(status)), Err(e)) if status.as_str() == "Success" => {
-                        self.status = Some(Err(e));
-                    }
-                    _ => {}
-                }
+                self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 =
+                    match (&self.status, success) {
+                        (Progress::Success, Err(e)) => {
+                            self.status = Progress::CleanupError(e.clone());
+                            Progress::CleanupError(e)
+                        }
+                        (progress, _) => progress.clone(),
+                    };
 
                 self.page = Page::Selection;
             }
             _ => {}
         };
-    }
-
-    #[inline(always)]
-    fn mode(&self) -> window::Mode {
-        window::Mode::Fullscreen
     }
 
     #[inline(always)]
@@ -315,22 +303,8 @@ pub enum ServerCallback {
 }
 
 impl eframe::App for Server {
-    // fn subscription(&self) -> Subscription<Self::Message> {
-    //     if self.capture_key {
-    //         iced_native::subscription::events_with(|event, _status| match event {
-    //             Event::Keyboard(KeyPressed { key_code, .. }) => {
-    //                 Some(SchedulerMsg::KeyPress(key_code).wrap())
-    //             }
-    //             _ => None,
-    //         })
-    //     } else {
-    //         Subscription::none()
-    //     }
-    // }
-
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         while let Some((_dest, callback)) = self.sync_queue.pop() {
-            println!("Found callback: {callback:?}");
             self.process(callback);
         }
 

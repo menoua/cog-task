@@ -6,7 +6,6 @@ use crate::resource::FrameBuffer;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{TextureId, Vec2};
 use eframe::epaint::TextureManager;
-use iced::pure::widget::image;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::path::Path;

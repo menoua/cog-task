@@ -1,11 +1,16 @@
 use crate::callback::Destination;
 use crate::error::Error;
 use crate::scheduler::Scheduler;
-use crate::server::{Page, Server, ServerCallback};
-use crate::style::{style_ui, Style, CUSTOM_RED, FOREST_GREEN};
+use crate::server::{Page, Progress, Server, ServerCallback};
+use crate::style;
+use crate::style::text::{body, button1, heading, tooltip};
+use crate::style::{
+    style_ui, Style, ACTIVE_BLUE, CUSTOM_BLUE, CUSTOM_ORANGE, CUSTOM_RED, FOREST_GREEN,
+};
 use crate::task::block::Block;
+use crate::template::header_body_controls;
 use eframe::egui;
-use eframe::egui::{Color32, RichText, ScrollArea, Window};
+use eframe::egui::{Color32, Pos2, RichText, ScrollArea, Vec2, Window};
 use egui::CentralPanel;
 use egui_extras::{Size, StripBuilder};
 use std::thread;
@@ -13,51 +18,35 @@ use std::thread;
 impl Server {
     pub(crate) fn show_selection(&mut self, ctx: &egui::Context) {
         CentralPanel::default().show(ctx, |ui| {
-            ui.add_enabled_ui(self.status.is_none(), |ui| {
-                StripBuilder::new(ui)
-                    .size(Size::exact(50.0))
-                    .size(Size::exact(15.0))
-                    .size(Size::remainder())
-                    .size(Size::exact(15.0))
-                    .size(Size::exact(50.0))
-                    .vertical(|mut strip| {
-                        strip.cell(|ui| {
-                            ui.centered_and_justified(|ui| {
-                                ui.label(
-                                    RichText::new(self.task.title())
-                                        .color(Color32::BLACK)
-                                        .heading(),
-                                );
-                            });
-                        });
-
-                        strip.empty();
-
-                        strip.strip(|builder| {
-                            builder
-                                .size(Size::remainder())
-                                .size(Size::exact(760.0))
-                                .size(Size::remainder())
-                                .horizontal(|mut strip| {
-                                    strip.empty();
-                                    strip.cell(|ui| self.show_selection_blocks(ui));
-                                    strip.empty();
-                                });
-                        });
-
-                        strip.empty();
-
-                        strip.strip(|builder| self.show_selection_controls(builder));
+            ui.add_enabled_ui(matches!(self.status, Progress::None), |ui| {
+                header_body_controls(ui, |strip| {
+                    strip.cell(|ui| {
+                        ui.centered_and_justified(|ui| ui.heading(self.task.title()));
                     });
+                    strip.empty();
+                    strip.strip(|builder| {
+                        builder
+                            .size(Size::remainder())
+                            .size(Size::exact(1520.0))
+                            .size(Size::remainder())
+                            .horizontal(|mut strip| {
+                                strip.empty();
+                                strip.cell(|ui| self.show_selection_blocks(ui));
+                                strip.empty();
+                            });
+                    });
+                    strip.empty();
+                    strip.strip(|builder| self.show_selection_controls(builder));
+                });
             });
         });
 
-        if self.status.is_some() {
+        if !matches!(self.status, Progress::None) {
             self.show_selection_status(ctx);
         }
 
         if ctx.input().key_pressed(egui::Key::Escape) {
-            self.status = None;
+            self.status = Progress::None;
         }
     }
 
@@ -70,20 +59,22 @@ impl Server {
         let mut interaction = Interaction::None;
 
         let names = self.task.block_labels();
+        let is_done: Vec<_> = self.blocks.iter().map(|(_, done)| done).collect();
+
         let cols = self.config().blocks_per_row() as usize;
         let rows = (names.len() + cols - 1) / cols;
-        let row_height = 35.0;
-        let height = (row_height + 5.0) * rows as f32 + 10.0;
+        let row_height = 70.0;
+        let height = (row_height + 10.0) * rows as f32 + 20.0;
         let (col_width, col_spacing) = match cols {
-            1 => (360.0, 0.0),
-            2 => (300.0, 60.0),
-            3 => (220.0, 30.0),
-            _ => (165.0, 20.0),
+            1 => (720.0, 0.0),
+            2 => (600.0, 120.0),
+            3 => (440.0, 60.0),
+            _ => (330.0, 40.0),
         };
 
         StripBuilder::new(ui)
             .size(Size::remainder())
-            .size(Size::exact(height).at_most(400.0))
+            .size(Size::exact(height).at_most(800.0))
             .size(Size::remainder())
             .vertical(|mut strip| {
                 strip.empty();
@@ -121,7 +112,41 @@ impl Server {
                                                 strip.empty();
                                                 strip.cell(|ui| {
                                                     ui.centered_and_justified(|ui| {
-                                                        if ui.button(&names[which]).clicked() {
+                                                        let (style, hint) = match is_done[which] {
+                                                            Progress::None => {
+                                                                (Style::TodoButton, None)
+                                                            }
+                                                            Progress::Success => (
+                                                                Style::DoneButton,
+                                                                Some(tooltip("Completed")),
+                                                            ),
+                                                            Progress::Interrupt => (
+                                                                Style::InterruptedButton,
+                                                                Some(tooltip("Interrupted")),
+                                                            ),
+                                                            Progress::Failure(e) => (
+                                                                Style::FailedButton,
+                                                                Some(tooltip(format!(
+                                                                    "Failed: {e:#?}"
+                                                                ))),
+                                                            ),
+                                                            Progress::CleanupError(e) => (
+                                                                Style::SoftFailedButton,
+                                                                Some(tooltip(format!(
+                                                                    "Failed in clean-up: {e:?}"
+                                                                ))),
+                                                            ),
+                                                        };
+
+                                                        style_ui(ui, style);
+                                                        let response = if let Some(hint) = hint {
+                                                            ui.button(&names[which])
+                                                                .on_hover_text(hint)
+                                                        } else {
+                                                            ui.button(&names[which])
+                                                        };
+
+                                                        if response.clicked() {
                                                             interaction =
                                                                 Interaction::StartBlock(which);
                                                         }
@@ -179,7 +204,7 @@ impl Server {
 
         builder
             .size(Size::remainder())
-            .size(Size::exact(100.0))
+            .size(Size::exact(200.0))
             .size(Size::remainder())
             .horizontal(|mut strip| {
                 strip.empty();
@@ -187,7 +212,7 @@ impl Server {
                 strip.cell(|ui| {
                     ui.horizontal_centered(|ui| {
                         style_ui(ui, Style::CancelButton);
-                        if ui.button(RichText::new("Back").size(20.0)).clicked() {
+                        if ui.button(button1("Back")).clicked() {
                             interaction = Interaction::Back;
                         }
                     });
@@ -205,49 +230,38 @@ impl Server {
     fn show_selection_status(&mut self, ctx: &egui::Context) {
         let mut open = true;
 
-        match &self.status {
-            Some(Ok(status)) => {
-                Window::new(
-                    RichText::from(format!(
-                        "End of block: \"{}\"",
-                        self.active_block.map_or("", |i| &self.blocks[i].0)
-                    ))
-                    .size(14.0)
-                    .strong(),
-                )
+        let header = body(self.active_block.map_or("", |i| &self.blocks[i].0)).strong();
+        let content = match &self.status {
+            Progress::None => None,
+            Progress::Success => Some(body("Block completed successfully!")),
+            Progress::Interrupt => Some(body("Block was interrupted by user.").color(CUSTOM_BLUE)),
+            Progress::Failure(e) => {
+                Some(body(format!("Error in block execution: {e:#?}")).color(CUSTOM_RED))
+            }
+            Progress::CleanupError(e) => {
+                Some(body(format!("Failed to clean up after block: {e:#?}.")).color(CUSTOM_ORANGE))
+            }
+        };
+
+        if let Some(content) = content {
+            Window::new(header)
                 .collapsible(false)
                 .open(&mut open)
                 .vscroll(true)
+                .hscroll(false)
+                .min_width(920.0)
+                .default_size(Vec2::new(920.0, 200.0))
+                .default_pos(Pos2::new(500.0, 300.0))
                 .show(ctx, |ui| {
-                    ui.label(RichText::from(status).size(12.0).color(Color32::BLACK));
+                    ui.centered_and_justified(|ui| {
+                        ui.label(content);
+                    });
                 });
-            }
-            Some(Err(status)) => {
-                Window::new(
-                    RichText::from(format!(
-                        "Error in block: \"{}\"",
-                        self.active_block.map_or("", |i| &self.blocks[i].0)
-                    ))
-                    .size(14.0)
-                    .strong(),
-                )
-                .collapsible(false)
-                .open(&mut open)
-                .vscroll(true)
-                .show(ctx, |ui| {
-                    ui.label(
-                        RichText::from(format!("{:#?}", status))
-                            .size(12.0)
-                            .color(CUSTOM_RED),
-                    );
-                });
-            }
-            None => {}
         }
 
         if !open {
             self.active_block = None;
-            self.status = None;
+            self.status = Progress::None;
         }
     }
 }

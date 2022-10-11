@@ -9,10 +9,7 @@ use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::monitor::Monitor;
 use crate::scheduler::{AsyncCallback, SyncCallback};
 use eframe::egui;
-use eframe::egui::{CentralPanel, TextureId, Vec2};
-use iced::pure::widget::{image, Container};
-use iced::pure::Element;
-use iced::{Command, ContentFit, Length};
+use eframe::egui::{CentralPanel, CursorIcon, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use spin_sleep::SpinSleeper;
 use std::path::PathBuf;
@@ -194,6 +191,8 @@ impl StatefulAction for StatefulVideo {
         let (texture, size) = self.frames[*self.position.lock().unwrap()];
 
         CentralPanel::default().show(ctx, |ui| {
+            ui.output().cursor_icon = CursorIcon::None;
+
             ui.centered_and_justified(|ui| {
                 if let Some(width) = self.width {
                     let scale = width as f32 / size.x;

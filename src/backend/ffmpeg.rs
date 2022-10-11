@@ -12,7 +12,6 @@ use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{context::Context, flag::Flags};
 use ffmpeg::util::frame::video::Video;
 use ffmpeg_next as ffmpeg;
-use iced::pure::widget::image;
 use once_cell::sync::OnceCell;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};

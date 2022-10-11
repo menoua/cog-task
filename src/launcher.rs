@@ -1,7 +1,8 @@
 use crate::assets::{Icon, VERSION};
 use crate::callback::{CallbackQueue, Destination};
 use crate::style;
-use crate::style::{style_ui, Style};
+use crate::style::text::{button1, tooltip};
+use crate::style::{style_ui, Style, TEXT_SIZE_BUTTON2, TEXT_SIZE_ICON, TEXT_SIZE_TOOLTIP};
 use crate::system::SystemInfo;
 use eframe::egui;
 use eframe::egui::{Color32, CursorIcon, Vec2, Window};
@@ -100,16 +101,8 @@ impl Launcher {
 
     pub fn window_size(&self) -> Vec2 {
         let count = self.task_paths.len() as u32;
-        let width = 230;
-        let height = match count {
-            0 => 90,
-            1 => 120,
-            2 => 135,
-            3 => 160,
-            4 => 180,
-            _ => 210,
-        };
-
+        let width = 580;
+        let height = (185 + count * 75).max(245).min(640);
         Vec2::from([width as f32, height as f32])
     }
 
@@ -252,7 +245,7 @@ impl eframe::App for Launcher {
 
         self.show(ctx);
 
-        ctx.set_pixels_per_point(4.0);
+        ctx.set_pixels_per_point(2.0);
         ctx.request_repaint_after(Duration::from_millis(200));
     }
 }
@@ -266,29 +259,25 @@ impl Launcher {
 
             ui.add_enabled_ui(!self.busy, |ui| {
                 StripBuilder::new(ui)
-                    .size(Size::exact(20.0))
-                    .size(Size::exact(15.0))
-                    .size(Size::exact(10.0))
+                    .size(Size::exact(60.0))
+                    .size(Size::exact(40.0))
+                    .size(Size::exact(40.0))
                     .size(Size::remainder())
                     .vertical(|mut strip| {
                         strip.cell(|ui| {
                             ui.centered_and_justified(|ui| {
-                                ui.label(
-                                    RichText::new(if self.busy {
-                                        format!("CogTask v{VERSION} (busy)")
-                                    } else {
-                                        format!("CogTask v{VERSION}")
-                                    })
-                                    .color(Color32::BLACK)
-                                    .heading(),
-                                );
+                                ui.heading(if self.busy {
+                                    format!("CogTask v{VERSION} (busy)")
+                                } else {
+                                    format!("CogTask v{VERSION}")
+                                });
                             });
                         });
 
                         strip.cell(|ui| {
                             StripBuilder::new(ui)
                                 .size(Size::remainder())
-                                .size(Size::exact(80.0))
+                                .size(Size::exact(240.0))
                                 .size(Size::remainder())
                                 .horizontal(|mut strip| {
                                     strip.empty();
@@ -324,28 +313,28 @@ impl Launcher {
         ui.columns(4, |columns| {
             if columns[0]
                 .button(Icon::Folder)
-                .on_hover_text(RichText::from("Load task").size(9.0))
+                .on_hover_text(tooltip("Load task"))
                 .clicked()
             {
                 interaction = Interaction::LoadTask;
             }
             if columns[1]
                 .button(Icon::FolderTree)
-                .on_hover_text(RichText::from("Load task catalogue").size(9.0))
+                .on_hover_text(tooltip("Load task catalogue"))
                 .clicked()
             {
                 interaction = Interaction::LoadTaskRepo;
             }
             if columns[2]
                 .button(Icon::SystemInfo)
-                .on_hover_text(RichText::from("System information").size(9.0))
+                .on_hover_text(tooltip("System information"))
                 .clicked()
             {
                 interaction = Interaction::ShowSystemInfo;
             }
             if columns[3]
                 .button(Icon::Help)
-                .on_hover_text(RichText::from("Help").size(9.0))
+                .on_hover_text(tooltip("Help"))
                 .clicked()
             {
                 interaction = Interaction::ShowHelp;
@@ -394,7 +383,7 @@ impl Launcher {
         let task_buttons: Vec<_> = self
             .task_labels
             .iter()
-            .map(|label| egui::Button::new(label))
+            .map(|label| egui::Button::new(button1(label)))
             .collect();
 
         if task_buttons.is_empty() {
@@ -407,6 +396,7 @@ impl Launcher {
             egui::ScrollArea::vertical().show(ui, |ui| {
                 ui.vertical_centered(|ui| {
                     style_ui(ui, Style::SelectButton);
+                    ui.spacing_mut().item_spacing = Vec2::new(25.0, 20.0);
                     for (i, button) in task_buttons.into_iter().enumerate() {
                         if ui.add(button).clicked() {
                             interaction = Interaction::StartTask(i);
@@ -427,34 +417,34 @@ impl Launcher {
 
         match &self.status {
             Status::Result(status) => {
-                Window::new(RichText::from("Status").size(14.0).strong())
+                Window::new(RichText::from("Status").size(28.0).strong())
                     .collapsible(false)
                     .open(&mut open)
                     .vscroll(true)
                     .show(ctx, |ui| {
-                        ui.label(RichText::from(status).size(12.0).color(Color32::BLACK));
+                        ui.label(RichText::from(status).size(24.0).color(Color32::BLACK));
                     });
             }
             Status::SystemInfo => {
-                Window::new(RichText::from("System Info").size(14.0).strong())
+                Window::new(RichText::from("System Info").size(28.0).strong())
                     .collapsible(false)
                     .open(&mut open)
                     .vscroll(true)
                     .show(ctx, |ui| {
                         ui.label(
                             RichText::from(format!("{:#?}", self.sys_info))
-                                .size(12.0)
+                                .size(24.0)
                                 .color(Color32::BLACK),
                         );
                     });
             }
             Status::Help => {
-                Window::new(RichText::from("Help").size(14.0).strong())
+                Window::new(RichText::from("Help").size(28.0).strong())
                     .collapsible(false)
                     .open(&mut open)
                     .vscroll(true)
                     .show(ctx, |ui| {
-                        ui.label(RichText::from("...").size(12.0).color(Color32::BLACK));
+                        ui.label(RichText::from("...").size(24.0).color(Color32::BLACK));
                     });
             }
             Status::None => {}

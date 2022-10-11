@@ -6,8 +6,6 @@ use crate::resource::ResourceMap;
 use crate::scheduler::monitor::{Event, Monitor};
 use crate::scheduler::{AsyncCallback, SyncCallback};
 use eframe::egui;
-use iced::pure::Element;
-use iced::Command;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::path::{Path, PathBuf};

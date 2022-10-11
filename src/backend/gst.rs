@@ -11,7 +11,6 @@ use eframe::epaint::TextureManager;
 use gst::prelude::*;
 use gstreamer as gst;
 use gstreamer_app as gst_app;
-use iced::pure::widget::image;
 use num_rational::Rational32;
 use num_traits::ToPrimitive;
 use once_cell::sync::OnceCell;

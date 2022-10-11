@@ -8,7 +8,6 @@ use crate::logger::LoggerCallback;
 use crate::resource::ResourceMap;
 use crate::scheduler::monitor::{Event, Monitor};
 use crate::scheduler::{AsyncCallback, SyncCallback};
-use iced::Command;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;

@@ -4,7 +4,6 @@ use crate::resource::FrameBuffer;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{TextureId, Vec2};
 use eframe::epaint::TextureManager;
-use iced::pure::widget::image;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
