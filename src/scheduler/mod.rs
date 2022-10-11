@@ -489,7 +489,8 @@ impl Scheduler {
             self.last_esc = Some(time);
         }
 
-        let keys_pressed = &ctx.input().keys_down;
+        let mut keys_pressed = ctx.input().keys_down.clone();
+        keys_pressed.retain(|k| ctx.input().key_pressed(*k));
         for &i in self.key_monitors.iter() {
             if let Some(node) = self.graph.node_mut(self.nodes[i]) {
                 node.action.update(
