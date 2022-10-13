@@ -1,0 +1,13 @@
+include_actions!(
+    audio,
+    counter,
+    fixation,
+    image,
+    instruction,
+    key_logger,
+    nop,
+    question,
+    simple,
+    stream,
+    video,
+);

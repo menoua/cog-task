@@ -16,8 +16,8 @@ use ffmpeg_next as ffmpeg;
 use once_cell::sync::OnceCell;
 use spin_sleep::SpinSleeper;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, mpsc, Mutex};
 use std::sync::mpsc::{RecvError, Sender};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -215,9 +215,12 @@ impl MediaStream for Stream {
                 }
 
                 *is_eos.lock().unwrap() = true;
-                decoder.send_eof().map_err(|e| {
-                    StreamDecodingError(format!("Failed to send EOF to decoder: {e:?}"))
-                }).unwrap();
+                decoder
+                    .send_eof()
+                    .map_err(|e| {
+                        StreamDecodingError(format!("Failed to send EOF to decoder: {e:?}"))
+                    })
+                    .unwrap();
             });
         }
 
@@ -300,9 +303,12 @@ impl MediaStream for Stream {
         //     })?;
         self.paused = false;
         if let Some(link) = self.starter.take() {
-            link.send(()).map_err(|e| InternalError("Failed to start ffmpeg parallel thread".to_owned()))
+            link.send(())
+                .map_err(|e| InternalError("Failed to start ffmpeg parallel thread".to_owned()))
         } else {
-            Err(InternalError("Tried to start ffmpeg parallel thread twice".to_owned()))
+            Err(InternalError(
+                "Tried to start ffmpeg parallel thread twice".to_owned(),
+            ))
         }
     }
 

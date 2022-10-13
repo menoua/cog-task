@@ -308,9 +308,9 @@ pub fn set_fullscreen_scale(ctx: &egui::Context, scale: f32) {
     let curr = ctx.pixels_per_point();
     let size = ctx.input().screen_rect().size();
     let mut scale = (size.x / SCREEN_SIZE.x).min(size.y / SCREEN_SIZE.y) * scale;
-    scale = f32_with_precision(scale, 5);
+    scale = f32_with_precision(scale, 6);
 
-    if (scale - 1.0).abs() > 1e-4 {
+    if (scale - 1.0).abs() > 1e-6 {
         let now = Instant::now();
         unsafe {
             match RESCALE_TIMER {

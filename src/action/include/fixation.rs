@@ -1,5 +1,5 @@
 use crate::action::{Action, StatefulAction};
-use crate::action::image::Image;
+use crate::action::Image;
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::InternalError;

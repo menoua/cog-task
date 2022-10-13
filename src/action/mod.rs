@@ -16,19 +16,8 @@ use std::path::{Path, PathBuf};
 
 #[macro_use]
 mod macros;
-include_actions!(
-    audio,
-    counter,
-    fixation,
-    image,
-    instruction,
-    key_logger,
-    nop,
-    question,
-    simple,
-    stream,
-    video,
-);
+pub mod include;
+pub use include::*;
 
 pub trait Action: Debug {
     #[inline(always)]
@@ -248,7 +237,7 @@ pub enum ActionCallback {
 }
 
 mod de {
-    use crate::action::{Action, ExtAction};
+    use super::{include, Action, ExtAction};
     use crate::config::LogCondition;
     use serde::de::{Error, MapAccess, Visitor};
     use serde::{Deserialize, Serialize, Serializer};
@@ -315,7 +304,7 @@ mod de {
             let fields =
                 serde_json::to_vec(&fields).map_err(|e| Error::custom(format!("{e:#?}")))?;
 
-            let action = super::from_name_and_fields(&action_type, fields)
+            let action = include::from_name_and_fields(&action_type, fields)
                 .map_err(|e| Error::custom(format!("{e:#?}")))?;
 
             if let Some(action) = action {

@@ -1,5 +1,7 @@
 macro_rules! include_actions {
     ($($name:ident),* $(,)?) => {
+        use crate::action::Action;
+
         $(
             pub mod $name;
         )*
@@ -10,11 +12,10 @@ macro_rules! include_actions {
             )*
         }
 
-        fn from_name_and_fields(
+        pub fn from_name_and_fields(
             name: &str,
             fields: Vec<u8>
         ) -> Result<Option<Box<dyn Action>>, serde_json::Error> {
-            use crate::action::Action;
             use serde::Deserialize;
 
             fn boxed<'de, T: 'static + Action + Deserialize<'de>>(
