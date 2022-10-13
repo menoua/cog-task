@@ -127,11 +127,8 @@ impl StatefulAction for StatefulCounter {
             Interaction::Decrement => {
                 self.count = self.count.saturating_sub(1);
                 if self.count == 0 {
-                    println!("Counter done!");
                     self.done = true;
                     sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
-                } else {
-                    println!("{} more to go...", self.count);
                 }
             }
         }

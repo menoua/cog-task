@@ -477,13 +477,15 @@ impl Scheduler {
 
         let mut keys_pressed = ui.input().keys_down.clone();
         keys_pressed.retain(|k| ui.input().key_pressed(*k));
-        for &i in self.key_monitors.iter() {
-            if let Some(node) = self.graph.node_mut(self.nodes[i]) {
-                node.action.update(
-                    ActionCallback::KeyPress(keys_pressed.clone()),
-                    &mut self.sync_queue,
-                    &mut self.async_queue,
-                )?;
+        if !keys_pressed.is_empty() {
+            for &i in self.key_monitors.iter() {
+                if let Some(node) = self.graph.node_mut(self.nodes[i]) {
+                    node.action.update(
+                        ActionCallback::KeyPress(keys_pressed.clone()),
+                        &mut self.sync_queue,
+                        &mut self.async_queue,
+                    )?;
+                }
             }
         }
 
