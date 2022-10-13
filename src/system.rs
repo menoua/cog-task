@@ -1,6 +1,7 @@
 use std::fmt::{Debug, Formatter};
 use sysinfo::{CpuExt, SystemExt};
 
+#[derive(Clone)]
 pub struct SystemInfo {
     system: String,
     cpu_brand: String,

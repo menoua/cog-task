@@ -22,6 +22,18 @@ pub struct Image {
     style: String,
 }
 
+stateful!(Image {
+    handle: TextureId,
+    size: Vec2,
+    width: Option<f32>,
+});
+
+impl Image {
+    pub fn new(src: PathBuf, width: Option<f32>, style: String) -> Self {
+        Self { src, width, style }
+    }
+}
+
 impl Action for Image {
     #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
@@ -51,26 +63,8 @@ impl Action for Image {
     }
 }
 
-#[derive(Debug)]
-pub struct StatefulImage {
-    id: usize,
-    done: bool,
-    // handle: Arc<image::Handle>,
-    handle: TextureId,
-    size: Vec2,
-    width: Option<f32>,
-}
-
 impl StatefulAction for StatefulImage {
-    #[inline(always)]
-    fn id(&self) -> usize {
-        self.id
-    }
-
-    #[inline(always)]
-    fn is_over(&self) -> Result<bool, error::Error> {
-        Ok(self.done)
-    }
+    impl_stateful!();
 
     #[inline(always)]
     fn is_visual(&self) -> bool {
@@ -90,77 +84,31 @@ impl StatefulAction for StatefulImage {
 
     fn show(
         &mut self,
-        ctx: &egui::Context,
+        ui: &mut egui::Ui,
         sync_queue: &mut CallbackQueue<SyncCallback>,
         async_queue: &mut CallbackQueue<AsyncCallback>,
     ) -> Result<(), error::Error> {
-        CentralPanel::default().show(ctx, |ui| {
-            ui.output().cursor_icon = CursorIcon::None;
+        ui.output().cursor_icon = CursorIcon::None;
 
-            ui.centered_and_justified(|ui| {
-                if let Some(width) = self.width {
-                    let scale = width / self.size.x;
-                    ui.image(self.handle, self.size * scale);
-                } else {
-                    ui.image(self.handle, self.size);
-                }
-            })
+        ui.centered_and_justified(|ui| {
+            if let Some(width) = self.width {
+                let scale = width / self.size.x;
+                ui.image(self.handle, self.size * scale);
+            } else {
+                ui.image(self.handle, self.size);
+            }
         });
+
         Ok(())
     }
-}
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Fixation {
-    #[serde(default)]
-    width: Option<f32>,
-    #[serde(default)]
-    style: String,
-}
-
-impl Action for Fixation {
-    fn stateful(
-        &self,
-        _id: usize,
-        _res: &ResourceMap,
-        _config: &Config,
-        _io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
-        Err(InternalError(Self::LARVA_PANIC_MSG.to_owned()))
-    }
-
-    fn evolve(
-        &self,
-        _root_dir: &Path,
-        _config: &Config,
-    ) -> Result<Option<Box<dyn Action>>, error::Error> {
-        Ok(Some(Box::new(Image::from(self))))
-    }
-}
-
-impl Fixation {
-    const LARVA_PANIC_MSG: &'static str =
-        "Fixation is a larva action, it should be evolved into an \
-        Image quickly after initialization";
-}
-
-impl From<&Fixation> for Image {
-    fn from(f: &Fixation) -> Self {
-        Self {
-            src: PathBuf::from("fixation.svg"),
-            width: f.width,
-            style: f.style.clone(),
-        }
-    }
-}
-
-impl From<Fixation> for Image {
-    fn from(fixation: Fixation) -> Self {
-        Self {
-            src: PathBuf::from("fixation.svg"),
-            width: fixation.width,
-            style: fixation.style,
-        }
+    fn debug(&self) -> Vec<(&str, String)> {
+        <dyn StatefulAction>::debug(self)
+            .into_iter()
+            .chain([
+                ("texture_id", format!("{:?}", self.handle)),
+                ("size", format!("{:?}", self.size)),
+            ])
+            .collect()
     }
 }

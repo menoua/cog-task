@@ -6,38 +6,38 @@ use crate::style::{style_ui, Style, CUSTOM_RED, FOREST_GREEN, TEXT_SIZE_ICON};
 use crate::template::header_body_controls;
 use crate::util::{f32_with_precision, str_with_precision};
 use eframe::egui;
+use eframe::egui::style::Margin;
 use eframe::egui::{FontSelection, TextStyle};
+use eframe::emath::Vec2;
 use egui::{CentralPanel, Color32, RichText, ScrollArea, TextEdit, Widget};
 use egui_extras::{Size, StripBuilder};
 
 impl Server {
-    pub(crate) fn show_startup(&mut self, ctx: &egui::Context) {
-        CentralPanel::default().show(ctx, |ui| {
-            header_body_controls(ui, |strip| {
-                strip.cell(|ui| {
-                    ui.centered_and_justified(|ui| ui.heading(self.task.title()));
-                });
-                strip.empty();
-                strip.strip(|builder| {
-                    builder
-                        .size(Size::remainder())
-                        .size(Size::exact(1520.0))
-                        .size(Size::remainder())
-                        .horizontal(|mut strip| {
-                            strip.empty();
-                            strip.cell(|ui| {
-                                ScrollArea::vertical().show(ui, |ui| {
-                                    ui.centered_and_justified(|ui| {
-                                        ui.label(self.task.description());
-                                    });
+    pub(crate) fn show_startup(&mut self, ui: &mut egui::Ui) {
+        header_body_controls(ui, |strip| {
+            strip.cell(|ui| {
+                ui.centered_and_justified(|ui| ui.heading(self.task.title()));
+            });
+            strip.empty();
+            strip.strip(|builder| {
+                builder
+                    .size(Size::remainder())
+                    .size(Size::exact(1520.0))
+                    .size(Size::remainder())
+                    .horizontal(|mut strip| {
+                        strip.empty();
+                        strip.cell(|ui| {
+                            ScrollArea::vertical().show(ui, |ui| {
+                                ui.centered_and_justified(|ui| {
+                                    ui.label(self.task.description());
                                 });
                             });
-                            strip.empty();
                         });
-                });
-                strip.empty();
-                strip.strip(|builder| self.show_startup_controls(builder));
+                        strip.empty();
+                    });
             });
+            strip.empty();
+            strip.strip(|builder| self.show_startup_controls(builder));
         });
     }
 

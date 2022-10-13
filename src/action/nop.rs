@@ -14,6 +14,8 @@ pub struct Nop {
     persistent: bool,
 }
 
+stateful!(Nop { persistent: bool });
+
 mod defaults {
     #[inline(always)]
     pub fn persistent() -> bool {
@@ -42,23 +44,8 @@ impl Action for Nop {
     }
 }
 
-#[derive(Debug)]
-pub struct StatefulNop {
-    id: usize,
-    done: bool,
-    persistent: bool,
-}
-
 impl StatefulAction for StatefulNop {
-    #[inline(always)]
-    fn id(&self) -> usize {
-        self.id
-    }
-
-    #[inline(always)]
-    fn is_over(&self) -> Result<bool, error::Error> {
-        Ok(self.done || !self.persistent)
-    }
+    impl_stateful!();
 
     #[inline(always)]
     fn is_visual(&self) -> bool {

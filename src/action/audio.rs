@@ -27,6 +27,13 @@ pub struct Audio {
     looping: bool,
 }
 
+stateful_arc!(Audio {
+    duration: Duration,
+    looping: bool,
+    sink: Arc<Mutex<Option<Sink>>>,
+    link: Option<(Sender<()>, Receiver<()>)>,
+});
+
 impl Action for Audio {
     #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
@@ -54,7 +61,7 @@ impl Action for Audio {
                 sink.append(src)
             }
 
-            let done = Arc::new(Mutex::new(sink.empty()));
+            let done = Arc::new(Mutex::new(Ok(sink.empty())));
             let sink = Arc::new(Mutex::new(Some(sink)));
             let (tx_start, rx_start) = mpsc::channel();
             let (tx_stop, rx_stop) = mpsc::channel();
@@ -116,7 +123,7 @@ impl Action for Audio {
                         }
                     }
 
-                    *done.lock().unwrap() = true;
+                    *done.lock().unwrap() = Ok(true);
                     let _ = tx_stop.send(());
                 });
             }
@@ -138,36 +145,8 @@ impl Action for Audio {
     }
 }
 
-pub struct StatefulAudio {
-    id: usize,
-    done: Arc<Mutex<bool>>,
-    duration: Duration,
-    looping: bool,
-    sink: Arc<Mutex<Option<Sink>>>,
-    link: Option<(Sender<()>, Receiver<()>)>,
-}
-
-impl Debug for StatefulAudio {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Stateful audio of length {:?}", self.duration)
-    }
-}
-
 impl StatefulAction for StatefulAudio {
-    #[inline(always)]
-    fn id(&self) -> usize {
-        self.id
-    }
-
-    fn is_over(&self) -> Result<bool, error::Error> {
-        if *self.done.lock().unwrap() {
-            Ok(true)
-        } else if let Some(sink) = self.sink.lock().unwrap().as_ref() {
-            Ok(sink.empty())
-        } else {
-            Ok(true)
-        }
-    }
+    impl_stateful!();
 
     #[inline(always)]
     fn is_visual(&self) -> bool {
@@ -184,7 +163,7 @@ impl StatefulAction for StatefulAudio {
         if let Some(sink) = self.sink.lock().unwrap().take() {
             sink.stop();
         }
-        *self.done.lock().unwrap() = true;
+        *self.done.lock().unwrap() = Ok(true);
         Ok(())
     }
 
@@ -211,11 +190,18 @@ impl StatefulAction for StatefulAudio {
         thread::spawn(move || {
             let link = link;
             let _ = link.1.recv();
-            *done.lock().unwrap() = true;
+            *done.lock().unwrap() = Ok(true);
             sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
         });
 
         Ok(())
+    }
+
+    fn debug(&self) -> Vec<(&str, String)> {
+        <dyn StatefulAction>::debug(self)
+            .into_iter()
+            .chain([("duration", format!("{:?}", self.duration))])
+            .collect()
     }
 }
 

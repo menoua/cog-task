@@ -4,6 +4,7 @@ use crate::error;
 use crate::error::Error::LoggerError;
 use crate::scheduler::info::Info;
 use crate::scheduler::{AsyncCallback, SyncCallback};
+use chrono::{DateTime, Local};
 use itertools::Itertools;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -28,7 +29,6 @@ pub enum LoggerCallback {
     Append(String, (String, Value)),
     Extend(String, Vec<(String, Value)>),
     Flush,
-    Finish,
 }
 
 impl LoggerCallback {
@@ -42,18 +42,15 @@ impl LoggerCallback {
 }
 impl From<LoggerCallback> for AsyncCallback {
     fn from(callback: LoggerCallback) -> Self {
-        AsyncCallback::Logger(callback)
+        AsyncCallback::Logger(Local::now(), callback)
     }
 }
 
 impl Logger {
     pub fn new(info: &Info, config: &Config) -> Result<Self, error::Error> {
         let block = normalized_name(info.block());
-        let date = chrono::Local::now().format("%F").to_string();
-        let time = chrono::Local::now()
-            .format("%T")
-            .to_string()
-            .replace(':', "-");
+        let date = Local::now().format("%F").to_string();
+        let time = Local::now().format("%T").to_string().replace(':', "-");
         let out_dir = info
             .output()
             .join(&info.subject())
@@ -78,8 +75,8 @@ impl Logger {
         })
     }
 
-    fn append(&mut self, group: String, entry: (String, Value)) {
-        let time = chrono::Local::now().to_string();
+    fn append(&mut self, time: DateTime<Local>, group: String, entry: (String, Value)) {
+        let time = time.to_string();
         let (name, value) = entry;
         let (vec, flush) = self.content.entry(group).or_default();
         vec.push((time, name, value));
@@ -87,8 +84,8 @@ impl Logger {
         self.needs_flush = true;
     }
 
-    fn extend(&mut self, group: String, entries: Vec<(String, Value)>) {
-        let time = chrono::Local::now().to_string();
+    fn extend(&mut self, time: DateTime<Local>, group: String, entries: Vec<(String, Value)>) {
+        let time = time.to_string();
         let (vec, flush) = self.content.entry(group).or_default();
         vec.extend(
             entries
@@ -120,7 +117,7 @@ impl Logger {
             *flush = false;
 
             #[cfg(debug_assertions)]
-            println!("{:?} -> Wrote to file: {path:?}", chrono::Local::now());
+            println!("{:?} -> Wrote to file: {path:?}", Local::now());
         }
         self.needs_flush = false;
         Ok(())
@@ -128,6 +125,7 @@ impl Logger {
 
     pub fn update(
         &mut self,
+        time: DateTime<Local>,
         callback: LoggerCallback,
         async_queue: &mut CallbackQueue<AsyncCallback>,
     ) -> Result<(), error::Error> {
@@ -141,23 +139,25 @@ impl Logger {
 
         match callback {
             LoggerCallback::Append(group, entry) => {
-                self.append(group, entry);
+                self.append(time, group, entry);
             }
             LoggerCallback::Extend(group, entries) => {
-                self.extend(group, entries);
+                self.extend(time, group, entries);
             }
             LoggerCallback::Flush => {
                 self.flush()?;
                 self.needs_flush = false;
             }
-            LoggerCallback::Finish => {
-                self.flush().map_err(|e| {
-                    LoggerError(format!("Failed to graciously close logger:\n{e:#?}"))
-                })?;
-                self.content.clear();
-            }
         }
 
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> Result<(), error::Error> {
+        self.flush()
+            .map_err(|e| LoggerError(format!("Failed to graciously close logger:\n{e:#?}")))?;
+
+        self.content.clear();
         Ok(())
     }
 }

@@ -67,6 +67,7 @@ impl MediaStream for Stream {
             Some(sink) => audio_meta_from_sink(sink)?,
             None => (0, 0),
         };
+        println!("--> width={width} height={height} framerate={frame_rate} audio_chan={audio_chan} audio_sr={audio_rate}");
 
         let duration = Duration::from_nanos(
             source

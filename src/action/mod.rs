@@ -1,3 +1,4 @@
+use crate::callback::CallbackQueue;
 use crate::config::{Config, LogCondition};
 use crate::error;
 use crate::error::Error::{ActionViewError, InvalidNameError};
@@ -6,33 +7,28 @@ use crate::resource::ResourceMap;
 use crate::scheduler::monitor::{Event, Monitor};
 use crate::scheduler::{AsyncCallback, SyncCallback};
 use eframe::egui;
+use gstreamer::paste;
+use itertools::Itertools;
+use std::any::Any;
 use std::collections::HashSet;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
 
-pub mod audio;
-pub mod counter;
-pub mod de;
-pub mod image;
-pub mod instruction;
-pub mod key_logger;
-pub mod nop;
-pub mod question;
-pub mod simple;
-pub mod stream;
-pub mod video;
-
-pub use crate::action::image::{Fixation, Image};
-use crate::callback::CallbackQueue;
-pub use audio::Audio;
-pub use counter::Counter;
-pub use instruction::Instruction;
-pub use key_logger::KeyLogger;
-pub use nop::Nop;
-pub use question::Question;
-pub use simple::Simple;
-pub use stream::Stream;
-pub use video::Video;
+#[macro_use]
+mod macros;
+include_actions!(
+    audio,
+    counter,
+    fixation,
+    image,
+    instruction,
+    key_logger,
+    nop,
+    question,
+    simple,
+    stream,
+    video,
+);
 
 pub trait Action: Debug {
     #[inline(always)]
@@ -63,13 +59,12 @@ pub trait Action: Debug {
     }
 }
 
-pub trait StatefulAction: Debug {
+pub trait StatefulAction {
     fn id(&self) -> usize;
 
-    #[inline(always)]
-    fn is_over(&self) -> Result<bool, error::Error> {
-        Ok(false)
-    }
+    fn is_over(&self) -> Result<bool, error::Error>;
+
+    fn type_str(&self) -> String;
 
     #[inline(always)]
     fn is_visual(&self) -> bool {
@@ -110,14 +105,43 @@ pub trait StatefulAction: Debug {
     #[inline(always)]
     fn show(
         &mut self,
-        ctx: &egui::Context,
+        ui: &mut egui::Ui,
         sync_queue: &mut CallbackQueue<SyncCallback>,
         async_queue: &mut CallbackQueue<AsyncCallback>,
     ) -> Result<(), error::Error> {
         Err(ActionViewError(format!(
-            "Show not implemented for action `{}`",
-            self.id()
+            "Attempted to show a non-visual action: Action({})",
+            self.debug()
+                .iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .join(", ")
         )))
+    }
+
+    fn debug(&self) -> Vec<(&str, String)> {
+        vec![
+            ("id", format!("{:?}", self.id())),
+            ("over", format!("{:?}", self.is_over())),
+            ("visual", format!("{:?}", self.is_visual())),
+            ("static", format!("{:?}", self.is_static())),
+            ("monitors", format!("{:?}", self.monitors())),
+            ("type", format!("{:?}", self.type_str())),
+        ]
+    }
+}
+
+pub trait ImplStatefulAction: StatefulAction {}
+
+impl Debug for dyn StatefulAction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Action({})",
+            self.debug()
+                .iter()
+                .map(|(key, value)| format!("{key}={value}"))
+                .join(", ")
+        )
     }
 }
 
@@ -131,13 +155,6 @@ pub enum StatefulActionMsg {
     UpdateString(usize, String),
     UpdateEvent(Event),
 }
-
-// impl StatefulActionMsg {
-//     #[inline(always)]
-//     pub fn wrap(self) -> SyncCallback {
-//         SyncCallback::Relay(SchedulerMsg::Relay(self))
-//     }
-// }
 
 #[derive(Debug)]
 pub struct ExtAction {
@@ -212,24 +229,109 @@ impl ExtAction {
     }
 }
 
-#[derive(Debug)]
-struct Style(Vec<String>);
-impl Style {
-    fn new(base: &str, custom: &str) -> Self {
-        Self(
-            format!("{base} {custom}")
-                .split_whitespace()
-                .map(|c| c.to_owned())
-                .collect(),
-        )
-    }
-
-    // fn to_vec(&self) -> Vec<String> {
-    //     self.0.clone()
-    // }
-}
+// #[derive(Debug)]
+// struct Style(Vec<String>);
+// impl Style {
+//     fn new(base: &str, custom: &str) -> Self {
+//         Self(
+//             format!("{base} {custom}")
+//                 .split_whitespace()
+//                 .map(|c| c.to_owned())
+//                 .collect(),
+//         )
+//     }
+// }
 
 #[derive(Debug, Clone)]
 pub enum ActionCallback {
     KeyPress(HashSet<egui::Key>),
+}
+
+mod de {
+    use crate::action::{Action, ExtAction};
+    use crate::config::LogCondition;
+    use serde::de::{Error, MapAccess, Visitor};
+    use serde::{Deserialize, Serialize, Serializer};
+    use serde_json::value::{Map, Value};
+    use std::fmt;
+
+    impl<'de> Deserialize<'de> for ExtAction {
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            deserializer.deserialize_map(ExtActionVisitor)
+        }
+    }
+
+    struct ExtActionVisitor;
+    impl<'de> Visitor<'de> for ExtActionVisitor {
+        type Value = ExtAction;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("A bool, i64, f64, or String")
+        }
+
+        fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+        where
+            A: MapAccess<'de>,
+        {
+            let mut fields = vec![];
+            while let Some(entry) = map.next_entry()? {
+                fields.push(entry);
+            }
+            let mut fields: Map<String, Value> = fields.into_iter().collect();
+
+            if !fields.contains_key("type") {
+                return Err(Error::custom("Action definition is missing a `type`"));
+            }
+
+            let id = match fields.get("id") {
+                Some(Value::String(s)) => Some(s.to_owned()),
+                Some(_) => {
+                    return Err(Error::custom(
+                        "Action `id` should be a string or None/ignored",
+                    ));
+                }
+                _ => None,
+            };
+            let action_type = match fields.get("type") {
+                Some(Value::String(s)) => s.to_owned(),
+                _ => {
+                    return Err(Error::custom("Action `type` should be a string"));
+                }
+            };
+            let log_when = if let Some(v) = fields.get("log_when") {
+                Some(
+                    serde_json::from_value::<LogCondition>(v.clone()).map_err(|e| {
+                        Error::custom(format!("Failed to interpret value for `log_when`:\n{e:#?}"))
+                    })?,
+                )
+            } else {
+                None
+            };
+            fields.retain(|k, _| !["type", "id", "log_when"].contains(&k.as_str()));
+
+            let fields =
+                serde_json::to_vec(&fields).map_err(|e| Error::custom(format!("{e:#?}")))?;
+
+            let action = super::from_name_and_fields(&action_type, fields)
+                .map_err(|e| Error::custom(format!("{e:#?}")))?;
+
+            if let Some(action) = action {
+                Ok(ExtAction::new(id, action, log_when))
+            } else {
+                Err(Error::custom(format!("Unknown action type: {action_type}")))
+            }
+        }
+    }
+
+    impl Serialize for ExtAction {
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            serializer.serialize_str(&format!("{:?}", self))
+        }
+    }
 }

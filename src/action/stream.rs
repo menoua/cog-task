@@ -33,6 +33,15 @@ pub struct Stream {
     style: String,
 }
 
+stateful_arc!(Stream {
+    frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
+    framerate: f64,
+    width: Option<u16>,
+    looping: bool,
+    link: Option<(Sender<()>, Receiver<()>)>,
+    join_handle: Option<JoinHandle<Result<(), error::Error>>>,
+});
+
 impl Stream {
     #[inline(always)]
     fn src(&self) -> PathBuf {
@@ -138,28 +147,8 @@ impl Action for Stream {
     }
 }
 
-#[derive(Debug)]
-pub struct StatefulStream {
-    id: usize,
-    done: Arc<Mutex<Result<bool, error::Error>>>,
-    frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
-    framerate: f64,
-    width: Option<u16>,
-    looping: bool,
-    link: Option<(Sender<()>, Receiver<()>)>,
-    join_handle: Option<JoinHandle<Result<(), error::Error>>>,
-}
-
 impl StatefulAction for StatefulStream {
-    #[inline(always)]
-    fn id(&self) -> usize {
-        self.id
-    }
-
-    #[inline(always)]
-    fn is_over(&self) -> Result<bool, error::Error> {
-        self.done.lock().unwrap().clone()
-    }
+    impl_stateful!();
 
     #[inline(always)]
     fn is_visual(&self) -> bool {
@@ -222,7 +211,7 @@ impl StatefulAction for StatefulStream {
 
     fn show(
         &mut self,
-        ctx: &egui::Context,
+        ui: &mut egui::Ui,
         sync_queue: &mut CallbackQueue<SyncCallback>,
         async_queue: &mut CallbackQueue<AsyncCallback>,
     ) -> Result<(), error::Error> {
@@ -233,53 +222,28 @@ impl StatefulAction for StatefulStream {
             .clone()
             .unwrap_or_else(|| (TextureId::default(), Vec2::splat(1.0)));
 
-        CentralPanel::default().show(ctx, |ui| {
-            ui.output().cursor_icon = CursorIcon::None;
+        ui.output().cursor_icon = CursorIcon::None;
 
-            ui.centered_and_justified(|ui| {
-                if let Some(width) = self.width {
-                    let scale = width as f32 / size.x;
-                    ui.image(texture, size * scale);
-                } else {
-                    ui.image(texture, size);
-                }
-            })
+        ui.centered_and_justified(|ui| {
+            if let Some(width) = self.width {
+                let scale = width as f32 / size.x;
+                ui.image(texture, size * scale);
+            } else {
+                ui.image(texture, size);
+            }
         });
 
-        // let image = image::Image::new(
-        //     self.frame
-        //         .lock()
-        //         .unwrap()
-        //         .clone()
-        //         .unwrap_or_else(|| image::Handle::from_pixels(0, 0, vec![])),
-        // );
-        //
-        // Ok(if let Some(width) = self.width {
-        //     let width = (scale_factor * width as f32) as u16;
-        //     Container::new(
-        //         Container::new(
-        //             image
-        //                 .content_fit(ContentFit::Contain)
-        //                 .width(Length::Units(width))
-        //                 .height(Length::Fill),
-        //         )
-        //         .width(Length::Units(width))
-        //         .height(Length::Fill)
-        //         .center_x()
-        //         .center_y(),
-        //     )
-        // } else {
-        //     Container::new(image.content_fit(ContentFit::ScaleDown))
-        //         .height(Length::Fill)
-        //         .center_x()
-        //         .center_y()
-        // }
-        // .width(Length::Fill)
-        // .height(Length::Fill)
-        // .center_x()
-        // .center_y()
-        // .into())
         Ok(())
+    }
+
+    fn debug(&self) -> Vec<(&str, String)> {
+        <dyn StatefulAction>::debug(self)
+            .into_iter()
+            .chain([
+                ("framerate", format!("{:?}", self.framerate)),
+                ("looping", format!("{:?}", self.looping)),
+            ])
+            .collect()
     }
 }
 

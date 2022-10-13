@@ -2,10 +2,13 @@ use crate::assets::{Icon, VERSION};
 use crate::callback::{CallbackQueue, Destination};
 use crate::style;
 use crate::style::text::{button1, tooltip};
-use crate::style::{style_ui, Style, TEXT_SIZE_BUTTON2, TEXT_SIZE_ICON, TEXT_SIZE_TOOLTIP};
+use crate::style::{
+    style_ui, Style, TEXT_SIZE_BUTTON2, TEXT_SIZE_DIALOGUE_BODY, TEXT_SIZE_DIALOGUE_TITLE,
+    TEXT_SIZE_ICON, TEXT_SIZE_TOOLTIP,
+};
 use crate::system::SystemInfo;
 use eframe::egui;
-use eframe::egui::{Color32, CursorIcon, Vec2, Window};
+use eframe::egui::{Color32, CursorIcon, Direction, Layout, Vec2, Window};
 use eframe::glow::HasContext;
 use egui::widget_text::RichText;
 use egui_extras::{Size, StripBuilder};
@@ -252,7 +255,11 @@ impl eframe::App for Launcher {
 
 impl Launcher {
     fn show(&mut self, ctx: &egui::Context) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+        let frame = egui::Frame::window(&ctx.style())
+            .inner_margin(0.0)
+            .outer_margin(0.0);
+
+        egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
             if self.busy {
                 ui.output().cursor_icon = CursorIcon::NotAllowed;
             }
@@ -261,7 +268,9 @@ impl Launcher {
                 StripBuilder::new(ui)
                     .size(Size::exact(60.0))
                     .size(Size::exact(40.0))
-                    .size(Size::exact(40.0))
+                    .size(Size::exact(18.0))
+                    .size(Size::exact(4.0))
+                    .size(Size::exact(18.0))
                     .size(Size::remainder())
                     .vertical(|mut strip| {
                         strip.cell(|ui| {
@@ -282,6 +291,24 @@ impl Launcher {
                                 .horizontal(|mut strip| {
                                     strip.empty();
                                     strip.cell(|ui| self.show_controls(ui));
+                                    strip.empty();
+                                });
+                        });
+
+                        strip.empty();
+
+                        strip.strip(|builder| {
+                            builder
+                                .size(Size::remainder())
+                                .size(Size::exact(240.0))
+                                .size(Size::remainder())
+                                .horizontal(|mut strip| {
+                                    strip.empty();
+                                    strip.cell(|ui| {
+                                        ui.vertical_centered_justified(|ui| {
+                                            ui.separator();
+                                        });
+                                    });
                                     strip.empty();
                                 });
                         });
@@ -360,7 +387,9 @@ impl Launcher {
                     .unwrap();
 
                 if let Some(path) = path {
+                    let sys_info = self.sys_info.clone();
                     *self = Self::new(path);
+                    self.sys_info = sys_info;
                 }
             }
             Interaction::ShowSystemInfo => {
@@ -413,43 +442,46 @@ impl Launcher {
     }
 
     fn show_status(&mut self, ctx: &egui::Context) {
-        let mut open = true;
-
-        match &self.status {
-            Status::Result(status) => {
-                Window::new(RichText::from("Status").size(28.0).strong())
-                    .collapsible(false)
-                    .open(&mut open)
-                    .vscroll(true)
-                    .show(ctx, |ui| {
-                        ui.label(RichText::from(status).size(24.0).color(Color32::BLACK));
-                    });
-            }
-            Status::SystemInfo => {
-                Window::new(RichText::from("System Info").size(28.0).strong())
-                    .collapsible(false)
-                    .open(&mut open)
-                    .vscroll(true)
-                    .show(ctx, |ui| {
-                        ui.label(
-                            RichText::from(format!("{:#?}", self.sys_info))
-                                .size(24.0)
-                                .color(Color32::BLACK),
-                        );
-                    });
-            }
-            Status::Help => {
-                Window::new(RichText::from("Help").size(28.0).strong())
-                    .collapsible(false)
-                    .open(&mut open)
-                    .vscroll(true)
-                    .show(ctx, |ui| {
-                        ui.label(RichText::from("...").size(24.0).color(Color32::BLACK));
-                    });
-            }
-            Status::None => {}
+        if matches!(self.status, Status::None) {
+            return;
         }
 
+        let (title, content) = match &self.status {
+            Status::Result(status) => ("Status", status.to_owned()),
+            Status::SystemInfo => ("System Info", format!("{:#?}", self.sys_info)),
+            Status::Help => ("Help", "...".to_owned()),
+            _ => ("", "".to_owned()),
+        };
+
+        let mut open = true;
+        Window::new(
+            RichText::from(title)
+                .size(TEXT_SIZE_DIALOGUE_TITLE)
+                .strong(),
+        )
+        .collapsible(false)
+        .open(&mut open)
+        .vscroll(true)
+        .min_width(550.0)
+        .default_size(Vec2::new(550.0, 240.0))
+        .show(ctx, |ui| {
+            ui.with_layout(
+                Layout::centered_and_justified(Direction::LeftToRight),
+                |ui| {
+                    ui.label(RichText::from(content.clone()).size(TEXT_SIZE_DIALOGUE_BODY * 0.9));
+                },
+            )
+            .response
+            .context_menu(|ui| {
+                if ui
+                    .button(RichText::new("Copy").size(TEXT_SIZE_DIALOGUE_BODY * 0.9))
+                    .clicked()
+                {
+                    ui.close_menu();
+                    ui.output().copied_text = content.trim().to_owned();
+                }
+            });
+        });
         if !open {
             self.status = Status::None;
         }

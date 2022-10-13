@@ -21,6 +21,8 @@ pub struct Counter {
     style: String,
 }
 
+stateful!(Counter { count: u32 });
+
 mod defaults {
     #[inline(always)]
     pub fn from() -> u32 {
@@ -52,30 +54,15 @@ impl Action for Counter {
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         Ok(Box::new(StatefulCounter {
             id,
-            done: false,
+            done: self.from == 0,
             count: self.from,
             // style: Style::new("action-counter", &self.style),
         }))
     }
 }
 
-#[derive(Debug)]
-pub struct StatefulCounter {
-    id: usize,
-    done: bool,
-    count: u32,
-}
-
 impl StatefulAction for StatefulCounter {
-    #[inline(always)]
-    fn id(&self) -> usize {
-        self.id
-    }
-
-    #[inline(always)]
-    fn is_over(&self) -> Result<bool, error::Error> {
-        Ok(self.done || self.count == 0)
-    }
+    impl_stateful!();
 
     #[inline(always)]
     fn is_visual(&self) -> bool {
@@ -95,7 +82,7 @@ impl StatefulAction for StatefulCounter {
 
     fn show(
         &mut self,
-        ctx: &egui::Context,
+        ui: &mut egui::Ui,
         sync_queue: &mut CallbackQueue<SyncCallback>,
         _async_queue: &mut CallbackQueue<AsyncCallback>,
     ) -> Result<(), error::Error> {
@@ -108,34 +95,32 @@ impl StatefulAction for StatefulCounter {
 
         let button = egui::Button::new(format!("Click me {} more times", self.count));
 
-        CentralPanel::default().show(ctx, |ui| {
-            StripBuilder::new(ui)
-                .size(Size::remainder())
-                .size(Size::exact(400.0))
-                .size(Size::remainder())
-                .horizontal(|mut strip| {
-                    strip.empty();
-                    strip.strip(|builder| {
-                        builder
-                            .size(Size::remainder())
-                            .size(Size::exact(80.0))
-                            .size(Size::remainder())
-                            .vertical(|mut strip| {
-                                strip.empty();
-                                strip.cell(|ui| {
-                                    ui.centered_and_justified(|ui| {
-                                        style_ui(ui, Style::SelectButton);
-                                        if ui.add(button).clicked() {
-                                            interaction = Interaction::Decrement;
-                                        }
-                                    });
+        StripBuilder::new(ui)
+            .size(Size::remainder())
+            .size(Size::exact(400.0))
+            .size(Size::remainder())
+            .horizontal(|mut strip| {
+                strip.empty();
+                strip.strip(|builder| {
+                    builder
+                        .size(Size::remainder())
+                        .size(Size::exact(80.0))
+                        .size(Size::remainder())
+                        .vertical(|mut strip| {
+                            strip.empty();
+                            strip.cell(|ui| {
+                                ui.centered_and_justified(|ui| {
+                                    style_ui(ui, Style::SelectButton);
+                                    if ui.add(button).clicked() {
+                                        interaction = Interaction::Decrement;
+                                    }
                                 });
-                                strip.empty();
                             });
-                    });
-                    strip.empty();
+                            strip.empty();
+                        });
                 });
-        });
+                strip.empty();
+            });
 
         match interaction {
             Interaction::None => {}
@@ -152,5 +137,12 @@ impl StatefulAction for StatefulCounter {
         }
 
         Ok(())
+    }
+
+    fn debug(&self) -> Vec<(&str, String)> {
+        <dyn StatefulAction>::debug(self)
+            .into_iter()
+            .chain([("count", format!("{:?}", self.count))])
+            .collect()
     }
 }

@@ -1,4 +1,5 @@
 use crate::assets::{FONT_ICONS_BRANDS, FONT_ICONS_REGULAR, FONT_ICONS_SOLID};
+use crate::util::f32_with_precision;
 use eframe::egui;
 use eframe::egui::{FontId, TextStyle};
 use egui::{Color32, FontData, FontDefinitions, FontFamily, Rgba, Rounding, Stroke, Vec2};
@@ -14,6 +15,8 @@ pub const TEXT_SIZE_BUTTON1: f32 = 38.0;
 pub const TEXT_SIZE_BUTTON2: f32 = 34.0;
 pub const TEXT_SIZE_TOOLTIP: f32 = 20.0;
 pub const TEXT_SIZE_ICON: f32 = 32.0;
+pub const TEXT_SIZE_DIALOGUE_TITLE: f32 = 30.0;
+pub const TEXT_SIZE_DIALOGUE_BODY: f32 = 26.0;
 
 // pub struct Radio;
 // impl radio::StyleSheet for Radio {
@@ -305,17 +308,18 @@ pub fn set_fullscreen_scale(ctx: &egui::Context, scale: f32) {
     let curr = ctx.pixels_per_point();
     let size = ctx.input().screen_rect().size();
     let mut scale = (size.x / SCREEN_SIZE.x).min(size.y / SCREEN_SIZE.y) * scale;
+    scale = f32_with_precision(scale, 5);
 
     if (scale - 1.0).abs() > 1e-4 {
         let now = Instant::now();
         unsafe {
             match RESCALE_TIMER {
                 None => {
-                    println!("Scaling {curr} by {scale}");
+                    println!("Rescaling UI {curr}*{scale}={}", curr * scale);
                     RESCALE_TIMER = Some(now);
                 }
                 Some(timer) if timer.elapsed() > Duration::from_millis(200) => {
-                    println!("Scaling {curr} by {scale}");
+                    println!("Rescaling UI {curr}*{scale}={}", curr * scale);
                     RESCALE_TIMER = Some(now);
                 }
                 _ => scale = 1.0,

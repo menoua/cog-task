@@ -6,9 +6,9 @@ use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, RichText};
 
 impl Server {
-    pub(crate) fn show_activity(&mut self, ctx: &egui::Context) {
+    pub(crate) fn show_activity(&mut self, ui: &mut egui::Ui) {
         if let Some(scheduler) = self.scheduler.as_mut() {
-            if let Err(e) = scheduler.show(ctx) {
+            if let Err(e) = scheduler.show(ui) {
                 self.sync_queue
                     .push(Destination::default(), ServerCallback::BlockCrashed(e));
             }

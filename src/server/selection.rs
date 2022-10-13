@@ -6,46 +6,40 @@ use crate::style;
 use crate::style::text::{body, button1, heading, tooltip};
 use crate::style::{
     style_ui, Style, ACTIVE_BLUE, CUSTOM_BLUE, CUSTOM_ORANGE, CUSTOM_RED, FOREST_GREEN,
+    TEXT_SIZE_DIALOGUE_BODY, TEXT_SIZE_DIALOGUE_TITLE,
 };
 use crate::task::block::Block;
-use crate::template::header_body_controls;
+use crate::template::{center_x, header_body_controls};
 use eframe::egui;
-use eframe::egui::{Color32, Pos2, RichText, ScrollArea, Vec2, Window};
+use eframe::egui::style::Margin;
+use eframe::egui::{
+    Align, Color32, Direction, Frame, Label, Layout, Pos2, RichText, ScrollArea, Vec2, Window,
+};
 use egui::CentralPanel;
 use egui_extras::{Size, StripBuilder};
 use std::thread;
 
 impl Server {
-    pub(crate) fn show_selection(&mut self, ctx: &egui::Context) {
-        CentralPanel::default().show(ctx, |ui| {
-            ui.add_enabled_ui(matches!(self.status, Progress::None), |ui| {
-                header_body_controls(ui, |strip| {
-                    strip.cell(|ui| {
-                        ui.centered_and_justified(|ui| ui.heading(self.task.title()));
-                    });
-                    strip.empty();
-                    strip.strip(|builder| {
-                        builder
-                            .size(Size::remainder())
-                            .size(Size::exact(1520.0))
-                            .size(Size::remainder())
-                            .horizontal(|mut strip| {
-                                strip.empty();
-                                strip.cell(|ui| self.show_selection_blocks(ui));
-                                strip.empty();
-                            });
-                    });
-                    strip.empty();
-                    strip.strip(|builder| self.show_selection_controls(builder));
+    pub(crate) fn show_selection(&mut self, ui: &mut egui::Ui) {
+        ui.add_enabled_ui(matches!(self.status, Progress::None), |ui| {
+            header_body_controls(ui, |strip| {
+                strip.cell(|ui| {
+                    ui.centered_and_justified(|ui| ui.heading(self.task.title()));
                 });
+                strip.empty();
+                strip.strip(|builder| {
+                    center_x(builder, 1520.0, |ui| self.show_selection_blocks(ui));
+                });
+                strip.empty();
+                strip.strip(|builder| self.show_selection_controls(builder));
             });
         });
 
         if !matches!(self.status, Progress::None) {
-            self.show_selection_status(ctx);
+            self.show_selection_status(ui.ctx());
         }
 
-        if ctx.input().key_pressed(egui::Key::Escape) {
+        if ui.input().key_pressed(egui::Key::Escape) {
             self.status = Progress::None;
         }
     }
@@ -202,24 +196,14 @@ impl Server {
 
         let mut interaction = Interaction::None;
 
-        builder
-            .size(Size::remainder())
-            .size(Size::exact(200.0))
-            .size(Size::remainder())
-            .horizontal(|mut strip| {
-                strip.empty();
-
-                strip.cell(|ui| {
-                    ui.horizontal_centered(|ui| {
-                        style_ui(ui, Style::CancelButton);
-                        if ui.button(button1("Back")).clicked() {
-                            interaction = Interaction::Back;
-                        }
-                    });
-                });
-
-                strip.empty();
+        center_x(builder, 200.0, |ui| {
+            ui.horizontal_centered(|ui| {
+                style_ui(ui, Style::CancelButton);
+                if ui.button(button1("Back")).clicked() {
+                    interaction = Interaction::Back;
+                }
             });
+        });
 
         match interaction {
             Interaction::None => {}
@@ -228,40 +212,56 @@ impl Server {
     }
 
     fn show_selection_status(&mut self, ctx: &egui::Context) {
-        let mut open = true;
-
         let header = body(self.active_block.map_or("", |i| &self.blocks[i].0)).strong();
         let content = match &self.status {
             Progress::None => None,
-            Progress::Success => Some(body("Block completed successfully!")),
+            Progress::Success => Some(body("Block completed successfully!").color(FOREST_GREEN)),
             Progress::Interrupt => Some(body("Block was interrupted by user.").color(CUSTOM_BLUE)),
             Progress::Failure(e) => {
-                Some(body(format!("Error in block execution: {e:#?}")).color(CUSTOM_RED))
+                Some(body(format!("\nError in block execution: {e:#?}\n")).color(CUSTOM_RED))
             }
-            Progress::CleanupError(e) => {
-                Some(body(format!("Failed to clean up after block: {e:#?}.")).color(CUSTOM_ORANGE))
-            }
+            Progress::CleanupError(e) => Some(
+                body(format!("\nFailed to clean up after block: {e:#?}\n")).color(CUSTOM_ORANGE),
+            ),
         };
 
         if let Some(content) = content {
-            Window::new(header)
+            let mut open = true;
+
+            Window::new(header.size(TEXT_SIZE_DIALOGUE_TITLE))
                 .collapsible(false)
                 .open(&mut open)
                 .vscroll(true)
                 .hscroll(false)
                 .min_width(920.0)
-                .default_size(Vec2::new(920.0, 200.0))
-                .default_pos(Pos2::new(500.0, 300.0))
+                .fixed_size(Vec2::new(920.0, 360.0))
+                .fixed_pos(Pos2::new(500.0, 280.0))
                 .show(ctx, |ui| {
-                    ui.centered_and_justified(|ui| {
-                        ui.label(content);
+                    ui.with_layout(
+                        Layout::centered_and_justified(Direction::LeftToRight),
+                        |ui| {
+                            ui.add_sized(
+                                [760.0, 340.0],
+                                Label::new(content.clone().size(TEXT_SIZE_DIALOGUE_BODY)),
+                            );
+                        },
+                    )
+                    .response
+                    .context_menu(|ui| {
+                        if ui
+                            .button(RichText::new("Copy").size(TEXT_SIZE_DIALOGUE_BODY))
+                            .clicked()
+                        {
+                            ui.close_menu();
+                            ui.output().copied_text = content.text().trim().to_owned();
+                        }
                     });
                 });
-        }
 
-        if !open {
-            self.active_block = None;
-            self.status = Progress::None;
+            if !open {
+                self.active_block = None;
+                self.status = Progress::None;
+            }
         }
     }
 }

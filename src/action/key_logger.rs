@@ -19,6 +19,8 @@ pub struct KeyLogger {
     group: String,
 }
 
+stateful!(KeyLogger { group: String });
+
 mod defaults {
     #[inline(always)]
     pub fn group() -> String {
@@ -53,23 +55,8 @@ impl Action for KeyLogger {
     }
 }
 
-#[derive(Debug)]
-pub struct StatefulKeyLogger {
-    id: usize,
-    done: bool,
-    group: String,
-}
-
 impl StatefulAction for StatefulKeyLogger {
-    #[inline(always)]
-    fn id(&self) -> usize {
-        self.id
-    }
-
-    #[inline(always)]
-    fn is_over(&self) -> Result<bool, error::Error> {
-        Ok(self.done)
-    }
+    impl_stateful!();
 
     #[inline(always)]
     fn is_visual(&self) -> bool {
@@ -111,5 +98,12 @@ impl StatefulAction for StatefulKeyLogger {
             async_queue.push(Destination::default(), LoggerCallback::Append(group, entry));
         }
         Ok(())
+    }
+
+    fn debug(&self) -> Vec<(&str, String)> {
+        <dyn StatefulAction>::debug(self)
+            .into_iter()
+            .chain([("group", format!("{:?}", self.group))])
+            .collect()
     }
 }

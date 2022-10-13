@@ -1,5 +1,5 @@
-use crate::action::{Action, StatefulAction, StatefulActionMsg, Style};
-use crate::callback::CallbackQueue;
+use crate::action::{Action, StatefulAction, StatefulActionMsg};
+use crate::callback::{CallbackQueue, Destination};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidNameError};
@@ -8,13 +8,17 @@ use crate::logger::LoggerCallback;
 use crate::resource::ResourceMap;
 use crate::scheduler::{AsyncCallback, SyncCallback};
 use crate::style;
+use crate::style::text::{body, button1, inactive};
 use crate::util::{f32_with_precision, f64_with_precision, str_with_precision};
 use eframe::egui;
-use eframe::egui::CentralPanel;
+use eframe::egui::{CentralPanel, Checkbox, Color32, RadioButton, ScrollArea, Slider, Stroke, TextEdit, Vec2, Widget};
 use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
+use egui_extras::{Size, StripBuilder};
+use crate::style::{CUSTOM_BLUE, Style, style_ui, TEXT_SIZE_BODY};
+use crate::template::{center_x, header_body_controls};
 
 const SHIFT: usize = 0x1000;
 
@@ -28,6 +32,11 @@ pub struct Question {
     style: String,
 }
 
+stateful!(Question {
+    group: String,
+    list: Vec<StatefulQItem>,
+});
+
 mod defaults {
     #[inline(always)]
     pub fn group() -> String {
@@ -35,12 +44,12 @@ mod defaults {
     }
 
     #[inline(always)]
-    pub fn lines() -> u32 {
+    pub fn lines() -> usize {
         3
     }
 
     #[inline(always)]
-    pub fn columns() -> u32 {
+    pub fn columns() -> usize {
         10
     }
 
@@ -72,9 +81,115 @@ impl Action for Question {
                 id,
                 done: false,
                 group: self.group.clone(),
-                _style: Style::new("action-question", &self.style),
+                // _style: Style::new("action-question", &self.style),
                 list: self.list.iter().map(|q| q.stateful()).collect(),
             }))
+        }
+    }
+}
+
+impl StatefulAction for StatefulQuestion {
+    impl_stateful!();
+
+    #[inline(always)]
+    fn is_visual(&self) -> bool {
+        true
+    }
+
+    #[inline(always)]
+    fn is_static(&self) -> bool {
+        false
+    }
+
+    #[inline(always)]
+    fn stop(&mut self) -> Result<(), error::Error> {
+        self.done = true;
+        Ok(())
+    }
+
+    fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        sync_queue: &mut CallbackQueue<SyncCallback>,
+        async_queue: &mut CallbackQueue<AsyncCallback>,
+    ) -> Result<(), error::Error> {
+        header_body_controls(
+            ui,
+            |mut strip| {
+                strip.empty();
+                strip.empty();
+                strip.strip(|builder| {
+                    center_x(
+                        builder,
+                        1520.0,
+                        |ui| {
+                            ScrollArea::vertical().show(ui, |ui| self.show_items(ui));
+                        },
+                    );
+                });
+                strip.empty();
+                strip.strip(|builder| self.show_controls(builder, sync_queue, async_queue));
+            }
+        );
+
+        Ok(())
+    }
+}
+
+impl StatefulQuestion {
+    fn show_items(&mut self, ui: &mut egui::Ui) {
+        ui.scope(|ui| {
+            ui.spacing_mut().item_spacing = Vec2::splat(25.0);
+
+            for (i, question) in self.list.iter_mut().enumerate() {
+                if i > 0 {
+                    ui.separator();
+                }
+
+                ui.vertical(|ui| {
+                    ui.spacing_mut().item_spacing = Vec2::splat(15.0);
+
+                    match question {
+                        StatefulQItem::SingleLine { prompt, .. }
+                        | StatefulQItem::MultiLine { prompt, .. }
+                        | StatefulQItem::SingleChoice { prompt, .. }
+                        | StatefulQItem::MultiChoice { prompt, .. }
+                        | StatefulQItem::Slider { prompt, .. } => ui.label(body(prompt.as_str())),
+                    };
+
+                    question.ui(ui);
+                });
+            }
+        });
+    }
+
+    fn show_controls(&mut self, builder: StripBuilder, sync_queue: &mut CallbackQueue<SyncCallback>, async_queue: &mut CallbackQueue<AsyncCallback>) {
+        enum Interaction {
+            None,
+            Submit,
+        }
+
+        let mut interaction = Interaction::None;
+
+        center_x(builder, 250.0, |ui| {
+            ui.horizontal_centered(|ui| {
+                style_ui(ui, Style::SubmitButton);
+                if ui.button(button1("Submit")).clicked() {
+                    interaction = Interaction::Submit;
+                }
+            });
+        });
+
+        match interaction {
+            Interaction::None => {}
+            Interaction::Submit => {
+                self.done = true;
+                sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
+                async_queue.push(Destination::default(), LoggerCallback::Extend(
+                    self.group.clone(),
+                    self.list.iter().map(|q| q.to_string()).collect(),
+                ));
+            }
         }
     }
 }
@@ -92,21 +207,21 @@ pub enum QItem {
         id: String,
         prompt: String,
         #[serde(default = "defaults::lines")]
-        lines: u32,
+        lines: usize,
     },
     SingleChoice {
         id: String,
         prompt: String,
         options: Vec<String>,
         #[serde(default = "defaults::columns")]
-        columns: u32,
+        columns: usize,
     },
     MultiChoice {
         id: String,
         prompt: String,
         options: Vec<String>,
         #[serde(default = "defaults::columns")]
-        columns: u32,
+        columns: usize,
     },
     Slider {
         id: String,
@@ -187,7 +302,7 @@ pub enum StatefulQItem {
     MultiLine {
         id: String,
         prompt: String,
-        lines: u32,
+        lines: usize,
         input: String,
     },
     SingleChoice {
@@ -195,14 +310,14 @@ pub enum StatefulQItem {
         prompt: String,
         options: Vec<String>,
         choice: Option<usize>,
-        columns: u32,
+        columns: usize,
     },
     MultiChoice {
         id: String,
         prompt: String,
         options: Vec<String>,
         choice: Vec<bool>,
-        columns: u32,
+        columns: usize,
     },
     Slider {
         id: String,
@@ -212,6 +327,116 @@ pub enum StatefulQItem {
         choice: f32,
         precision: u8,
     },
+}
+
+impl StatefulQItem {
+    fn ui(&mut self, ui: &mut egui::Ui) {
+        match self {
+            StatefulQItem::SingleLine { input, .. } => {
+                ui.vertical_centered_justified(|ui| {
+                    TextEdit::singleline(input).hint_text(inactive("Your answer goes here")).ui(ui);
+                });
+            }
+            StatefulQItem::MultiLine { input, lines, .. } => {
+                ui.vertical_centered_justified(|ui| {
+                    TextEdit::multiline(input).hint_text(inactive("Your answer goes here")).desired_rows(*lines).ui(ui);
+                });
+            }
+            StatefulQItem::SingleChoice { options, choice, columns, .. } => {
+                ui.horizontal_wrapped(|ui| {
+                    ui.spacing_mut().item_spacing = Vec2::new(45.0, 15.0);
+                    ui.spacing_mut().icon_width = TEXT_SIZE_BODY  * 0.75;
+                    ui.spacing_mut().icon_width_inner = TEXT_SIZE_BODY * 0.5;
+                    ui.spacing_mut().icon_spacing = TEXT_SIZE_BODY * 0.25;
+                    ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+                    ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+                    ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+                    ui.visuals_mut().widgets.noninteractive.fg_stroke = Stroke::new(2.5, Color32::GRAY);
+
+                    if *columns > 0 {
+                        let mut i = 0;
+                        ui.vertical_centered_justified(|ui| {
+                            while i < options.len() {
+                                ui.columns(*columns, |ui| {
+                                    while i < options.len() {
+                                        if RadioButton::new(*choice == Some(i), body(options[i].as_str()))
+                                            .ui(&mut ui[i % *columns])
+                                            .clicked() {
+                                            *choice = Some(i);
+                                        }
+
+                                        i += 1;
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        ui.horizontal_wrapped(|ui| {
+                            options.iter_mut().enumerate().for_each(|(i, option)| {
+                                if RadioButton::new(*choice == Some(i), body(option.as_str()))
+                                    .ui(ui)
+                                    .clicked() {
+                                    *choice = Some(i);
+                                }
+                            });
+                        });
+                    }
+                });
+            }
+            StatefulQItem::MultiChoice { options, choice, columns, .. } => {
+                ui.scope(|ui| {
+                    ui.spacing_mut().item_spacing = Vec2::new(45.0, 15.0);
+                    ui.spacing_mut().icon_width = TEXT_SIZE_BODY  * 0.75;
+                    ui.spacing_mut().icon_width_inner = TEXT_SIZE_BODY * 0.5;
+                    ui.spacing_mut().icon_spacing = TEXT_SIZE_BODY * 0.25;
+                    ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+                    ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+                    ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+                    ui.visuals_mut().widgets.noninteractive.fg_stroke = Stroke::new(2.5, Color32::GRAY);
+
+                    if *columns > 0 {
+                        let mut i = 0;
+                        ui.vertical_centered_justified(|ui| {
+                            while i < options.len() {
+                                ui.columns(*columns, |ui| {
+                                    while i < options.len() {
+                                        Checkbox::new(&mut choice[i], body(options[i].as_str()))
+                                            .ui(&mut ui[i % *columns]);
+
+                                        i += 1;
+                                    }
+                                });
+                            }
+                        });
+                    } else {
+                        ui.horizontal_wrapped(|ui| {
+                            options.iter_mut().enumerate().for_each(|(i, option)| {
+                                Checkbox::new(&mut choice[i], body(option.as_str()))
+                                    .ui(ui);
+                            });
+                        });
+                    }
+                });
+            }
+            StatefulQItem::Slider { range, step, choice, precision, .. } => {
+                let range = RangeInclusive::new(
+                    f32_with_precision(range.0, *precision),
+                    f32_with_precision(range.1, *precision),
+                );
+
+                ui.horizontal_centered(|ui| {
+                    ui.spacing_mut().slider_width = 400.0;
+
+                    ui.add_space(560.0);
+                    Slider::new(choice, range)
+                        .max_decimals(*precision as usize)
+                        .step_by(*step as f64)
+                        .clamp_to_range(true)
+                        .ui(ui);
+                });
+            }
+        }
+    }
 }
 
 impl StatefulQItem {
@@ -316,232 +541,5 @@ impl StatefulQItem {
         };
 
         (name, value)
-    }
-}
-
-#[derive(Debug)]
-pub struct StatefulQuestion {
-    id: usize,
-    done: bool,
-    group: String,
-    _style: Style,
-    list: Vec<StatefulQItem>,
-}
-
-impl StatefulAction for StatefulQuestion {
-    #[inline(always)]
-    fn id(&self) -> usize {
-        self.id
-    }
-
-    #[inline(always)]
-    fn is_over(&self) -> Result<bool, error::Error> {
-        Ok(self.done)
-    }
-
-    #[inline(always)]
-    fn is_visual(&self) -> bool {
-        true
-    }
-
-    #[inline(always)]
-    fn is_static(&self) -> bool {
-        false
-    }
-
-    #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
-        self.done = true;
-        Ok(())
-    }
-
-    // fn update(&mut self, msg: StatefulActionMsg) -> Result<Command<SyncCallback>, error::Error> {
-    //     Ok(match msg {
-    //         StatefulActionMsg::Update(0x00) => {
-    //             self.done = true;
-    //             let answers = LoggerCallback::Extend(
-    //                 self.group.clone(),
-    //                 self.list.iter().map(|q| q.to_string()).collect(),
-    //             );
-    //             Command::batch([
-    //                 Command::perform(async move { answers }, LoggerCallback::wrap),
-    //                 Command::perform(async { SchedulerMsg::Advance }, SchedulerMsg::wrap),
-    //             ])
-    //         }
-    //         StatefulActionMsg::UpdateInt(code, value) => {
-    //             self.list[code as usize / SHIFT].set_answer_i32(code as usize % SHIFT, value)?;
-    //             Command::none()
-    //         }
-    //         StatefulActionMsg::UpdateFloat(code, value) => {
-    //             self.list[code as usize / SHIFT].set_answer_f32(code as usize % SHIFT, value)?;
-    //             Command::none()
-    //         }
-    //         StatefulActionMsg::UpdateBool(code, value) => {
-    //             self.list[code as usize / SHIFT].set_answer_bool(code as usize % SHIFT, value)?;
-    //             Command::none()
-    //         }
-    //         StatefulActionMsg::UpdateString(code, value) => {
-    //             self.list[code as usize / SHIFT].set_answer_str(code as usize % SHIFT, value)?;
-    //             Command::none()
-    //         }
-    //         _ => Command::none(),
-    //     })
-    // }
-
-    fn show(
-        &mut self,
-        ctx: &egui::Context,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
-    ) -> Result<(), error::Error> {
-        CentralPanel::default().show(ctx, |ui| {});
-        // let mut content: Column<SyncCallback> = Column::new()
-        //     .spacing(30)
-        //     .padding([0, 15])
-        //     .align_items(Alignment::Start);
-        //
-        // for (i, question) in self.list.iter().enumerate() {
-        //     if i > 0 {
-        //         content = content.push(Rule::horizontal(5));
-        //     }
-        //
-        //     let prompt = match question {
-        //         StatefulQItem::SingleLine { prompt, .. }
-        //         | StatefulQItem::MultiLine { prompt, .. }
-        //         | StatefulQItem::SingleChoice { prompt, .. }
-        //         | StatefulQItem::MultiChoice { prompt, .. }
-        //         | StatefulQItem::Slider { prompt, .. } => Text::new(prompt).size(34),
-        //     };
-        //
-        //     let fields = match question {
-        //         StatefulQItem::SingleLine { input, .. } => Container::new(
-        //             TextInput::new("Your answer goes here", input, move |s| {
-        //                 StatefulActionMsg::UpdateString(SHIFT * i, s).wrap()
-        //             })
-        //             .size(32)
-        //             .padding([5, 9]),
-        //         ),
-        //         StatefulQItem::MultiLine { input, .. } => Container::new(
-        //             TextInput::new("Your answer goes here", input, move |s| {
-        //                 StatefulActionMsg::UpdateString(SHIFT * i, s).wrap()
-        //             })
-        //             .size(32)
-        //             .padding([5, 9]),
-        //         ),
-        //         StatefulQItem::SingleChoice {
-        //             options,
-        //             choice,
-        //             columns,
-        //             ..
-        //         } => {
-        //             let options: Vec<_> = options
-        //                 .iter()
-        //                 .enumerate()
-        //                 .map(|(j, o)| {
-        //                     Radio::new(j, o.to_string(), *choice, |e| {
-        //                         StatefulActionMsg::UpdateBool(SHIFT * i + e, true).wrap()
-        //                     })
-        //                     .style(style::Radio)
-        //                     .text_size(32)
-        //                     .size(25)
-        //                 })
-        //                 .collect();
-        //             Container::new(style::grid(options, *columns as usize, 15, 45))
-        //         }
-        //         StatefulQItem::MultiChoice {
-        //             options,
-        //             columns,
-        //             choice,
-        //             ..
-        //         } => {
-        //             let options: Vec<_> = options
-        //                 .iter()
-        //                 .enumerate()
-        //                 .map(|(j, o)| {
-        //                     Checkbox::new(choice[j], o.to_string(), move |e| {
-        //                         StatefulActionMsg::UpdateBool(SHIFT * i + j, e).wrap()
-        //                     })
-        //                     .text_size(32)
-        //                     .size(25)
-        //                 })
-        //                 .collect();
-        //             Container::new(style::grid(options, *columns as usize, 15, 45))
-        //         }
-        //         StatefulQItem::Slider {
-        //             range,
-        //             step,
-        //             choice,
-        //             precision,
-        //             ..
-        //         } => Container::new(
-        //             Row::new()
-        //                 .align_items(Alignment::Center)
-        //                 .spacing(30)
-        //                 .padding([0, 150])
-        //                 .push(
-        //                     Text::new(str_with_precision(range.0, *precision))
-        //                         .size(32)
-        //                         .vertical_alignment(Vertical::Center),
-        //                 )
-        //                 .push(
-        //                     Slider::new(RangeInclusive::new(range.0, range.1), *choice, move |v| {
-        //                         StatefulActionMsg::UpdateFloat(SHIFT * i, v).wrap()
-        //                     })
-        //                     .step(*step)
-        //                     .width(Length::Units(350)),
-        //                 )
-        //                 .push(
-        //                     Text::new(str_with_precision(range.1, *precision))
-        //                         .size(32)
-        //                         .vertical_alignment(Vertical::Center),
-        //                 )
-        //                 .push(Space::with_width(Length::Fill))
-        //                 .push(
-        //                     Text::new(str_with_precision(*choice, *precision))
-        //                         .size(32)
-        //                         .vertical_alignment(Vertical::Center),
-        //                 ),
-        //         ),
-        //     }
-        //     .width(Length::Fill)
-        //     .padding([0, 15])
-        //     .center_x();
-        //
-        //     content = content.push(Column::new().spacing(30).push(prompt).push(fields));
-        // }
-        //
-        // let content = Scrollable::new(content);
-        // let submit = Button::new(
-        //     Text::new("Submit")
-        //         .size(34)
-        //         .horizontal_alignment(Horizontal::Center)
-        //         .vertical_alignment(Vertical::Center),
-        // )
-        // .padding([20, 60])
-        // .style(style::Submit)
-        // .on_press(StatefulActionMsg::Update(0x00).wrap());
-        //
-        // Ok(Container::new(
-        //     Column::new()
-        //         .max_width(1200)
-        //         .align_items(Alignment::Center)
-        //         .spacing(40)
-        //         .push(content.height(Length::FillPortion(9)))
-        //         .push(Rule::horizontal(5))
-        //         .push(
-        //             Container::new(submit)
-        //                 .width(Length::Fill)
-        //                 .height(Length::FillPortion(1))
-        //                 .center_x()
-        //                 .center_y(),
-        //         ),
-        // )
-        // .width(Length::Fill)
-        // .height(Length::Fill)
-        // .padding(75)
-        // .center_x()
-        // .center_y()
-        // .into())
-        Ok(())
     }
 }

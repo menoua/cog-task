@@ -6,9 +6,9 @@ use crate::io::IO;
 use crate::resource::text::Justification;
 use crate::resource::{text::text_or_file, ResourceMap};
 use crate::scheduler::{AsyncCallback, SyncCallback};
-use crate::style::text::body;
+use crate::style::text::{body, button1};
 use crate::style::{style_ui, Style};
-use crate::template::header_body_controls;
+use crate::template::{center_x, header_body_controls};
 use crate::{error, style};
 use eframe::egui;
 use eframe::egui::{CentralPanel, RichText, ScrollArea};
@@ -31,6 +31,13 @@ pub struct Instruction {
     #[serde(default)]
     style: String,
 }
+
+stateful!(Instruction {
+    text: String,
+    header: String,
+    justify: Justification,
+    persistent: bool,
+});
 
 mod defaults {
     #[inline(always)]
@@ -106,26 +113,8 @@ impl Action for Instruction {
     }
 }
 
-#[derive(Debug)]
-pub struct StatefulInstruction {
-    id: usize,
-    done: bool,
-    text: String,
-    header: String,
-    justify: Justification,
-    persistent: bool,
-}
-
 impl StatefulAction for StatefulInstruction {
-    #[inline(always)]
-    fn id(&self) -> usize {
-        self.id
-    }
-
-    #[inline(always)]
-    fn is_over(&self) -> Result<bool, error::Error> {
-        Ok(self.done)
-    }
+    impl_stateful!();
 
     #[inline(always)]
     fn is_visual(&self) -> bool {
@@ -145,36 +134,34 @@ impl StatefulAction for StatefulInstruction {
 
     fn show(
         &mut self,
-        ctx: &egui::Context,
+        ui: &mut egui::Ui,
         sync_queue: &mut CallbackQueue<SyncCallback>,
         async_queue: &mut CallbackQueue<AsyncCallback>,
     ) -> Result<(), error::Error> {
-        CentralPanel::default().show(ctx, |ui| {
-            header_body_controls(ui, |mut strip| {
-                strip.cell(|ui| {
-                    ui.centered_and_justified(|ui| ui.heading(&self.header));
-                });
-                strip.empty();
-                strip.strip(|builder| {
-                    builder
-                        .size(Size::remainder())
-                        .size(Size::exact(1520.0))
-                        .size(Size::remainder())
-                        .horizontal(|mut strip| {
-                            strip.empty();
-                            strip.cell(|ui| {
-                                ScrollArea::vertical().show(ui, |ui| {
-                                    ui.centered_and_justified(|ui| {
-                                        ui.label(body(&self.text));
-                                    });
+        header_body_controls(ui, |mut strip| {
+            strip.cell(|ui| {
+                ui.centered_and_justified(|ui| ui.heading(&self.header));
+            });
+            strip.empty();
+            strip.strip(|builder| {
+                builder
+                    .size(Size::remainder())
+                    .size(Size::exact(1520.0))
+                    .size(Size::remainder())
+                    .horizontal(|mut strip| {
+                        strip.empty();
+                        strip.cell(|ui| {
+                            ScrollArea::vertical().show(ui, |ui| {
+                                ui.centered_and_justified(|ui| {
+                                    ui.label(body(&self.text));
                                 });
                             });
-                            strip.empty();
                         });
-                });
-                strip.empty();
-                strip.strip(|builder| self.show_controls(builder, sync_queue));
+                        strip.empty();
+                    });
             });
+            strip.empty();
+            strip.strip(|builder| self.show_controls(builder, sync_queue));
         });
 
         Ok(())
@@ -194,24 +181,14 @@ impl StatefulInstruction {
 
         let mut interaction = Interaction::None;
 
-        builder
-            .size(Size::remainder())
-            .size(Size::exact(200.0))
-            .size(Size::remainder())
-            .horizontal(|mut strip| {
-                strip.empty();
-
-                strip.cell(|ui| {
-                    ui.horizontal_centered(|ui| {
-                        style_ui(ui, Style::SubmitButton);
-                        if ui.button(RichText::new("Next").size(40.0)).clicked() {
-                            interaction = Interaction::Next;
-                        }
-                    });
-                });
-
-                strip.empty();
+        center_x(builder, 200.0, |ui| {
+            ui.horizontal_centered(|ui| {
+                style_ui(ui, Style::SubmitButton);
+                if ui.button(button1("Next")).clicked() {
+                    interaction = Interaction::Next;
+                }
             });
+        });
 
         match interaction {
             Interaction::None => {}
@@ -220,5 +197,12 @@ impl StatefulInstruction {
                 sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
             }
         }
+    }
+
+    fn debug(&self) -> Vec<(&str, String)> {
+        <dyn StatefulAction>::debug(self)
+            .into_iter()
+            .chain([("persistent", format!("{:?}", self.persistent))])
+            .collect()
     }
 }

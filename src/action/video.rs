@@ -30,6 +30,16 @@ pub struct Video {
     style: String,
 }
 
+stateful_arc!(Video {
+    frames: Arc<Vec<(TextureId, Vec2)>>,
+    framerate: f64,
+    duration: Duration,
+    position: Arc<Mutex<usize>>,
+    width: Option<u16>,
+    looping: bool,
+    link: Option<(Sender<()>, Receiver<()>)>,
+});
+
 impl Video {
     #[inline(always)]
     fn src(&self) -> PathBuf {
@@ -52,8 +62,9 @@ impl Action for Video {
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
         match res.fetch(&self.src())? {
             ResourceValue::Video(frames, framerate) => {
-                let done = Arc::new(Mutex::new(frames.is_empty()));
+                let done = Arc::new(Mutex::new(Ok(frames.is_empty())));
                 let position = Arc::new(Mutex::new(0));
+                let duration = Duration::from_secs_f64(frames.len() as f64 / framerate);
 
                 let (tx_start, rx_start) = mpsc::channel();
                 let (tx_stop, rx_stop) = mpsc::channel();
@@ -79,12 +90,12 @@ impl Action for Video {
                                 if looping {
                                     *pos = 0;
                                 } else {
-                                    *done = true;
+                                    *done = Ok(true);
                                 }
                             } else {
                                 *pos += 1;
                             }
-                            if *done {
+                            if let Ok(true) = *done {
                                 break;
                             }
                         }
@@ -98,6 +109,7 @@ impl Action for Video {
                     done,
                     frames,
                     framerate,
+                    duration,
                     position,
                     width: self.width,
                     looping: self.looping,
@@ -112,28 +124,8 @@ impl Action for Video {
     }
 }
 
-#[derive(Debug)]
-pub struct StatefulVideo {
-    id: usize,
-    done: Arc<Mutex<bool>>,
-    frames: Arc<Vec<(TextureId, Vec2)>>,
-    framerate: f64,
-    position: Arc<Mutex<usize>>,
-    width: Option<u16>,
-    looping: bool,
-    link: Option<(Sender<()>, Receiver<()>)>,
-}
-
 impl StatefulAction for StatefulVideo {
-    #[inline(always)]
-    fn id(&self) -> usize {
-        self.id
-    }
-
-    #[inline(always)]
-    fn is_over(&self) -> Result<bool, error::Error> {
-        Ok(*self.done.lock().unwrap())
-    }
+    impl_stateful!();
 
     #[inline(always)]
     fn is_visual(&self) -> bool {
@@ -147,7 +139,7 @@ impl StatefulAction for StatefulVideo {
 
     #[inline(always)]
     fn stop(&mut self) -> Result<(), error::Error> {
-        *self.done.lock().unwrap() = true;
+        *self.done.lock().unwrap() = Ok(true);
         Ok(())
     }
 
@@ -175,7 +167,7 @@ impl StatefulAction for StatefulVideo {
         thread::spawn(move || {
             let link = link;
             let _ = link.1.recv();
-            *done.lock().unwrap() = true;
+            *done.lock().unwrap() = Ok(true);
             sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
         });
 
@@ -184,25 +176,34 @@ impl StatefulAction for StatefulVideo {
 
     fn show(
         &mut self,
-        ctx: &egui::Context,
+        ui: &mut egui::Ui,
         sync_queue: &mut CallbackQueue<SyncCallback>,
         async_queue: &mut CallbackQueue<AsyncCallback>,
     ) -> Result<(), error::Error> {
         let (texture, size) = self.frames[*self.position.lock().unwrap()];
 
-        CentralPanel::default().show(ctx, |ui| {
-            ui.output().cursor_icon = CursorIcon::None;
+        ui.output().cursor_icon = CursorIcon::None;
 
-            ui.centered_and_justified(|ui| {
-                if let Some(width) = self.width {
-                    let scale = width as f32 / size.x;
-                    ui.image(texture, size * scale);
-                } else {
-                    ui.image(texture, size);
-                }
-            })
+        ui.centered_and_justified(|ui| {
+            if let Some(width) = self.width {
+                let scale = width as f32 / size.x;
+                ui.image(texture, size * scale);
+            } else {
+                ui.image(texture, size);
+            }
         });
 
         Ok(())
+    }
+
+    fn debug(&self) -> Vec<(&str, String)> {
+        <dyn StatefulAction>::debug(self)
+            .into_iter()
+            .chain([
+                ("duration", format!("{:?}", self.duration)),
+                ("framerate", format!("{:?}", self.framerate)),
+                ("looping", format!("{:?}", self.looping)),
+            ])
+            .collect()
     }
 }

@@ -116,7 +116,7 @@ impl Server {
             max_window_size: None,
             resizable: false,
             transparent: false,
-            vsync: true,
+            vsync: false,
             multisampling: 0,
             depth_buffer: 0,
             stencil_buffer: 0,
@@ -308,13 +308,19 @@ impl eframe::App for Server {
             self.process(callback);
         }
 
-        match self.page {
-            Page::Startup => self.show_startup(ctx),
-            Page::Selection => self.show_selection(ctx),
-            Page::Activity => self.show_activity(ctx),
-            Page::Loading => self.show_loading(ctx),
-            Page::CleanUp => self.show_cleanup(ctx),
-        }
+        let frame = egui::Frame::window(&ctx.style())
+            .inner_margin(0.0)
+            .outer_margin(0.0);
+
+        CentralPanel::default()
+            .frame(frame)
+            .show(ctx, |ui| match self.page {
+                Page::Startup => self.show_startup(ui),
+                Page::Selection => self.show_selection(ui),
+                Page::Activity => self.show_activity(ui),
+                Page::Loading => self.show_loading(ui),
+                Page::CleanUp => self.show_cleanup(ui),
+            });
 
         if !self.hold_on_rescale {
             style::set_fullscreen_scale(ctx, self.scale_factor);

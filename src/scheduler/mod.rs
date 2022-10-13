@@ -11,6 +11,7 @@ use crate::scheduler::graph::{DependencyGraph, Edge, Node};
 use crate::scheduler::info::Info;
 use crate::scheduler::monitor::{Event, Monitor};
 use crate::server::{Server, ServerCallback};
+use chrono::{DateTime, Local};
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, RichText};
 use itertools::Itertools;
@@ -44,16 +45,8 @@ pub enum SyncCallback {
 
 #[derive(Debug, Clone)]
 pub enum AsyncCallback {
-    // Setup,
-    // Advance,
-    // Start,
+    Logger(DateTime<Local>, LoggerCallback),
     Stop,
-    Logger(LoggerCallback),
-    LoggerError(String),
-    // Relay(StatefulActionMsg),
-    // KeyPress(KeyCode),
-    // Refresh(u32),
-    // UpdateGraph,
 }
 
 // impl SchedulerMsg {
@@ -109,19 +102,19 @@ impl Scheduler {
             thread::spawn(move || loop {
                 while let Some((_dest, callback)) = async_queue.pop() {
                     match callback {
-                        AsyncCallback::Logger(callback) => {
-                            logger.update(callback, &mut async_queue).unwrap();
+                        AsyncCallback::Logger(time, callback) => {
+                            logger.update(time, callback, &mut async_queue).unwrap();
                         }
-                        AsyncCallback::LoggerError(_) => {}
                         AsyncCallback::Stop => {
-                            logger
-                                .update(LoggerCallback::Finish, &mut async_queue)
-                                .unwrap();
+                            logger.finish().unwrap();
                             return;
                         }
                     }
                 }
-                thread::sleep(Duration::from_millis(100));
+
+                SpinSleeper::new(SPIN_DURATION)
+                    .with_spin_strategy(SPIN_STRATEGY)
+                    .sleep(Duration::from_millis(50));
             });
         }
 
@@ -170,9 +163,7 @@ impl Scheduler {
 
     fn process(&mut self, callback: SyncCallback) -> Result<(), error::Error> {
         match callback {
-            SyncCallback::UpdateGraph => {
-                self.advance()
-            }
+            SyncCallback::UpdateGraph => self.advance(),
         }
     }
 
@@ -473,8 +464,8 @@ impl Scheduler {
             .push(Destination::default(), ServerCallback::BlockInterrupted);
     }
 
-    pub fn show(&mut self, ctx: &egui::Context) -> Result<(), error::Error> {
-        if ctx.input().key_pressed(egui::Key::Escape) {
+    pub fn show(&mut self, ui: &mut egui::Ui) -> Result<(), error::Error> {
+        if ui.input().key_pressed(egui::Key::Escape) {
             let time = SystemTime::now();
             if let Some(t) = self.last_esc.take() {
                 if time.duration_since(t).unwrap() < Duration::from_millis(300) {
@@ -484,8 +475,8 @@ impl Scheduler {
             self.last_esc = Some(time);
         }
 
-        let mut keys_pressed = ctx.input().keys_down.clone();
-        keys_pressed.retain(|k| ctx.input().key_pressed(*k));
+        let mut keys_pressed = ui.input().keys_down.clone();
+        keys_pressed.retain(|k| ui.input().key_pressed(*k));
         for &i in self.key_monitors.iter() {
             if let Some(node) = self.graph.node_mut(self.nodes[i]) {
                 node.action.update(
@@ -512,7 +503,7 @@ impl Scheduler {
             if let Some(node) = self.graph.node_mut(self.nodes[i]) {
                 let result = node
                     .action
-                    .show(ctx, &mut self.sync_queue, &mut self.async_queue);
+                    .show(ui, &mut self.sync_queue, &mut self.async_queue);
 
                 if let Err(e) = &result {
                     self.async_queue.push(
@@ -528,9 +519,8 @@ impl Scheduler {
             }
         }
 
-        CentralPanel::default().show(ctx, |ui| {
-            ui.output().cursor_icon = CursorIcon::None;
-        });
+        ui.output().cursor_icon = CursorIcon::None;
+
         Ok(())
     }
 

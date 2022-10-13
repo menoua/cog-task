@@ -19,3 +19,15 @@ pub fn header_body_controls(ui: &mut egui::Ui, content: impl FnOnce(&mut Strip))
             strip.empty();
         });
 }
+
+pub fn center_x(builder: StripBuilder, width: f32, content: impl FnOnce(&mut egui::Ui)) {
+    builder
+        .size(Size::remainder())
+        .size(Size::exact(width))
+        .size(Size::remainder())
+        .horizontal(|mut strip| {
+            strip.empty();
+            strip.cell(|ui| content(ui));
+            strip.empty();
+        });
+}
