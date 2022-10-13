@@ -1,3 +1,4 @@
+use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 use crate::backend::{MediaMode, MediaStream};
 use crate::config::Config;
 use crate::error;
@@ -13,10 +14,12 @@ use ffmpeg::software::scaling::{context::Context, flag::Flags};
 use ffmpeg::util::frame::video::Video;
 use ffmpeg_next as ffmpeg;
 use once_cell::sync::OnceCell;
+use spin_sleep::SpinSleeper;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, mpsc, Mutex};
+use std::sync::mpsc::{RecvError, Sender};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 static FFMPEG_INIT: OnceCell<()> = OnceCell::new();
 
@@ -32,8 +35,9 @@ pub struct Stream {
     audio_chan: u16,
     audio_rate: u32,
     duration: Duration,
-    is_eos: bool,
+    is_eos: Arc<Mutex<bool>>,
     paused: bool,
+    starter: Option<Sender<()>>,
     tex_manager: Arc<RwLock<TextureManager>>,
 }
 
@@ -105,8 +109,9 @@ impl MediaStream for Stream {
             audio_chan,
             audio_rate,
             duration,
-            is_eos: false,
+            is_eos: Arc::new(Mutex::new(false)),
             paused: true,
+            starter: None,
             tex_manager,
         })
     }
@@ -122,10 +127,15 @@ impl MediaStream for Stream {
         //     .map_err(|e| InternalError(format!("{e:#?}")))?;
 
         let context = Arc::new(Mutex::new(context));
+        let is_eos = Arc::new(Mutex::new(*self.is_eos.lock().unwrap()));
+        let (tx_start, rx_start) = mpsc::channel();
+
         if let Some(index) = self.video_index {
             let path = self.path.clone();
+            let framerate = self.frame_rate;
             let context = context.clone();
             let tex_manager = self.tex_manager.clone();
+            let is_eos = is_eos.clone();
 
             thread::spawn(move || {
                 let (mut decoder, mut scaler) = {
@@ -143,7 +153,7 @@ impl MediaStream for Stream {
                         decoder.format(),
                         decoder.width(),
                         decoder.height(),
-                        Pixel::RGBA, // Pixel::BGRA,
+                        Pixel::RGBA,
                         decoder.width(),
                         decoder.height(),
                         Flags::BILINEAR,
@@ -153,7 +163,19 @@ impl MediaStream for Stream {
                     (decoder, scaler)
                 };
 
+                let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
+
+                if let Err(_) = rx_start.recv() {
+                    *is_eos.lock().unwrap() = true;
+                    return;
+                }
+
+                let dt = Duration::from_secs_f64(1.0 / framerate);
+                let mut frame_start;
+
                 loop {
+                    frame_start = Instant::now();
+
                     {
                         let mut context = context.lock().unwrap();
                         let (stream, packet) = match context.packets().next() {
@@ -170,27 +192,32 @@ impl MediaStream for Stream {
 
                         let mut decoded = Video::empty();
                         while decoder.receive_frame(&mut decoded).is_ok() {
-                            let mut bgra_frame = Video::empty();
+                            let mut rgba_frame = Video::empty();
                             scaler
-                                .run(&decoded, &mut bgra_frame)
+                                .run(&decoded, &mut rgba_frame)
                                 .expect("Failed to run scaler");
                             *frame.lock().unwrap() = Some((
                                 tex_manager.write().alloc(
                                     format!("{:?}:@:[current]", path),
                                     ImageData::Color(ColorImage::from_rgba_unmultiplied(
-                                        [bgra_frame.width() as _, bgra_frame.height() as _],
-                                        bgra_frame.data(0),
+                                        [rgba_frame.width() as _, rgba_frame.height() as _],
+                                        rgba_frame.data(0),
                                     )),
                                     TextureFilter::Linear,
                                 ),
-                                Vec2::new(bgra_frame.width() as _, bgra_frame.height() as _),
+                                Vec2::new(rgba_frame.width() as _, rgba_frame.height() as _),
                             ));
                         }
                     }
-                    thread::sleep(Duration::from_secs_f64(1.0 / 25.0));
+
+                    let now = Instant::now();
+                    sleeper.sleep(frame_start + dt - now);
                 }
 
-                decoder.send_eof().expect("Failed to send EOF to decoder");
+                *is_eos.lock().unwrap() = true;
+                decoder.send_eof().map_err(|e| {
+                    StreamDecodingError(format!("Failed to send EOF to decoder: {e:?}"))
+                }).unwrap();
             });
         }
 
@@ -223,14 +250,15 @@ impl MediaStream for Stream {
             audio_chan: self.audio_chan,
             audio_rate: self.audio_rate,
             duration: self.duration,
-            is_eos: self.is_eos,
+            is_eos,
             paused: self.paused,
+            starter: Some(tx_start),
             tex_manager: self.tex_manager.clone(),
         })
     }
 
     fn eos(&self) -> bool {
-        self.is_eos
+        *self.is_eos.lock().unwrap()
     }
 
     fn size(&self) -> [u32; 2] {
@@ -271,7 +299,11 @@ impl MediaStream for Stream {
         //         ))
         //     })?;
         self.paused = false;
-        Ok(())
+        if let Some(link) = self.starter.take() {
+            link.send(()).map_err(|e| InternalError("Failed to start ffmpeg parallel thread".to_owned()))
+        } else {
+            Err(InternalError("Tried to start ffmpeg parallel thread twice".to_owned()))
+        }
     }
 
     fn restart(&mut self) -> Result<(), error::Error> {
@@ -293,6 +325,7 @@ impl MediaStream for Stream {
         //         ))
         //     })?;
         self.paused = true;
+        self._context.take();
         Ok(())
     }
 
@@ -318,7 +351,7 @@ impl MediaStream for Stream {
                 decoder.format(),
                 decoder.width(),
                 decoder.height(),
-                Pixel::BGRA,
+                Pixel::RGBA,
                 decoder.width(),
                 decoder.height(),
                 Flags::BILINEAR,
@@ -340,9 +373,9 @@ impl MediaStream for Stream {
 
             let mut decoded = Video::empty();
             while decoder.receive_frame(&mut decoded).is_ok() {
-                let mut bgra_frame = Video::empty();
+                let mut rgba_frame = Video::empty();
                 scaler
-                    .run(&decoded, &mut bgra_frame)
+                    .run(&decoded, &mut rgba_frame)
                     .expect("Failed to run scaler");
                 // frames.push(image::Handle::from_pixels(
                 //     bgra_frame.width(),
@@ -353,12 +386,12 @@ impl MediaStream for Stream {
                     self.tex_manager.write().alloc(
                         format!("{:?}:@:{}", self.path, frames.len()),
                         ImageData::Color(ColorImage::from_rgba_unmultiplied(
-                            [bgra_frame.width() as _, bgra_frame.height() as _],
-                            bgra_frame.data(0),
+                            [rgba_frame.width() as _, rgba_frame.height() as _],
+                            rgba_frame.data(0),
                         )),
                         TextureFilter::Linear,
                     ),
-                    Vec2::new(bgra_frame.width() as _, bgra_frame.height() as _),
+                    Vec2::new(rgba_frame.width() as _, rgba_frame.height() as _),
                 ));
             }
         }
@@ -368,7 +401,7 @@ impl MediaStream for Stream {
     }
 
     fn process_bus(&mut self, _looping: bool) -> Result<bool, error::Error> {
-        Ok(self.is_eos)
+        Ok(self.eos())
     }
 }
 

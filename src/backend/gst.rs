@@ -403,7 +403,7 @@ fn pipeline(path: &Path, mode: &MediaMode) -> Result<String, error::Error> {
     let mut pipeline = format!(
         "\
         playbin uri=\"file://{}\" name=playbin \
-        video-sink=\"videoconvert ! videoscale ! appsink name=video_sink caps=video/x-raw,format=BGRA,pixel-aspect-ratio=1/1\"",
+        video-sink=\"videoconvert ! videoscale ! appsink name=video_sink caps=video/x-raw,format=RGBA,pixel-aspect-ratio=1/1\"",
         path.canonicalize()
             .map_err(|e| ResourceLoadError(format!(
                 "Failed to canonicalize resource path: {path:?}\n{e:#?}"
