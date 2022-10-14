@@ -86,7 +86,7 @@ impl StatefulAction for StatefulCounter {
 
         StripBuilder::new(ui)
             .size(Size::remainder())
-            .size(Size::exact(400.0))
+            .size(Size::exact(420.0))
             .size(Size::remainder())
             .horizontal(|mut strip| {
                 strip.empty();

@@ -498,6 +498,10 @@ impl Scheduler {
                         ));
                     }
 
+                    if node.action.props().animated() {
+                        ui.ctx().request_repaint();
+                    }
+
                     #[cfg(feature = "benchmark")]
                     self.profiler.toc(2);
                     return result;

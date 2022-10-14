@@ -333,10 +333,6 @@ impl eframe::App for Server {
         if !self.hold_on_rescale {
             style::set_fullscreen_scale(ctx, self.scale_factor);
         }
-        if matches!(self.page, Page::Activity) {
-            ctx.request_repaint();
-        } else {
-            ctx.request_repaint_after(Duration::from_millis(200));
-        }
+        ctx.request_repaint_after(Duration::from_millis(250));
     }
 }

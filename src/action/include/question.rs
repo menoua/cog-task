@@ -328,169 +328,133 @@ impl StatefulQItem {
     fn ui(&mut self, ui: &mut egui::Ui) {
         match self {
             StatefulQItem::SingleLine { input, .. } => {
-                ui.vertical_centered_justified(|ui| {
-                    TextEdit::singleline(input).hint_text(inactive("Your answer goes here")).ui(ui);
-                });
+                Self::show_single_line(ui, input)
             }
             StatefulQItem::MultiLine { input, lines, .. } => {
-                ui.vertical_centered_justified(|ui| {
-                    TextEdit::multiline(input).hint_text(inactive("Your answer goes here")).desired_rows(*lines).ui(ui);
-                });
+                Self::show_multi_line(ui, input, *lines)
             }
             StatefulQItem::SingleChoice { options, choice, columns, .. } => {
-                ui.horizontal_wrapped(|ui| {
-                    ui.spacing_mut().item_spacing = Vec2::new(45.0, 15.0);
-                    ui.spacing_mut().icon_width = TEXT_SIZE_BODY  * 0.75;
-                    ui.spacing_mut().icon_width_inner = TEXT_SIZE_BODY * 0.5;
-                    ui.spacing_mut().icon_spacing = TEXT_SIZE_BODY * 0.25;
-                    ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
-                    ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
-                    ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
-                    ui.visuals_mut().widgets.noninteractive.fg_stroke = Stroke::new(2.5, Color32::GRAY);
+                Self::show_single_choice(ui, &options, choice, *columns)
+            }
+            StatefulQItem::MultiChoice { options, choice, columns, .. } => {
+                Self::show_multi_choice(ui, &options, choice, *columns)
+            }
+            StatefulQItem::Slider { range, step, choice, precision, .. } => {
+                Self::show_slider(ui, *range, *step, choice, *precision)
+            }
+        }
+    }
 
-                    if *columns > 0 {
-                        let mut i = 0;
-                        ui.vertical_centered_justified(|ui| {
+    fn show_single_line(ui: &mut egui::Ui, input: &mut String) {
+        ui.vertical_centered_justified(|ui| {
+            TextEdit::singleline(input).hint_text(inactive("Your answer goes here")).ui(ui);
+        });
+    }
+
+    fn show_multi_line(ui: &mut egui::Ui, input: &mut String, lines: usize) {
+        ui.vertical_centered_justified(|ui| {
+            TextEdit::multiline(input).hint_text(inactive("Your answer goes here")).desired_rows(lines).ui(ui);
+        });
+    }
+
+    fn show_single_choice(ui: &mut egui::Ui, options: &[String], choice: &mut Option<usize>, columns: usize) {
+        ui.horizontal_wrapped(|ui| {
+            ui.spacing_mut().item_spacing = Vec2::new(45.0, 15.0);
+            ui.spacing_mut().icon_width = TEXT_SIZE_BODY  * 0.75;
+            ui.spacing_mut().icon_width_inner = TEXT_SIZE_BODY * 0.5;
+            ui.spacing_mut().icon_spacing = TEXT_SIZE_BODY * 0.25;
+            ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+            ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+            ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+            ui.visuals_mut().widgets.noninteractive.fg_stroke = Stroke::new(2.5, Color32::GRAY);
+
+            if columns > 0 {
+                let mut i = 0;
+                ui.vertical_centered_justified(|ui| {
+                    while i < options.len() {
+                        ui.columns(columns, |ui| {
                             while i < options.len() {
-                                ui.columns(*columns, |ui| {
-                                    while i < options.len() {
-                                        if RadioButton::new(*choice == Some(i), body(options[i].as_str()))
-                                            .ui(&mut ui[i % *columns])
-                                            .clicked() {
-                                            *choice = Some(i);
-                                        }
-
-                                        i += 1;
-                                    }
-                                });
-                            }
-                        });
-                    } else {
-                        ui.horizontal_wrapped(|ui| {
-                            options.iter_mut().enumerate().for_each(|(i, option)| {
-                                if RadioButton::new(*choice == Some(i), body(option.as_str()))
-                                    .ui(ui)
+                                if RadioButton::new(*choice == Some(i), body(options[i].as_str()))
+                                    .ui(&mut ui[i % columns])
                                     .clicked() {
                                     *choice = Some(i);
                                 }
-                            });
-                        });
-                    }
-                });
-            }
-            StatefulQItem::MultiChoice { options, choice, columns, .. } => {
-                ui.scope(|ui| {
-                    ui.spacing_mut().item_spacing = Vec2::new(45.0, 15.0);
-                    ui.spacing_mut().icon_width = TEXT_SIZE_BODY  * 0.75;
-                    ui.spacing_mut().icon_width_inner = TEXT_SIZE_BODY * 0.5;
-                    ui.spacing_mut().icon_spacing = TEXT_SIZE_BODY * 0.25;
-                    ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
-                    ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
-                    ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
-                    ui.visuals_mut().widgets.noninteractive.fg_stroke = Stroke::new(2.5, Color32::GRAY);
 
-                    if *columns > 0 {
-                        let mut i = 0;
-                        ui.vertical_centered_justified(|ui| {
-                            while i < options.len() {
-                                ui.columns(*columns, |ui| {
-                                    while i < options.len() {
-                                        Checkbox::new(&mut choice[i], body(options[i].as_str()))
-                                            .ui(&mut ui[i % *columns]);
-
-                                        i += 1;
-                                    }
-                                });
+                                i += 1;
                             }
                         });
-                    } else {
-                        ui.horizontal_wrapped(|ui| {
-                            options.iter_mut().enumerate().for_each(|(i, option)| {
-                                Checkbox::new(&mut choice[i], body(option.as_str()))
-                                    .ui(ui);
-                            });
+                    }
+                });
+            } else {
+                ui.horizontal_wrapped(|ui| {
+                    options.iter().enumerate().for_each(|(i, option)| {
+                        if RadioButton::new(*choice == Some(i), body(option.as_str()))
+                            .ui(ui)
+                            .clicked() {
+                            *choice = Some(i);
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    fn show_multi_choice(ui: &mut egui::Ui, options: &[String], choice: &mut Vec<bool>, columns: usize) {
+        ui.scope(|ui| {
+            ui.spacing_mut().item_spacing = Vec2::new(45.0, 15.0);
+            ui.spacing_mut().icon_width = TEXT_SIZE_BODY  * 0.75;
+            ui.spacing_mut().icon_width_inner = TEXT_SIZE_BODY * 0.5;
+            ui.spacing_mut().icon_spacing = TEXT_SIZE_BODY * 0.25;
+            ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+            ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+            ui.visuals_mut().widgets.active.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
+            ui.visuals_mut().widgets.noninteractive.fg_stroke = Stroke::new(2.5, Color32::GRAY);
+
+            if columns > 0 {
+                let mut i = 0;
+                ui.vertical_centered_justified(|ui| {
+                    while i < options.len() {
+                        ui.columns(columns, |ui| {
+                            while i < options.len() {
+                                Checkbox::new(&mut choice[i], body(options[i].as_str()))
+                                    .ui(&mut ui[i % columns]);
+
+                                i += 1;
+                            }
                         });
                     }
                 });
-            }
-            StatefulQItem::Slider { range, step, choice, precision, .. } => {
-                let range = RangeInclusive::new(
-                    f32_with_precision(range.0, *precision),
-                    f32_with_precision(range.1, *precision),
-                );
-
-                ui.horizontal_centered(|ui| {
-                    ui.spacing_mut().slider_width = 400.0;
-
-                    ui.add_space(560.0);
-                    Slider::new(choice, range)
-                        .max_decimals(*precision as usize)
-                        .step_by(*step as f64)
-                        .clamp_to_range(true)
-                        .ui(ui);
+            } else {
+                ui.horizontal_wrapped(|ui| {
+                    options.iter().enumerate().for_each(|(i, option)| {
+                        Checkbox::new(&mut choice[i], body(option.as_str()))
+                            .ui(ui);
+                    });
                 });
             }
-        }
+        });
+    }
+
+    fn show_slider(ui: &mut egui::Ui, range: (f32, f32), step: f32, choice: &mut f32, precision: u8) {
+        let range = RangeInclusive::new(
+            f32_with_precision(range.0, precision),
+            f32_with_precision(range.1, precision),
+        );
+
+        ui.horizontal_centered(|ui| {
+            ui.spacing_mut().slider_width = 400.0;
+
+            ui.add_space(560.0);
+            Slider::new(choice, range)
+                .max_decimals(precision as usize)
+                .step_by(step as f64)
+                .clamp_to_range(true)
+                .ui(ui);
+        });
     }
 }
 
 impl StatefulQItem {
-    fn set_answer_i32(&mut self, which: usize, _value: i32) -> Result<(), error::Error> {
-        Err(InternalError(format!(
-            "Error in question callback for item {which}"
-        )))
-    }
-
-    fn set_answer_f32(&mut self, which: usize, value: f32) -> Result<(), error::Error> {
-        match self {
-            StatefulQItem::Slider { choice, .. } => {
-                *choice = value;
-            }
-            _ => {
-                return Err(InternalError(format!(
-                    "Error in question callback for item {which}"
-                )))
-            }
-        }
-        Ok(())
-    }
-
-    fn set_answer_bool(&mut self, which: usize, value: bool) -> Result<(), error::Error> {
-        match self {
-            StatefulQItem::SingleChoice { choice, .. } => {
-                if value {
-                    *choice = Some(which);
-                }
-            }
-            StatefulQItem::MultiChoice { choice, .. } => {
-                choice[which] = value;
-            }
-            _ => {
-                return Err(InternalError(format!(
-                    "Error in question callback for item {which}"
-                )))
-            }
-        }
-        Ok(())
-    }
-
-    fn set_answer_str(&mut self, which: usize, value: String) -> Result<(), error::Error> {
-        match self {
-            StatefulQItem::SingleLine { input, .. } => {
-                *input = value;
-            }
-            StatefulQItem::MultiLine { input, .. } => {
-                *input = value;
-            }
-            _ => {
-                return Err(InternalError(format!(
-                    "Error in question callback for item {which}"
-                )))
-            }
-        }
-        Ok(())
-    }
-
     fn to_string(&self) -> (String, Value) {
         let name = match self {
             StatefulQItem::SingleLine { id, .. }
