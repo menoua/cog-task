@@ -132,7 +132,7 @@ impl DependencyGraph {
                     v.index()
                 )))?;
             }
-            if node.action.is_static() && !stopper_edge && node.stop_timer.is_none() {
+            if !node.action.props().finite() && !stopper_edge && node.stop_timer.is_none() {
                 Err(FlowError(format!(
                     "Static node `{}` needs a stopping condition as it cannot end on its own",
                     v.index()

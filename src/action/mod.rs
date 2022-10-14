@@ -16,8 +16,11 @@ use std::path::{Path, PathBuf};
 #[macro_use]
 mod macros;
 pub mod include;
+pub mod props;
+
 use crate::signal::QWriter;
 pub use include::*;
+pub use props::*;
 
 pub trait Action: Debug {
     #[inline(always)]
@@ -55,22 +58,7 @@ pub trait StatefulAction: Send {
 
     fn type_str(&self) -> String;
 
-    #[inline(always)]
-    fn is_visual(&self) -> bool {
-        true
-    }
-
-    #[inline(always)]
-    fn is_static(&self) -> bool {
-        true
-    }
-
-    #[inline(always)]
-    fn monitors(&self) -> Option<Monitor> {
-        None
-    }
-
-    fn stop(&mut self) -> Result<(), error::Error>;
+    fn props(&self) -> Props;
 
     #[inline(always)]
     fn start(
@@ -107,13 +95,15 @@ pub trait StatefulAction: Send {
         )))
     }
 
+    fn stop(&mut self) -> Result<(), error::Error>;
+
     fn debug(&self) -> Vec<(&str, String)> {
         vec![
             ("id", format!("{:?}", self.id())),
             ("over", format!("{:?}", self.is_over())),
-            ("visual", format!("{:?}", self.is_visual())),
-            ("static", format!("{:?}", self.is_static())),
-            ("monitors", format!("{:?}", self.monitors())),
+            ("visual", format!("{:?}", self.props().visual())),
+            ("finite", format!("{:?}", self.props().finite())),
+            ("key_cap", format!("{:?}", self.props().captures_keys())),
             ("type", format!("{:?}", self.type_str())),
         ]
     }
@@ -134,16 +124,16 @@ impl Debug for dyn StatefulAction {
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum StatefulActionMsg {
-    Update(usize),
-    UpdateInt(usize, i32),
-    UpdateUInt(usize, u32),
-    UpdateFloat(usize, f32),
-    UpdateBool(usize, bool),
-    UpdateString(usize, String),
-    UpdateEvent(Event),
-}
+// #[derive(Debug, Clone)]
+// pub enum StatefulActionMsg {
+//     Update(usize),
+//     UpdateInt(usize, i32),
+//     UpdateUInt(usize, u32),
+//     UpdateFloat(usize, f32),
+//     UpdateBool(usize, bool),
+//     UpdateString(usize, String),
+//     UpdateEvent(Event),
+// }
 
 #[derive(Debug)]
 pub struct ExtAction {

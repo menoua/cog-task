@@ -1,4 +1,4 @@
-use crate::action::{Action, StatefulAction};
+use crate::action::{Action, Props, StatefulAction, VISUAL};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -67,19 +67,8 @@ impl StatefulAction for StatefulImage {
     impl_stateful!();
 
     #[inline(always)]
-    fn is_visual(&self) -> bool {
-        true
-    }
-
-    #[inline(always)]
-    fn is_static(&self) -> bool {
-        true
-    }
-
-    #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
-        self.done = true;
-        Ok(())
+    fn props(&self) -> Props {
+        VISUAL.into()
     }
 
     fn show(
@@ -99,6 +88,12 @@ impl StatefulAction for StatefulImage {
             }
         });
 
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn stop(&mut self) -> Result<(), error::Error> {
+        self.done = true;
         Ok(())
     }
 

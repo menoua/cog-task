@@ -1,4 +1,4 @@
-use crate::action::{Action, StatefulAction};
+use crate::action::{Action, DEFAULT, FINITE, Props, StatefulAction, VISUAL};
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 use crate::signal::QWriter;
 use crate::config::Config;
@@ -128,19 +128,12 @@ impl StatefulAction for StatefulVideo {
     impl_stateful!();
 
     #[inline(always)]
-    fn is_visual(&self) -> bool {
-        true
-    }
-
-    #[inline(always)]
-    fn is_static(&self) -> bool {
-        self.looping
-    }
-
-    #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
-        *self.done.lock().unwrap() = Ok(true);
-        Ok(())
+    fn props(&self) -> Props {
+        if self.looping {
+            VISUAL
+        } else {
+            FINITE | VISUAL
+        }.into()
     }
 
     #[inline(always)]
@@ -193,6 +186,12 @@ impl StatefulAction for StatefulVideo {
             }
         });
 
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn stop(&mut self) -> Result<(), error::Error> {
+        *self.done.lock().unwrap() = Ok(true);
         Ok(())
     }
 

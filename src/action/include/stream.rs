@@ -1,4 +1,4 @@
-use crate::action::{Action, StatefulAction};
+use crate::action::{Action, DEFAULT, FINITE, Props, StatefulAction, VISUAL};
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 use crate::signal::QWriter;
 use crate::config::Config;
@@ -151,19 +151,13 @@ impl StatefulAction for StatefulStream {
     impl_stateful!();
 
     #[inline(always)]
-    fn is_visual(&self) -> bool {
-        self.framerate > 0.0
-    }
-
-    #[inline(always)]
-    fn is_static(&self) -> bool {
-        self.looping
-    }
-
-    #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
-        *self.done.lock().unwrap() = Ok(true);
-        Ok(())
+    fn props(&self) -> Props {
+        match (self.looping, self.framerate) {
+            (false, f) if f > 0.0 => FINITE | VISUAL,
+            (false, _) => FINITE,
+            (true, f) if f > 0.0 => VISUAL,
+            (true, _) => DEFAULT,
+        }.into()
     }
 
     fn start(
@@ -233,6 +227,12 @@ impl StatefulAction for StatefulStream {
             }
         });
 
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn stop(&mut self) -> Result<(), error::Error> {
+        *self.done.lock().unwrap() = Ok(true);
         Ok(())
     }
 

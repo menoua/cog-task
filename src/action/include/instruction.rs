@@ -1,4 +1,4 @@
-use crate::action::{Action, StatefulAction, StatefulActionMsg};
+use crate::action::{Action, FINITE, Props, StatefulAction, VISUAL};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error::Error::TaskDefinitionError;
@@ -117,19 +117,12 @@ impl StatefulAction for StatefulInstruction {
     impl_stateful!();
 
     #[inline(always)]
-    fn is_visual(&self) -> bool {
-        true
-    }
-
-    #[inline(always)]
-    fn is_static(&self) -> bool {
-        self.persistent
-    }
-
-    #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
-        self.done = true;
-        Ok(())
+    fn props(&self) -> Props {
+        if self.persistent {
+            VISUAL
+        } else {
+            VISUAL | FINITE
+        }.into()
     }
 
     fn show(
@@ -164,6 +157,12 @@ impl StatefulAction for StatefulInstruction {
             strip.strip(|builder| self.show_controls(builder, sync_qw));
         });
 
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn stop(&mut self) -> Result<(), error::Error> {
+        self.done = true;
         Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use crate::action::{Action, StatefulAction};
+use crate::action::{Action, DEFAULT, FINITE, Props, StatefulAction};
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
@@ -48,13 +48,12 @@ impl StatefulAction for StatefulNop {
     impl_stateful!();
 
     #[inline(always)]
-    fn is_visual(&self) -> bool {
-        false
-    }
-
-    #[inline(always)]
-    fn is_static(&self) -> bool {
-        self.persistent
+    fn props(&self) -> Props {
+        if self.persistent {
+            DEFAULT
+        } else {
+            FINITE
+        }.into()
     }
 
     #[inline(always)]

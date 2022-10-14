@@ -1,4 +1,4 @@
-use crate::action::{ActionCallback, StatefulActionMsg};
+use crate::action::ActionCallback;
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 #[cfg(feature = "benchmark")]
 use crate::benchmark::Profiler;
@@ -315,7 +315,7 @@ impl Scheduler {
                                         });
                                     }
 
-                                    if node.action.is_visual() {
+                                    if node.action.props().visual() {
                                         if let Some(j) = *foreground {
                                             if dropped_foreground {
                                                 *foreground = Some(i);
@@ -333,11 +333,8 @@ impl Scheduler {
                                         needs_refresh = true;
                                     }
 
-                                    match node.action.monitors() {
-                                        Some(Monitor::Keys) => {
-                                            key_monitors.insert(i);
-                                        }
-                                        None => {}
+                                    if node.action.props().captures_keys() {
+                                        key_monitors.insert(i);
                                     }
                                 }
 

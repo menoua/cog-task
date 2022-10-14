@@ -1,4 +1,4 @@
-use crate::action::{Action, StatefulAction};
+use crate::action::{Action, DEFAULT, FINITE, Props, StatefulAction};
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 use crate::signal::QWriter;
 use crate::config::{Config, TimePrecision};
@@ -149,22 +149,12 @@ impl StatefulAction for StatefulAudio {
     impl_stateful!();
 
     #[inline(always)]
-    fn is_visual(&self) -> bool {
-        false
-    }
-
-    #[inline(always)]
-    fn is_static(&self) -> bool {
-        self.looping
-    }
-
-    #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
-        if let Some(sink) = self.sink.lock().unwrap().take() {
-            sink.stop();
-        }
-        *self.done.lock().unwrap() = Ok(true);
-        Ok(())
+    fn props(&self) -> Props {
+        if self.looping {
+            DEFAULT
+        } else {
+            FINITE
+        }.into()
     }
 
     fn start(
@@ -194,6 +184,15 @@ impl StatefulAction for StatefulAudio {
             sync_qw.push(SyncCallback::UpdateGraph);
         });
 
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn stop(&mut self) -> Result<(), error::Error> {
+        if let Some(sink) = self.sink.lock().unwrap().take() {
+            sink.stop();
+        }
+        *self.done.lock().unwrap() = Ok(true);
         Ok(())
     }
 

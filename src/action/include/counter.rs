@@ -1,4 +1,4 @@
-use crate::action::{Action, StatefulAction, StatefulActionMsg};
+use crate::action::{Action, FINITE, Props, StatefulAction, VISUAL};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::io::IO;
@@ -65,19 +65,8 @@ impl StatefulAction for StatefulCounter {
     impl_stateful!();
 
     #[inline(always)]
-    fn is_visual(&self) -> bool {
-        true
-    }
-
-    #[inline(always)]
-    fn is_static(&self) -> bool {
-        false
-    }
-
-    #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
-        self.done = true;
-        Ok(())
+    fn props(&self) -> Props {
+        (FINITE | VISUAL).into()
     }
 
     fn show(
@@ -133,6 +122,12 @@ impl StatefulAction for StatefulCounter {
             }
         }
 
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn stop(&mut self) -> Result<(), error::Error> {
+        self.done = true;
         Ok(())
     }
 

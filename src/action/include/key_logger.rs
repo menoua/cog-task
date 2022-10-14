@@ -1,4 +1,4 @@
-use crate::action::{Action, ActionCallback, StatefulAction, StatefulActionMsg};
+use crate::action::{Action, ActionCallback, CAP_KEYS, DEFAULT, Props, StatefulAction};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -59,24 +59,8 @@ impl StatefulAction for StatefulKeyLogger {
     impl_stateful!();
 
     #[inline(always)]
-    fn is_visual(&self) -> bool {
-        false
-    }
-
-    #[inline(always)]
-    fn is_static(&self) -> bool {
-        true
-    }
-
-    #[inline(always)]
-    fn monitors(&self) -> Option<Monitor> {
-        Some(Monitor::Keys)
-    }
-
-    #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
-        self.done = true;
-        Ok(())
+    fn props(&self) -> Props {
+        CAP_KEYS.into()
     }
 
     fn update(
@@ -97,6 +81,12 @@ impl StatefulAction for StatefulKeyLogger {
             );
             async_qw.push(LoggerCallback::Append(group, entry));
         }
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn stop(&mut self) -> Result<(), error::Error> {
+        self.done = true;
         Ok(())
     }
 
