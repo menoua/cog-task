@@ -49,9 +49,7 @@ pub enum AsyncCallback {
 
 #[derive(Debug)]
 pub struct Scheduler {
-    graph: Arc<Mutex<DependencyGraph>>,
-    nodes: Vec<NodeIndex<usize>>,
-    foreground: Arc<Mutex<Option<usize>>>,
+    atomic: Arc<Mutex<(DependencyGraph, Vec<NodeIndex<usize>>, Option<usize>)>>,
     running: bool,
     info: Info,
     last_esc: Option<SystemTime>,
@@ -77,8 +75,7 @@ impl Scheduler {
         let io = IO::new()?;
         let config = block.config(server.config());
         let (graph, nodes) = DependencyGraph::new(actions, flow, resources, &config, &io)?;
-        let graph = Arc::new(Mutex::new(graph));
-        let foreground = Arc::new(Mutex::new(None));
+        let atomic = Arc::new(Mutex::new((graph, nodes, None)));
 
         let mut sync_qr = QReader::new();
         let mut sync_qw = sync_qr.writer();
@@ -109,10 +106,8 @@ impl Scheduler {
         }
 
         {
-            let nodes = nodes.clone();
-            let mut graph = graph.clone();
+            let mut atomic = atomic.clone();
             let mut ready = flow.origin();
-            let mut foreground = foreground.clone();
             let mut sync_qw = sync_qw.clone();
             let mut async_qw = async_qw.clone();
             let mut server_qw = server_qw.clone();
@@ -123,7 +118,7 @@ impl Scheduler {
                 let mut key_monitors = HashSet::new();
 
                 let timers2 = {
-                    let mut graph = graph.lock().unwrap();
+                    let (graph, nodes, foreground) = &mut (*atomic.lock().unwrap());
                     graph
                         .node_indices()
                         .filter_map(|v| graph.node(v).unwrap().start_timer.map(|t| (v.index(), t)))
@@ -151,8 +146,7 @@ impl Scheduler {
                 while let signal = sync_qr.pop() {
                     match signal {
                         SyncCallback::UpdateGraph => {
-                            let mut foreground = foreground.lock().unwrap();
-                            let mut graph = graph.lock().unwrap();
+                            let (graph, nodes, foreground) = &mut (*atomic.lock().unwrap());
 
                             let mut done = vec![];
                             for &i in active.iter() {
@@ -374,7 +368,8 @@ impl Scheduler {
                         }
                         SyncCallback::KeyPress(keys) => {
                             if !key_monitors.is_empty() {
-                                let mut graph = graph.lock().unwrap();
+                                let (graph, nodes, foreground) = &mut (*atomic.lock().unwrap());
+
                                 for &i in key_monitors.iter() {
                                     if let Some(node) = graph.node_mut(nodes[i]) {
                                         node.action.update(
@@ -405,9 +400,7 @@ impl Scheduler {
         ));
 
         Ok(Self {
-            graph,
-            nodes,
-            foreground,
+            atomic,
             running: false,
             info,
             last_esc: None,
@@ -486,21 +479,23 @@ impl Scheduler {
 
         #[cfg(feature = "benchmark")]
         self.profiler.tic(2);
-        if let Some(i) = *self.foreground.lock().unwrap() {
-            let mut graph = self.graph.lock().unwrap();
-            if let Some(node) = graph.node_mut(self.nodes[i]) {
-                let result = node.action.show(ui, &mut self.sync_qw, &mut self.async_qw);
+        {
+            let (graph, nodes, foreground) = &mut (*self.atomic.lock().unwrap());
+            if let Some(i) = *foreground {
+                if let Some(node) = graph.node_mut(nodes[i]) {
+                    let result = node.action.show(ui, &mut self.sync_qw, &mut self.async_qw);
 
-                if let Err(e) = &result {
-                    self.async_qw.push(LoggerCallback::Append(
-                        "mainevent".to_owned(),
-                        ("crash".to_owned(), Value::String(format!("{e:#?}"))),
-                    ));
+                    if let Err(e) = &result {
+                        self.async_qw.push(LoggerCallback::Append(
+                            "mainevent".to_owned(),
+                            ("crash".to_owned(), Value::String(format!("{e:#?}"))),
+                        ));
+                    }
+
+                    #[cfg(feature = "benchmark")]
+                    self.profiler.toc(2);
+                    return result;
                 }
-
-                #[cfg(feature = "benchmark")]
-                self.profiler.toc(2);
-                return result;
             }
         }
         #[cfg(feature = "benchmark")]
@@ -512,10 +507,12 @@ impl Scheduler {
     }
 
     pub fn stop(&mut self) -> Result<(), error::Error> {
+        {
+            let (graph, nodes, foreground) = &mut (*self.atomic.lock().unwrap());
+            *foreground = None;
+            graph.clear();
+        }
         self.running = false;
-        self.foreground.lock().unwrap().take();
-        self.graph.lock().unwrap().clear();
-        self.nodes.clear();
         self.sync_qw.push(SyncCallback::Finish);
         self.async_qw.push(AsyncCallback::Finish);
         Ok(())
