@@ -1,5 +1,7 @@
 use crate::action::{ActionCallback, StatefulActionMsg};
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
+#[cfg(feature = "benchmark")]
+use crate::benchmark::Profiler;
 use crate::callback::{CallbackQueue, Destination};
 use crate::config::{Config, LogCondition};
 use crate::error;
@@ -76,6 +78,8 @@ pub struct Scheduler {
     sync_queue: CallbackQueue<SyncCallback>,
     async_queue: CallbackQueue<AsyncCallback>,
     server_queue: CallbackQueue<ServerCallback>,
+    #[cfg(feature = "benchmark")]
+    profiler: Profiler,
 }
 
 impl Scheduler {
@@ -148,6 +152,12 @@ impl Scheduler {
             sync_queue,
             async_queue,
             server_queue,
+            #[cfg(feature = "benchmark")]
+            profiler: Profiler::new(
+                "Scheduler",
+                vec!["keys", "proc", "show"],
+                Duration::from_secs(60),
+            ),
         })
     }
 
@@ -465,10 +475,17 @@ impl Scheduler {
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui) -> Result<(), error::Error> {
+        #[cfg(feature = "benchmark")]
+        self.profiler.step();
+
+        #[cfg(feature = "benchmark")]
+        self.profiler.tic(0);
         if ui.input().key_pressed(egui::Key::Escape) {
             let time = SystemTime::now();
             if let Some(t) = self.last_esc.take() {
                 if time.duration_since(t).unwrap() < Duration::from_millis(300) {
+                    #[cfg(feature = "benchmark")]
+                    self.profiler.toc(0);
                     return Ok(self.request_interrupt());
                 }
             }
@@ -488,7 +505,11 @@ impl Scheduler {
                 }
             }
         }
+        #[cfg(feature = "benchmark")]
+        self.profiler.toc(0);
 
+        #[cfg(feature = "benchmark")]
+        self.profiler.tic(1);
         let mut updated_graph = false;
         while let Some((_dest, callback)) = self.sync_queue.pop() {
             match callback {
@@ -500,7 +521,11 @@ impl Scheduler {
                 }
             }
         }
+        #[cfg(feature = "benchmark")]
+        self.profiler.toc(1);
 
+        #[cfg(feature = "benchmark")]
+        self.profiler.tic(2);
         if let Some(i) = self.foreground {
             if let Some(node) = self.graph.node_mut(self.nodes[i]) {
                 let result = node
@@ -517,9 +542,13 @@ impl Scheduler {
                     );
                 }
 
+                #[cfg(feature = "benchmark")]
+                self.profiler.toc(2);
                 return result;
             }
         }
+        #[cfg(feature = "benchmark")]
+        self.profiler.toc(2);
 
         ui.output().cursor_icon = CursorIcon::None;
 

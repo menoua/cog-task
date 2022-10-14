@@ -16,3 +16,6 @@ pub mod system;
 pub mod task;
 pub mod template;
 pub mod util;
+
+#[cfg(feature = "benchmark")]
+pub mod benchmark;

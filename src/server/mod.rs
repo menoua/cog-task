@@ -5,6 +5,8 @@ mod selection;
 mod startup;
 
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
+#[cfg(feature = "benchmark")]
+use crate::benchmark::Profiler;
 use crate::callback::{CallbackQueue, Destination};
 use crate::config::Config;
 use crate::env::Env;
@@ -66,6 +68,8 @@ pub struct Server {
     bin_hash: String,
     sys_info: SystemInfo,
     sync_queue: CallbackQueue<ServerCallback>,
+    #[cfg(feature = "benchmark")]
+    profiler: Profiler,
 }
 
 impl Server {
@@ -99,12 +103,18 @@ impl Server {
             bin_hash,
             sys_info: SystemInfo::new(),
             sync_queue: CallbackQueue::new(),
+            #[cfg(feature = "benchmark")]
+            profiler: Profiler::new(
+                "Server",
+                vec!["fps", "proc", "show"],
+                Duration::from_secs(60),
+            ),
         })
     }
 
     pub fn run(mut self) {
         let options = eframe::NativeOptions {
-            always_on_top: true,
+            always_on_top: false,
             maximized: true,
             decorated: true,
             fullscreen: true,
@@ -196,23 +206,28 @@ impl Server {
     fn process(&mut self, callback: ServerCallback) {
         match (self.page, callback) {
             (Page::Loading, ServerCallback::LoadComplete) => match Scheduler::new(self) {
-                Ok(mut scheduler) => {
-                    match scheduler.start() {
-                        Ok(_) => {
-                            self.page = Page::Activity;
-                            self.capture_key = true;
-                            if let Err(e) = scheduler.advance() {
-                                self.sync_queue
-                                    .push(Destination::default(), ServerCallback::BlockCrashed(e));
-                            }
-                        }
-                        Err(e) => {
+                Ok(mut scheduler) => match scheduler.start() {
+                    Ok(_) => {
+                        self.page = Page::Activity;
+                        self.capture_key = true;
+                        if let Err(e) = scheduler.advance() {
                             self.sync_queue
                                 .push(Destination::default(), ServerCallback::BlockCrashed(e));
+                        } else {
+                            self.scheduler = Some(scheduler);
+                            #[cfg(feature = "benchmark")]
+                            {
+                                self.profiler.report();
+                                self.profiler.reset();
+                                println!("Starting block...");
+                            }
                         }
                     }
-                    self.scheduler = Some(scheduler);
-                }
+                    Err(e) => {
+                        self.sync_queue
+                            .push(Destination::default(), ServerCallback::BlockCrashed(e));
+                    }
+                },
                 Err(e) => {
                     self.sync_queue
                         .push(Destination::default(), ServerCallback::BlockCrashed(e));
@@ -272,6 +287,13 @@ impl Server {
     }
 
     fn drop_scheduler(&mut self) {
+        #[cfg(feature = "benchmark")]
+        {
+            self.profiler.report();
+            self.profiler.reset();
+            println!("Block ended...");
+        }
+
         if let Some(mut scheduler) = self.scheduler.take() {
             match scheduler.stop() {
                 Ok(_) => self.sync_queue.push(
@@ -304,14 +326,29 @@ pub enum ServerCallback {
 
 impl eframe::App for Server {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        #[cfg(feature = "benchmark")]
+        self.profiler.step();
+
+        #[cfg(feature = "benchmark")]
+        {
+            self.profiler.toc(0);
+            self.profiler.tic(0);
+        }
+
+        #[cfg(feature = "benchmark")]
+        self.profiler.tic(1);
         while let Some((_dest, callback)) = self.sync_queue.pop() {
             self.process(callback);
         }
+        #[cfg(feature = "benchmark")]
+        self.profiler.toc(1);
 
         let frame = egui::Frame::window(&ctx.style())
             .inner_margin(0.0)
             .outer_margin(0.0);
 
+        #[cfg(feature = "benchmark")]
+        self.profiler.tic(2);
         CentralPanel::default()
             .frame(frame)
             .show(ctx, |ui| match self.page {
@@ -321,6 +358,8 @@ impl eframe::App for Server {
                 Page::Loading => self.show_loading(ui),
                 Page::CleanUp => self.show_cleanup(ui),
             });
+        #[cfg(feature = "benchmark")]
+        self.profiler.toc(2);
 
         if !self.hold_on_rescale {
             style::set_fullscreen_scale(ctx, self.scale_factor);

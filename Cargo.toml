@@ -43,6 +43,9 @@ paste = "1.0.9"
 [build-dependencies]
 itertools = "0.10.5"
 
+[features]
+benchmark = []
+
 #[package.metadata.nix]
 #systems = ["x86_64-linux"]
 #app = true
