@@ -8,12 +8,13 @@ impl Server {
     pub(crate) fn show_activity(&mut self, ui: &mut egui::Ui) {
         if let Some(scheduler) = self.scheduler.as_mut() {
             if let Err(e) = scheduler.show(ui) {
-                self.sync_q.push(ServerCallback::BlockCrashed(e));
+                self.sync_qr.push(ServerCallback::BlockCrashed(e));
             }
         } else {
-            self.sync_q.push(ServerCallback::BlockCrashed(InternalError(
-                "Unexpected behavior: Scheduler died while a task was active!".to_owned(),
-            )));
+            self.sync_qr
+                .push(ServerCallback::BlockCrashed(InternalError(
+                    "Unexpected behavior: Scheduler died while a task was active!".to_owned(),
+                )));
         }
     }
 }

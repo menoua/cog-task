@@ -169,7 +169,7 @@ impl Server {
                     let block = self.task.block(i);
                     let config = block.config(self.task.config());
                     let resources = block.resources(&config);
-                    let mut sync_qw = self.sync_q.writer();
+                    let mut sync_qw = self.sync_qr.writer();
                     let mut resource_map = self.resources().clone();
                     let mut tex_manager = ui.ctx().tex_manager();
                     thread::spawn(move || {

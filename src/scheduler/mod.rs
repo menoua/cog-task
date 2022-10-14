@@ -148,11 +148,10 @@ impl Scheduler {
                     (v, Edge::Starter, time.add(t))
                 }));
 
-                sync_qw.push(SyncCallback::UpdateGraph);
-
                 while let signal = sync_qr.pop() {
                     match signal {
                         SyncCallback::UpdateGraph => {
+                            let mut foreground = foreground.lock().unwrap();
                             let mut graph = graph.lock().unwrap();
 
                             let mut done = vec![];
@@ -265,10 +264,10 @@ impl Scheduler {
                             active.retain(|&i| graph.contains_node(nodes[i]));
 
                             let mut dropped_foreground = false;
-                            if let Some(i) = *foreground.lock().unwrap() {
+                            if let Some(i) = *foreground {
                                 if !active.contains(&i) {
                                     dropped_foreground = true;
-                                    *foreground.lock().unwrap() = None;
+                                    *foreground = None;
                                 }
                             }
                             key_monitors.retain(|i| active.contains(i));
@@ -320,15 +319,18 @@ impl Scheduler {
                                     }
 
                                     if node.action.is_visual() {
-                                        let mut foreground = foreground.lock().unwrap();
-                                        if foreground.is_none() || dropped_foreground {
-                                            *foreground = Some(i);
+                                        if let Some(j) = *foreground {
+                                            if dropped_foreground {
+                                                *foreground = Some(i);
+                                            } else {
+                                                Err(FlowError(format!(
+                                                    "Two foreground actions `{}` and `{}` collided (there is an error in the flow logic).",
+                                                    foreground.unwrap(),
+                                                    i
+                                                )))?;
+                                            }
                                         } else {
-                                            Err(FlowError(format!(
-                                                "Two foreground actions `{}` and `{}` collided (there is an error in the flow logic).",
-                                                foreground.unwrap(),
-                                                i
-                                            )))?;
+                                            *foreground = Some(i);
                                         }
                                     }
 
@@ -511,9 +513,9 @@ impl Scheduler {
 
     pub fn stop(&mut self) -> Result<(), error::Error> {
         self.running = false;
-        *self.foreground.lock().unwrap() = None;
-        self.nodes.clear();
+        self.foreground.lock().unwrap().take();
         self.graph.lock().unwrap().clear();
+        self.nodes.clear();
         self.sync_qw.push(SyncCallback::Finish);
         self.async_qw.push(AsyncCallback::Finish);
         Ok(())

@@ -62,7 +62,7 @@ pub struct Server {
     show_magnification: bool,
     bin_hash: String,
     sys_info: SystemInfo,
-    sync_q: QReader<ServerCallback>,
+    sync_qr: QReader<ServerCallback>,
     #[cfg(feature = "benchmark")]
     profiler: Profiler,
 }
@@ -94,7 +94,7 @@ impl Server {
             show_magnification: false,
             bin_hash,
             sys_info: SystemInfo::new(),
-            sync_q: QReader::new(),
+            sync_qr: QReader::new(),
             #[cfg(feature = "benchmark")]
             profiler: Profiler::new(
                 "Server",
@@ -201,13 +201,14 @@ impl Server {
                 Ok(mut scheduler) => match scheduler.start() {
                     Ok(_) => {
                         self.page = Page::Activity;
+                        self.scheduler = Some(scheduler);
                     }
                     Err(e) => {
-                        self.sync_q.push(ServerCallback::BlockCrashed(e));
+                        self.sync_qr.push(ServerCallback::BlockCrashed(e));
                     }
                 },
                 Err(e) => {
-                    self.sync_q.push(ServerCallback::BlockCrashed(e));
+                    self.sync_qr.push(ServerCallback::BlockCrashed(e));
                 }
             },
             (Page::Activity, ServerCallback::BlockFinished) => {
@@ -248,7 +249,7 @@ impl Server {
 
     #[inline(always)]
     pub(crate) fn callback_channel(&self) -> QWriter<ServerCallback> {
-        self.sync_q.writer()
+        self.sync_qr.writer()
     }
 
     fn valid_subject_id(&self) -> bool {
@@ -273,11 +274,11 @@ impl Server {
 
         if let Some(mut scheduler) = self.scheduler.take() {
             match scheduler.stop() {
-                Ok(_) => self.sync_q.push(ServerCallback::CleanupComplete(Ok(()))),
-                Err(e) => self.sync_q.push(ServerCallback::CleanupComplete(Err(e))),
+                Ok(_) => self.sync_qr.push(ServerCallback::CleanupComplete(Ok(()))),
+                Err(e) => self.sync_qr.push(ServerCallback::CleanupComplete(Err(e))),
             }
         } else {
-            self.sync_q.push(ServerCallback::CleanupComplete(Ok(())));
+            self.sync_qr.push(ServerCallback::CleanupComplete(Ok(())));
         }
     }
 }
@@ -305,7 +306,7 @@ impl eframe::App for Server {
 
         #[cfg(feature = "benchmark")]
         self.profiler.tic(1);
-        while let Some(signal) = self.sync_q.try_pop() {
+        while let Some(signal) = self.sync_qr.try_pop() {
             self.process(signal);
         }
         #[cfg(feature = "benchmark")]
