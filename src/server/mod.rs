@@ -195,9 +195,9 @@ impl Server {
         &self.task
     }
 
-    fn process(&mut self, callback: ServerCallback) {
-        match (self.page, callback) {
-            (Page::Loading, ServerCallback::LoadComplete) => match Scheduler::new(self) {
+    fn process(&mut self, ctx: &egui::Context, signal: ServerCallback) {
+        match (self.page, signal) {
+            (Page::Loading, ServerCallback::LoadComplete) => match Scheduler::new(self, ctx) {
                 Ok(mut scheduler) => match scheduler.start() {
                     Ok(_) => {
                         self.page = Page::Activity;
@@ -307,7 +307,7 @@ impl eframe::App for Server {
         #[cfg(feature = "benchmark")]
         self.profiler.tic(1);
         while let Some(signal) = self.sync_qr.try_pop() {
-            self.process(signal);
+            self.process(ctx, signal);
         }
         #[cfg(feature = "benchmark")]
         self.profiler.toc(1);

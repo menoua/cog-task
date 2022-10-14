@@ -63,7 +63,7 @@ pub struct Scheduler {
 }
 
 impl Scheduler {
-    pub fn new(server: &Server) -> Result<Self, error::Error> {
+    pub fn new(server: &Server, ctx: &egui::Context) -> Result<Self, error::Error> {
         let task = server.task();
         let block = server.active_block();
         let actions = block.actions();
@@ -106,6 +106,7 @@ impl Scheduler {
         }
 
         {
+            let ctx = ctx.clone();
             let mut atomic = atomic.clone();
             let mut ready = flow.origin();
             let mut sync_qw = sync_qw.clone();
@@ -147,6 +148,7 @@ impl Scheduler {
                     match signal {
                         SyncCallback::UpdateGraph => {
                             let (graph, nodes, foreground) = &mut (*atomic.lock().unwrap());
+                            let mut needs_refresh = false;
 
                             let mut done = vec![];
                             for &i in active.iter() {
@@ -261,6 +263,7 @@ impl Scheduler {
                             if let Some(i) = *foreground {
                                 if !active.contains(&i) {
                                     dropped_foreground = true;
+                                    needs_refresh = true;
                                     *foreground = None;
                                 }
                             }
@@ -326,6 +329,8 @@ impl Scheduler {
                                         } else {
                                             *foreground = Some(i);
                                         }
+
+                                        needs_refresh = true;
                                     }
 
                                     match node.action.monitors() {
@@ -361,6 +366,10 @@ impl Scheduler {
                                         )
                                     );
                                 }
+                            }
+
+                            if needs_refresh {
+                                ctx.request_repaint();
                             }
 
                             #[cfg(debug_assertions)]
