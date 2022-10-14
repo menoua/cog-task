@@ -1,4 +1,3 @@
-use crate::callback::Destination;
 use crate::error::Error;
 use crate::scheduler::Scheduler;
 use crate::server::{Page, Progress, Server, ServerCallback};
@@ -170,17 +169,13 @@ impl Server {
                     let block = self.task.block(i);
                     let config = block.config(self.task.config());
                     let resources = block.resources(&config);
-                    let mut queue = self.sync_queue.clone();
+                    let mut sync_qw = self.sync_q.writer();
                     let mut resource_map = self.resources().clone();
                     let mut tex_manager = ui.ctx().tex_manager();
                     thread::spawn(move || {
                         match resource_map.preload_block(resources, tex_manager, &config, &env) {
-                            Ok(()) => {
-                                queue.push(Destination::default(), ServerCallback::LoadComplete)
-                            }
-                            Err(e) => {
-                                queue.push(Destination::default(), ServerCallback::BlockCrashed(e))
-                            }
+                            Ok(()) => sync_qw.push(ServerCallback::LoadComplete),
+                            Err(e) => sync_qw.push(ServerCallback::BlockCrashed(e)),
                         }
                     });
                 }

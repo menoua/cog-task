@@ -7,13 +7,13 @@ mod startup;
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 #[cfg(feature = "benchmark")]
 use crate::benchmark::Profiler;
-use crate::callback::{CallbackQueue, Destination};
 use crate::config::Config;
 use crate::env::Env;
 use crate::error::Error;
 use crate::logger::LoggerCallback;
 use crate::resource::ResourceMap;
 use crate::scheduler::Scheduler;
+use crate::signal::{QReader, QWriter};
 use crate::system::SystemInfo;
 use crate::task::block::Block;
 use crate::task::Task;
@@ -28,8 +28,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-
-const MIN_UPDATE_DELAY: Duration = Duration::from_millis(2);
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Page {
@@ -59,15 +57,12 @@ pub struct Server {
     scheduler: Option<Scheduler>,
     page: Page,
     blocks: Vec<(String, Progress)>,
-    _needs_refresh: bool,
     active_block: Option<usize>,
-    capture_key: bool,
-    animation_id: u32,
     status: Progress,
     show_magnification: bool,
     bin_hash: String,
     sys_info: SystemInfo,
-    sync_queue: CallbackQueue<ServerCallback>,
+    sync_q: QReader<ServerCallback>,
     #[cfg(feature = "benchmark")]
     profiler: Profiler,
 }
@@ -94,15 +89,12 @@ impl Server {
             scheduler: None,
             page: Page::Startup,
             blocks,
-            _needs_refresh: false,
             active_block: None,
-            capture_key: false,
-            animation_id: 0,
             status: Progress::None,
             show_magnification: false,
             bin_hash,
             sys_info: SystemInfo::new(),
-            sync_queue: CallbackQueue::new(),
+            sync_q: QReader::new(),
             #[cfg(feature = "benchmark")]
             profiler: Profiler::new(
                 "Server",
@@ -209,28 +201,13 @@ impl Server {
                 Ok(mut scheduler) => match scheduler.start() {
                     Ok(_) => {
                         self.page = Page::Activity;
-                        self.capture_key = true;
-                        if let Err(e) = scheduler.advance() {
-                            self.sync_queue
-                                .push(Destination::default(), ServerCallback::BlockCrashed(e));
-                        } else {
-                            self.scheduler = Some(scheduler);
-                            #[cfg(feature = "benchmark")]
-                            {
-                                self.profiler.report();
-                                self.profiler.reset();
-                                println!("Starting block...");
-                            }
-                        }
                     }
                     Err(e) => {
-                        self.sync_queue
-                            .push(Destination::default(), ServerCallback::BlockCrashed(e));
+                        self.sync_q.push(ServerCallback::BlockCrashed(e));
                     }
                 },
                 Err(e) => {
-                    self.sync_queue
-                        .push(Destination::default(), ServerCallback::BlockCrashed(e));
+                    self.sync_q.push(ServerCallback::BlockCrashed(e));
                 }
             },
             (Page::Activity, ServerCallback::BlockFinished) => {
@@ -270,8 +247,8 @@ impl Server {
     }
 
     #[inline(always)]
-    pub(crate) fn callback_channel(&self) -> CallbackQueue<ServerCallback> {
-        self.sync_queue.clone()
+    pub(crate) fn callback_channel(&self) -> QWriter<ServerCallback> {
+        self.sync_q.writer()
     }
 
     fn valid_subject_id(&self) -> bool {
@@ -296,20 +273,11 @@ impl Server {
 
         if let Some(mut scheduler) = self.scheduler.take() {
             match scheduler.stop() {
-                Ok(_) => self.sync_queue.push(
-                    Destination::default(),
-                    ServerCallback::CleanupComplete(Ok(())),
-                ),
-                Err(e) => self.sync_queue.push(
-                    Destination::default(),
-                    ServerCallback::CleanupComplete(Err(e)),
-                ),
+                Ok(_) => self.sync_q.push(ServerCallback::CleanupComplete(Ok(()))),
+                Err(e) => self.sync_q.push(ServerCallback::CleanupComplete(Err(e))),
             }
         } else {
-            self.sync_queue.push(
-                Destination::default(),
-                ServerCallback::CleanupComplete(Ok(())),
-            );
+            self.sync_q.push(ServerCallback::CleanupComplete(Ok(())));
         }
     }
 }
@@ -337,8 +305,8 @@ impl eframe::App for Server {
 
         #[cfg(feature = "benchmark")]
         self.profiler.tic(1);
-        while let Some((_dest, callback)) = self.sync_queue.pop() {
-            self.process(callback);
+        while let Some(signal) = self.sync_q.try_pop() {
+            self.process(signal);
         }
         #[cfg(feature = "benchmark")]
         self.profiler.toc(1);

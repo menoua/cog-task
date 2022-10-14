@@ -1,4 +1,3 @@
-use crate::callback::CallbackQueue;
 use crate::config::{Config, LogCondition};
 use crate::error;
 use crate::error::Error::{ActionViewError, InvalidNameError};
@@ -17,6 +16,7 @@ use std::path::{Path, PathBuf};
 #[macro_use]
 mod macros;
 pub mod include;
+use crate::signal::QWriter;
 pub use include::*;
 
 pub trait Action: Debug {
@@ -48,7 +48,7 @@ pub trait Action: Debug {
     }
 }
 
-pub trait StatefulAction {
+pub trait StatefulAction: Send {
     fn id(&self) -> usize;
 
     fn is_over(&self) -> Result<bool, error::Error>;
@@ -75,8 +75,8 @@ pub trait StatefulAction {
     #[inline(always)]
     fn start(
         &mut self,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
+        sync_queue: &mut QWriter<SyncCallback>,
+        async_queue: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
         Ok(())
     }
@@ -85,8 +85,8 @@ pub trait StatefulAction {
     fn update(
         &mut self,
         callback: ActionCallback,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
+        sync_queue: &mut QWriter<SyncCallback>,
+        async_queue: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
         Ok(())
     }
@@ -95,8 +95,8 @@ pub trait StatefulAction {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
+        sync_queue: &mut QWriter<SyncCallback>,
+        async_queue: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
         Err(ActionViewError(format!(
             "Attempted to show a non-visual action: Action({})",

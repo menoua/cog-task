@@ -1,5 +1,5 @@
 use crate::action::{Action, StatefulAction};
-use crate::callback::CallbackQueue;
+use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError};
@@ -85,8 +85,8 @@ impl StatefulAction for StatefulImage {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
+        _sync_qw: &mut QWriter<SyncCallback>,
+        _async_qw: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
         ui.output().cursor_icon = CursorIcon::None;
 

@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionCallback, StatefulAction, StatefulActionMsg};
-use crate::callback::{CallbackQueue, Destination};
+use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::InvalidNameError;
@@ -82,8 +82,8 @@ impl StatefulAction for StatefulKeyLogger {
     fn update(
         &mut self,
         callback: ActionCallback,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
+        _sync_qw: &mut QWriter<SyncCallback>,
+        async_qw: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
         if let ActionCallback::KeyPress(keys) = callback {
             let group = self.group.clone();
@@ -95,7 +95,7 @@ impl StatefulAction for StatefulKeyLogger {
                         .collect(),
                 ),
             );
-            async_queue.push(Destination::default(), LoggerCallback::Append(group, entry));
+            async_qw.push(LoggerCallback::Append(group, entry));
         }
         Ok(())
     }

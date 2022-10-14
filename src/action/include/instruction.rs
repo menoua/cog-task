@@ -1,5 +1,5 @@
 use crate::action::{Action, StatefulAction, StatefulActionMsg};
-use crate::callback::{CallbackQueue, Destination};
+use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
@@ -135,8 +135,8 @@ impl StatefulAction for StatefulInstruction {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
+        sync_qw: &mut QWriter<SyncCallback>,
+        _async_qw: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
         header_body_controls(ui, |mut strip| {
             strip.cell(|ui| {
@@ -161,7 +161,7 @@ impl StatefulAction for StatefulInstruction {
                     });
             });
             strip.empty();
-            strip.strip(|builder| self.show_controls(builder, sync_queue));
+            strip.strip(|builder| self.show_controls(builder, sync_qw));
         });
 
         Ok(())
@@ -172,7 +172,7 @@ impl StatefulInstruction {
     fn show_controls(
         &mut self,
         builder: StripBuilder,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
+        sync_qw: &mut QWriter<SyncCallback>,
     ) {
         enum Interaction {
             None,
@@ -194,7 +194,7 @@ impl StatefulInstruction {
             Interaction::None => {}
             Interaction::Next => {
                 self.done = true;
-                sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
+                sync_qw.push(SyncCallback::UpdateGraph);
             }
         }
     }

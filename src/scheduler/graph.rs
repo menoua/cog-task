@@ -1,5 +1,4 @@
 use crate::action::{ExtAction, StatefulAction};
-use crate::callback::CallbackQueue;
 use crate::config::{Config, LogCondition};
 use crate::error;
 use crate::error::Error::{FlowError, TaskDefinitionError};
@@ -7,6 +6,7 @@ use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::flow::{Flow, Timer};
 use crate::scheduler::{AsyncCallback, SyncCallback};
+use crate::signal::{QReader, QWriter};
 use petgraph::prelude::{NodeIndex, StableGraph};
 use petgraph::stable_graph::{Edges, NodeIndices};
 use petgraph::{Directed, Direction, EdgeDirection};
@@ -41,10 +41,10 @@ impl Node {
     #[inline(always)]
     pub fn start(
         &mut self,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
+        sync_qw: &mut QWriter<SyncCallback>,
+        async_qw: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
-        self.action.start(sync_queue, async_queue)
+        self.action.start(sync_qw, async_qw)
     }
 
     #[inline(always)]

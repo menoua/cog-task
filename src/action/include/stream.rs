@@ -1,6 +1,6 @@
 use crate::action::{Action, StatefulAction};
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
-use crate::callback::{CallbackQueue, Destination};
+use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError, TaskDefinitionError};
@@ -168,8 +168,8 @@ impl StatefulAction for StatefulStream {
 
     fn start(
         &mut self,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
+        sync_qw: &mut QWriter<SyncCallback>,
+        _async_qw: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
@@ -192,7 +192,7 @@ impl StatefulAction for StatefulStream {
             ))
         })?;
 
-        let mut sync_queue = sync_queue.clone();
+        let mut sync_qw = sync_qw.clone();
         thread::spawn(move || {
             let link = link;
             let _ = link.1.recv();
@@ -203,7 +203,7 @@ impl StatefulAction for StatefulStream {
                     "Failed to graciously close stream decoder thread:\n{e:#?}"
                 ))),
             };
-            sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
+            sync_qw.push(SyncCallback::UpdateGraph);
         });
 
         Ok(())
@@ -212,8 +212,8 @@ impl StatefulAction for StatefulStream {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
+        _sync_qw: &mut QWriter<SyncCallback>,
+        _async_qw: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
         let (texture, size) = self
             .frame

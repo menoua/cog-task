@@ -1,9 +1,9 @@
-use crate::callback::{CallbackQueue, Destination};
 use crate::config::{Config, LogFormat};
 use crate::error;
 use crate::error::Error::LoggerError;
 use crate::scheduler::info::Info;
 use crate::scheduler::{AsyncCallback, SyncCallback};
+use crate::signal::{QReader, QWriter};
 use chrono::{DateTime, Local};
 use itertools::Itertools;
 use serde_json::Value;
@@ -127,13 +127,13 @@ impl Logger {
         &mut self,
         time: DateTime<Local>,
         callback: LoggerCallback,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
+        async_qw: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
         if callback.requires_flush() && !self.needs_flush {
-            let mut async_queue = async_queue.clone();
+            let mut async_qw = async_qw.clone();
             thread::spawn(move || {
                 thread::sleep(Duration::from_secs(5));
-                async_queue.push(Destination::default(), LoggerCallback::Flush);
+                async_qw.push(LoggerCallback::Flush);
             });
         }
 

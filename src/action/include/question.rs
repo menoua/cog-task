@@ -1,5 +1,5 @@
 use crate::action::{Action, StatefulAction, StatefulActionMsg};
-use crate::callback::{CallbackQueue, Destination};
+use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidNameError};
@@ -110,8 +110,8 @@ impl StatefulAction for StatefulQuestion {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        async_queue: &mut CallbackQueue<AsyncCallback>,
+        sync_qw: &mut QWriter<SyncCallback>,
+        async_qw: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
         header_body_controls(
             ui,
@@ -128,7 +128,7 @@ impl StatefulAction for StatefulQuestion {
                     );
                 });
                 strip.empty();
-                strip.strip(|builder| self.show_controls(builder, sync_queue, async_queue));
+                strip.strip(|builder| self.show_controls(builder, sync_qw, async_qw));
             }
         );
 
@@ -163,7 +163,7 @@ impl StatefulQuestion {
         });
     }
 
-    fn show_controls(&mut self, builder: StripBuilder, sync_queue: &mut CallbackQueue<SyncCallback>, async_queue: &mut CallbackQueue<AsyncCallback>) {
+    fn show_controls(&mut self, builder: StripBuilder, sync_qw: &mut QWriter<SyncCallback>, async_qw: &mut QWriter<AsyncCallback>) {
         enum Interaction {
             None,
             Submit,
@@ -184,8 +184,8 @@ impl StatefulQuestion {
             Interaction::None => {}
             Interaction::Submit => {
                 self.done = true;
-                sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
-                async_queue.push(Destination::default(), LoggerCallback::Extend(
+                sync_qw.push(SyncCallback::UpdateGraph);
+                async_qw.push(LoggerCallback::Extend(
                     self.group.clone(),
                     self.list.iter().map(|q| q.to_string()).collect(),
                 ));

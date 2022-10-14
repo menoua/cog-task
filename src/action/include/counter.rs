@@ -1,5 +1,5 @@
 use crate::action::{Action, StatefulAction, StatefulActionMsg};
-use crate::callback::{CallbackQueue, Destination};
+use crate::signal::QWriter;
 use crate::config::Config;
 use crate::io::IO;
 use crate::resource::ResourceMap;
@@ -83,8 +83,8 @@ impl StatefulAction for StatefulCounter {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        sync_queue: &mut CallbackQueue<SyncCallback>,
-        _async_queue: &mut CallbackQueue<AsyncCallback>,
+        sync_qw: &mut QWriter<SyncCallback>,
+        _async_qw: &mut QWriter<AsyncCallback>,
     ) -> Result<(), error::Error> {
         enum Interaction {
             None,
@@ -128,7 +128,7 @@ impl StatefulAction for StatefulCounter {
                 self.count = self.count.saturating_sub(1);
                 if self.count == 0 {
                     self.done = true;
-                    sync_queue.push(Destination::default(), SyncCallback::UpdateGraph);
+                    sync_qw.push(SyncCallback::UpdateGraph);
                 }
             }
         }

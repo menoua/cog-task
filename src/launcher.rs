@@ -1,5 +1,5 @@
 use crate::assets::{Icon, VERSION};
-use crate::callback::{CallbackQueue, Destination};
+use crate::signal::QReader;
 use crate::style;
 use crate::style::text::{button1, tooltip};
 use crate::style::{
@@ -35,7 +35,7 @@ pub struct Launcher {
     active_task: Option<String>,
     status: Status,
     sys_info: SystemInfo,
-    sync_queue: CallbackQueue<LauncherCallback>,
+    sync_qr: QReader<LauncherCallback>,
 }
 
 impl Default for Launcher {
@@ -86,7 +86,7 @@ impl Launcher {
                 active_task: None,
                 status: Status::None,
                 sys_info: SystemInfo::new(),
-                sync_queue: CallbackQueue::new(),
+                sync_qr: QReader::new(),
             }
         } else {
             Self {
@@ -97,7 +97,7 @@ impl Launcher {
                 active_task: None,
                 status: Status::None,
                 sys_info: SystemInfo::new(),
-                sync_queue: CallbackQueue::new(),
+                sync_qr: QReader::new(),
             }
         }
     }
@@ -117,7 +117,7 @@ impl Launcher {
         let curr = current_dir().unwrap();
         let root = current_exe().unwrap().parent().unwrap().to_path_buf();
         let path = root.join("bin").join("server").to_str().unwrap().to_owned();
-        let mut buffer = self.sync_queue.clone();
+        let mut sync_qw = self.sync_qr.writer();
         self.busy = true;
         self.active_task = Some(task.file_name().unwrap().to_str().unwrap().to_title_case());
         thread::spawn(move || {
@@ -133,12 +133,9 @@ impl Launcher {
                     }
                     if !stderr.is_empty() {
                         eprintln!("\n{stderr}");
-                        buffer.push(
-                            Destination::default(),
-                            LauncherCallback::TaskCrashed(stderr),
-                        );
+                        sync_qw.push(LauncherCallback::TaskCrashed(stderr));
                     } else {
-                        buffer.push(Destination::default(), LauncherCallback::TaskClosed);
+                        sync_qw.push(LauncherCallback::TaskClosed);
                     }
                 }
                 Err(e) => {
@@ -147,10 +144,7 @@ impl Launcher {
                             bin/server relative to the launcher.\n{e:#?}"
                     );
                     println!("\nEE: {status}");
-                    buffer.push(
-                        Destination::default(),
-                        LauncherCallback::TaskCrashed(status),
-                    );
+                    sync_qw.push(LauncherCallback::TaskCrashed(status));
                 }
             }
         });
@@ -213,20 +207,6 @@ impl Launcher {
                 self.status = Status::Result(status);
                 self.busy = false;
             }
-            // (_, LauncherMsg::ToClipboard) => {
-            //     match &self.status {
-            //         Status::Result(_status) => {
-            //             // ui.output().copied_text = format!(
-            //             //     "Task \"{}\" failed with error:\n{status}",
-            //             //     self.active_task.as_ref().unwrap_or(&"[NONE]".to_owned())
-            //             // );
-            //         }
-            //         Status::SystemInfo => {
-            //             // ui.output().copied_text = format!("{:#?}", self.sys_info);
-            //         }
-            //         _ => {}
-            //     }
-            // }
             _ => {}
         };
     }
@@ -240,7 +220,7 @@ pub enum LauncherCallback {
 
 impl eframe::App for Launcher {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        while let Some((_dest, message)) = self.sync_queue.pop() {
+        while let Some(message) = self.sync_qr.try_pop() {
             self.process(message);
         }
 
@@ -249,7 +229,7 @@ impl eframe::App for Launcher {
         self.show(ctx);
 
         ctx.set_pixels_per_point(2.0);
-        ctx.request_repaint_after(Duration::from_millis(200));
+        ctx.request_repaint_after(Duration::from_millis(250));
     }
 }
 
