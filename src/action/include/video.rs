@@ -1,4 +1,4 @@
-use crate::action::{Action, DEFAULT, FINITE, Props, StatefulAction, VISUAL};
+use crate::action::{Action, ANIMATED, DEFAULT, FINITE, Props, StatefulAction, VISUAL};
 use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 use crate::signal::QWriter;
 use crate::config::Config;
@@ -130,9 +130,9 @@ impl StatefulAction for StatefulVideo {
     #[inline(always)]
     fn props(&self) -> Props {
         if self.looping {
-            VISUAL
+            VISUAL | ANIMATED
         } else {
-            FINITE | VISUAL
+            FINITE | VISUAL | ANIMATED
         }.into()
     }
 
