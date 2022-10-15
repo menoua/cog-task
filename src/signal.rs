@@ -54,9 +54,12 @@ impl<T> QReader<T> {
     }
 
     #[inline(always)]
-    pub fn pop(&mut self) -> T {
-        self.2.recv().unwrap();
-        self.0.pop().unwrap()
+    pub fn pop(&mut self) -> Option<T> {
+        if self.2.recv().is_ok() {
+            Some(self.0.pop().unwrap())
+        } else {
+            None
+        }
     }
 
     #[inline(always)]

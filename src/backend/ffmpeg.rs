@@ -1,9 +1,9 @@
-use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 use crate::backend::{MediaMode, MediaStream};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{BackendError, InternalError, InvalidConfigError, StreamDecodingError};
 use crate::resource::FrameBuffer;
+use crate::util::spin_sleeper;
 use eframe::egui;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{ColorImage, ImageData, TextureFilter, TextureId, Vec2};
@@ -14,7 +14,6 @@ use ffmpeg::software::scaling::{context::Context, flag::Flags};
 use ffmpeg::util::frame::video::Video;
 use ffmpeg_next as ffmpeg;
 use once_cell::sync::OnceCell;
-use spin_sleep::SpinSleeper;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{RecvError, Sender};
 use std::sync::{mpsc, Arc, Mutex};
@@ -163,7 +162,7 @@ impl MediaStream for Stream {
                     (decoder, scaler)
                 };
 
-                let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
+                let sleeper = spin_sleeper();
 
                 if let Err(_) = rx_start.recv() {
                     *is_eos.lock().unwrap() = true;

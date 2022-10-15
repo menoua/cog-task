@@ -3,7 +3,6 @@ use crate::signal::QWriter;
 use crate::config::Config;
 use crate::io::IO;
 use crate::resource::ResourceMap;
-use crate::scheduler::{AsyncCallback, SyncCallback};
 use crate::style::{style_ui, Style};
 use crate::{error, style};
 use eframe::egui;
@@ -11,6 +10,7 @@ use eframe::egui::CentralPanel;
 use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -72,8 +72,8 @@ impl StatefulAction for StatefulCounter {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        sync_qw: &mut QWriter<SyncCallback>,
-        _async_qw: &mut QWriter<AsyncCallback>,
+        sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         enum Interaction {
             None,
@@ -117,7 +117,7 @@ impl StatefulAction for StatefulCounter {
                 self.count = self.count.saturating_sub(1);
                 if self.count == 0 {
                     self.done = true;
-                    sync_qw.push(SyncCallback::UpdateGraph);
+                    sync_writer.push(SyncSignal::UpdateGraph);
                 }
             }
         }

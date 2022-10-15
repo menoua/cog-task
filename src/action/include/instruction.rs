@@ -5,7 +5,6 @@ use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
 use crate::resource::text::Justification;
 use crate::resource::{text::text_or_file, ResourceMap};
-use crate::scheduler::{AsyncCallback, SyncCallback};
 use crate::style::text::{body, button1};
 use crate::style::{style_ui, Style};
 use crate::template::{center_x, header_body_controls};
@@ -15,6 +14,7 @@ use eframe::egui::{RichText, ScrollArea};
 use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -127,8 +127,8 @@ impl StatefulAction for StatefulInstruction {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        sync_qw: &mut QWriter<SyncCallback>,
-        _async_qw: &mut QWriter<AsyncCallback>,
+        sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         header_body_controls(ui, |mut strip| {
             strip.cell(|ui| {
@@ -153,7 +153,7 @@ impl StatefulAction for StatefulInstruction {
                     });
             });
             strip.empty();
-            strip.strip(|builder| self.show_controls(builder, sync_qw));
+            strip.strip(|builder| self.show_controls(builder, sync_writer));
         });
 
         Ok(())
@@ -170,7 +170,7 @@ impl StatefulInstruction {
     fn show_controls(
         &mut self,
         builder: StripBuilder,
-        sync_qw: &mut QWriter<SyncCallback>,
+        sync_writer: &mut QWriter<SyncSignal>,
     ) {
         enum Interaction {
             None,
@@ -192,7 +192,7 @@ impl StatefulInstruction {
             Interaction::None => {}
             Interaction::Next => {
                 self.done = true;
-                sync_qw.push(SyncCallback::UpdateGraph);
+                sync_writer.push(SyncSignal::UpdateGraph);
             }
         }
     }

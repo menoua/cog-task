@@ -2,8 +2,8 @@ use crate::config::{Config, LogFormat};
 use crate::error;
 use crate::error::Error::LoggerError;
 use crate::scheduler::info::Info;
-use crate::scheduler::{AsyncCallback, SyncCallback};
-use crate::signal::{QReader, QWriter};
+use crate::scheduler::processor::AsyncSignal;
+use crate::signal::QWriter;
 use chrono::{DateTime, Local};
 use itertools::Itertools;
 use serde_json::Value;
@@ -25,24 +25,24 @@ pub struct Logger {
 }
 
 #[derive(Debug, Clone)]
-pub enum LoggerCallback {
+pub enum LoggerSignal {
     Append(String, (String, Value)),
     Extend(String, Vec<(String, Value)>),
     Flush,
 }
 
-impl LoggerCallback {
+impl LoggerSignal {
     #[inline(always)]
     fn requires_flush(&self) -> bool {
         matches!(
             self,
-            LoggerCallback::Append(_, _) | LoggerCallback::Extend(_, _)
+            LoggerSignal::Append(_, _) | LoggerSignal::Extend(_, _)
         )
     }
 }
-impl From<LoggerCallback> for AsyncCallback {
-    fn from(callback: LoggerCallback) -> Self {
-        AsyncCallback::Logger(Local::now(), callback)
+impl From<LoggerSignal> for AsyncSignal {
+    fn from(signal: LoggerSignal) -> Self {
+        AsyncSignal::Logger(Local::now(), signal)
     }
 }
 
@@ -126,25 +126,25 @@ impl Logger {
     pub fn update(
         &mut self,
         time: DateTime<Local>,
-        callback: LoggerCallback,
-        async_qw: &mut QWriter<AsyncCallback>,
+        signal: LoggerSignal,
+        async_writer: &QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        if callback.requires_flush() && !self.needs_flush {
-            let mut async_qw = async_qw.clone();
+        if signal.requires_flush() && !self.needs_flush {
+            let mut async_writer = async_writer.clone();
             thread::spawn(move || {
                 thread::sleep(Duration::from_secs(5));
-                async_qw.push(LoggerCallback::Flush);
+                async_writer.push(LoggerSignal::Flush);
             });
         }
 
-        match callback {
-            LoggerCallback::Append(group, entry) => {
+        match signal {
+            LoggerSignal::Append(group, entry) => {
                 self.append(time, group, entry);
             }
-            LoggerCallback::Extend(group, entries) => {
+            LoggerSignal::Extend(group, entries) => {
                 self.extend(time, group, entries);
             }
-            LoggerCallback::Flush => {
+            LoggerSignal::Flush => {
                 self.flush()?;
                 self.needs_flush = false;
             }

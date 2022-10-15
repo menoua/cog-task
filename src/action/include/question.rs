@@ -4,9 +4,8 @@ use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidNameError};
 use crate::io::IO;
-use crate::logger::LoggerCallback;
+use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
-use crate::scheduler::{AsyncCallback, SyncCallback};
 use crate::style;
 use crate::style::text::{body, button1, inactive};
 use crate::util::{f32_with_precision, f64_with_precision, str_with_precision};
@@ -17,6 +16,7 @@ use serde_json::{Number, Value};
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use egui_extras::{Size, StripBuilder};
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::style::{CUSTOM_BLUE, Style, style_ui, TEXT_SIZE_BODY};
 use crate::template::{center_x, header_body_controls};
 
@@ -99,8 +99,8 @@ impl StatefulAction for StatefulQuestion {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        sync_qw: &mut QWriter<SyncCallback>,
-        async_qw: &mut QWriter<AsyncCallback>,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         header_body_controls(
             ui,
@@ -117,7 +117,7 @@ impl StatefulAction for StatefulQuestion {
                     );
                 });
                 strip.empty();
-                strip.strip(|builder| self.show_controls(builder, sync_qw, async_qw));
+                strip.strip(|builder| self.show_controls(builder, sync_writer, async_writer));
             }
         );
 
@@ -158,7 +158,7 @@ impl StatefulQuestion {
         });
     }
 
-    fn show_controls(&mut self, builder: StripBuilder, sync_qw: &mut QWriter<SyncCallback>, async_qw: &mut QWriter<AsyncCallback>) {
+    fn show_controls(&mut self, builder: StripBuilder, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) {
         enum Interaction {
             None,
             Submit,
@@ -179,8 +179,8 @@ impl StatefulQuestion {
             Interaction::None => {}
             Interaction::Submit => {
                 self.done = true;
-                sync_qw.push(SyncCallback::UpdateGraph);
-                async_qw.push(LoggerCallback::Extend(
+                sync_writer.push(SyncSignal::UpdateGraph);
+                async_writer.push(LoggerSignal::Extend(
                     self.group.clone(),
                     self.list.iter().map(|q| q.to_string()).collect(),
                 ));

@@ -1,23 +1,21 @@
 use crate::action::{Action, ANIMATED, DEFAULT, FINITE, Props, StatefulAction, VISUAL};
-use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError, TaskDefinitionError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::monitor::Monitor;
-use crate::scheduler::{AsyncCallback, SyncCallback};
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
-use spin_sleep::SpinSleeper;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use crate::util::spin_sleeper;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -85,7 +83,7 @@ impl Action for Stream {
                 }
 
                 let framerate = stream.framerate();
-                let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
+                let sleeper = spin_sleeper();
                 let period = if stream.has_video() {
                     Duration::from_secs_f64(0.5 / framerate)
                 } else {
@@ -162,8 +160,8 @@ impl StatefulAction for StatefulStream {
 
     fn start(
         &mut self,
-        sync_qw: &mut QWriter<SyncCallback>,
-        _async_qw: &mut QWriter<AsyncCallback>,
+        sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
@@ -186,7 +184,7 @@ impl StatefulAction for StatefulStream {
             ))
         })?;
 
-        let mut sync_qw = sync_qw.clone();
+        let mut sync_writer = sync_writer.clone();
         thread::spawn(move || {
             let link = link;
             let _ = link.1.recv();
@@ -197,7 +195,7 @@ impl StatefulAction for StatefulStream {
                     "Failed to graciously close stream decoder thread:\n{e:#?}"
                 ))),
             };
-            sync_qw.push(SyncCallback::UpdateGraph);
+            sync_writer.push(SyncSignal::UpdateGraph);
         });
 
         Ok(())
@@ -206,8 +204,8 @@ impl StatefulAction for StatefulStream {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        _sync_qw: &mut QWriter<SyncCallback>,
-        _async_qw: &mut QWriter<AsyncCallback>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         let (texture, size) = self
             .frame

@@ -5,12 +5,12 @@ use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::{AsyncCallback, SyncCallback};
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -74,8 +74,8 @@ impl StatefulAction for StatefulImage {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        _sync_qw: &mut QWriter<SyncCallback>,
-        _async_qw: &mut QWriter<AsyncCallback>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         ui.output().cursor_icon = CursorIcon::None;
 

@@ -4,7 +4,6 @@ use crate::error::Error::{ActionViewError, InvalidNameError};
 use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::monitor::{Event, Monitor};
-use crate::scheduler::{AsyncCallback, SyncCallback};
 use eframe::egui;
 use gstreamer::paste;
 use itertools::Itertools;
@@ -18,6 +17,7 @@ mod macros;
 pub mod include;
 pub mod props;
 
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 pub use include::*;
 pub use props::*;
@@ -63,8 +63,8 @@ pub trait StatefulAction: Send {
     #[inline(always)]
     fn start(
         &mut self,
-        sync_queue: &mut QWriter<SyncCallback>,
-        async_queue: &mut QWriter<AsyncCallback>,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         Ok(())
     }
@@ -72,9 +72,9 @@ pub trait StatefulAction: Send {
     #[inline(always)]
     fn update(
         &mut self,
-        callback: ActionCallback,
-        sync_queue: &mut QWriter<SyncCallback>,
-        async_queue: &mut QWriter<AsyncCallback>,
+        signal: ActionSignal,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         Ok(())
     }
@@ -83,8 +83,8 @@ pub trait StatefulAction: Send {
     fn show(
         &mut self,
         ui: &mut egui::Ui,
-        sync_queue: &mut QWriter<SyncCallback>,
-        async_queue: &mut QWriter<AsyncCallback>,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         Err(ActionViewError(format!(
             "Attempted to show a non-visual action: Action({})",
@@ -222,7 +222,7 @@ impl ExtAction {
 // }
 
 #[derive(Debug, Clone)]
-pub enum ActionCallback {
+pub enum ActionSignal {
     KeyPress(HashSet<egui::Key>),
 }
 

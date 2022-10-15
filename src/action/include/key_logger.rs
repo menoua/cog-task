@@ -1,16 +1,16 @@
-use crate::action::{Action, ActionCallback, CAP_KEYS, DEFAULT, Props, StatefulAction};
+use crate::action::{Action, ActionSignal, CAP_KEYS, DEFAULT, Props, StatefulAction};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::InvalidNameError;
 use crate::io::IO;
-use crate::logger::LoggerCallback;
+use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
 use crate::scheduler::monitor::{Event, Monitor};
-use crate::scheduler::{AsyncCallback, SyncCallback};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -65,11 +65,11 @@ impl StatefulAction for StatefulKeyLogger {
 
     fn update(
         &mut self,
-        callback: ActionCallback,
-        _sync_qw: &mut QWriter<SyncCallback>,
-        async_qw: &mut QWriter<AsyncCallback>,
+        signal: ActionSignal,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        if let ActionCallback::KeyPress(keys) = callback {
+        if let ActionSignal::KeyPress(keys) = signal {
             let group = self.group.clone();
             let entry = (
                 "key".to_string(),
@@ -79,7 +79,7 @@ impl StatefulAction for StatefulKeyLogger {
                         .collect(),
                 ),
             );
-            async_qw.push(LoggerCallback::Append(group, entry));
+            async_writer.push(LoggerSignal::Append(group, entry));
         }
         Ok(())
     }

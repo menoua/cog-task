@@ -1,21 +1,20 @@
 use crate::action::{Action, DEFAULT, FINITE, Props, StatefulAction};
-use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 use crate::signal::QWriter;
 use crate::config::{Config, TimePrecision};
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::{AsyncCallback, SyncCallback};
 use rodio::{Sink, Source};
 use serde::{Deserialize, Serialize};
-use spin_sleep::SpinSleeper;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use crate::util::spin_sleeper;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -71,7 +70,7 @@ impl Action for Audio {
                 let sink = sink.clone();
                 let time_precision = config.time_precision();
                 let looping = self.looping;
-                let sleeper = SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY);
+                let sleeper = spin_sleeper();
 
                 thread::spawn(move || {
                     if rx_start.recv().is_err() {
@@ -159,8 +158,8 @@ impl StatefulAction for StatefulAudio {
 
     fn start(
         &mut self,
-        sync_qw: &mut QWriter<SyncCallback>,
-        _async_qw: &mut QWriter<AsyncCallback>,
+        sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
@@ -176,12 +175,12 @@ impl StatefulAction for StatefulAudio {
         })?;
 
         let done = self.done.clone();
-        let mut sync_qw = sync_qw.clone();
+        let mut sync_writer = sync_writer.clone();
         thread::spawn(move || {
             let link = link;
             let _ = link.1.recv();
             *done.lock().unwrap() = Ok(true);
-            sync_qw.push(SyncCallback::UpdateGraph);
+            sync_writer.push(SyncSignal::UpdateGraph);
         });
 
         Ok(())

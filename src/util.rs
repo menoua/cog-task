@@ -1,4 +1,13 @@
 use serde::Serialize;
+use spin_sleep::{SpinSleeper, SpinStrategy};
+
+pub const SPIN_DURATION: u32 = 100_000_000; // equivalent to 100ms
+pub const SPIN_STRATEGY: SpinStrategy = SpinStrategy::SpinLoopHint;
+
+#[inline(always)]
+pub fn spin_sleeper() -> SpinSleeper {
+    SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY)
+}
 
 #[inline(always)]
 pub fn f32_with_precision(x: f32, precision: u8) -> f32 {

@@ -4,13 +4,12 @@ mod loading;
 mod selection;
 mod startup;
 
-use crate::assets::{SPIN_DURATION, SPIN_STRATEGY};
 #[cfg(feature = "benchmark")]
 use crate::benchmark::Profiler;
 use crate::config::Config;
 use crate::env::Env;
 use crate::error::Error;
-use crate::logger::LoggerCallback;
+use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
 use crate::scheduler::Scheduler;
 use crate::signal::{QReader, QWriter};
@@ -23,7 +22,6 @@ use eframe::egui::{CentralPanel, Rect, Sense};
 use eframe::glow::HasContext;
 use egui_extras::{Size, StripBuilder};
 use serde_json::Value;
-use spin_sleep::SpinSleeper;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -62,7 +60,8 @@ pub struct Server {
     show_magnification: bool,
     bin_hash: String,
     sys_info: SystemInfo,
-    sync_qr: QReader<ServerCallback>,
+    sync_reader: QReader<ServerSignal>,
+    cleaning_up: u32,
     #[cfg(feature = "benchmark")]
     profiler: Profiler,
 }
@@ -94,7 +93,8 @@ impl Server {
             show_magnification: false,
             bin_hash,
             sys_info: SystemInfo::new(),
-            sync_qr: QReader::new(),
+            sync_reader: QReader::new(),
+            cleaning_up: 0,
             #[cfg(feature = "benchmark")]
             profiler: Profiler::new(
                 "Server",
@@ -195,48 +195,44 @@ impl Server {
         &self.task
     }
 
-    fn process(&mut self, ctx: &egui::Context, signal: ServerCallback) {
+    fn process(&mut self, ctx: &egui::Context, signal: ServerSignal) {
         match (self.page, signal) {
-            (Page::Loading, ServerCallback::LoadComplete) => match Scheduler::new(self, ctx) {
-                Ok(mut scheduler) => match scheduler.start() {
-                    Ok(_) => {
-                        self.page = Page::Activity;
-                        self.scheduler = Some(scheduler);
-                    }
-                    Err(e) => {
-                        self.sync_qr.push(ServerCallback::BlockCrashed(e));
-                    }
-                },
+            (Page::Loading, ServerSignal::LoadComplete) => match Scheduler::new(self, ctx) {
+                Ok(scheduler) => {
+                    self.page = Page::Activity;
+                    self.scheduler = Some(scheduler);
+                }
                 Err(e) => {
-                    self.sync_qr.push(ServerCallback::BlockCrashed(e));
+                    self.sync_reader.push(ServerSignal::BlockCrashed(e));
                 }
             },
-            (Page::Activity, ServerCallback::BlockFinished) => {
+            (Page::Activity, ServerSignal::BlockFinished) => {
                 self.status = Progress::Success;
-                self.page = Page::CleanUp;
                 self.drop_scheduler();
             }
-            (Page::Activity, ServerCallback::BlockInterrupted) => {
+            (Page::Activity, ServerSignal::BlockInterrupted) => {
                 self.status = Progress::Interrupt;
-                self.page = Page::CleanUp;
                 self.drop_scheduler();
             }
-            (Page::Loading | Page::Activity, ServerCallback::BlockCrashed(e)) => {
+            (Page::Loading | Page::Activity, ServerSignal::BlockCrashed(e)) => {
                 self.status = Progress::Failure(e);
-                self.page = Page::CleanUp;
                 self.drop_scheduler();
             }
-            (Page::CleanUp, ServerCallback::CleanupComplete(success)) => {
-                self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 =
-                    match (&self.status, success) {
-                        (Progress::Success, Err(e)) => {
-                            self.status = Progress::CleanupError(e.clone());
-                            Progress::CleanupError(e)
-                        }
-                        (progress, _) => progress.clone(),
-                    };
+            (Page::CleanUp, ServerSignal::SyncComplete(success))
+            | (Page::CleanUp, ServerSignal::AsyncComplete(success)) => {
+                self.cleaning_up -= 1;
+                if self.cleaning_up == 0 {
+                    self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 =
+                        match (&self.status, success) {
+                            (Progress::Success, Err(e)) => {
+                                self.status = Progress::CleanupError(e.clone());
+                                Progress::CleanupError(e)
+                            }
+                            (progress, _) => progress.clone(),
+                        };
 
-                self.page = Page::Selection;
+                    self.page = Page::Selection;
+                }
             }
             _ => {}
         };
@@ -248,8 +244,8 @@ impl Server {
     }
 
     #[inline(always)]
-    pub(crate) fn callback_channel(&self) -> QWriter<ServerCallback> {
-        self.sync_qr.writer()
+    pub(crate) fn callback_channel(&self) -> QWriter<ServerSignal> {
+        self.sync_reader.writer()
     }
 
     fn valid_subject_id(&self) -> bool {
@@ -272,25 +268,20 @@ impl Server {
             println!("Block ended...");
         }
 
-        if let Some(mut scheduler) = self.scheduler.take() {
-            match scheduler.stop() {
-                Ok(_) => self.sync_qr.push(ServerCallback::CleanupComplete(Ok(()))),
-                Err(e) => self.sync_qr.push(ServerCallback::CleanupComplete(Err(e))),
-            }
-        } else {
-            self.sync_qr.push(ServerCallback::CleanupComplete(Ok(())));
-        }
+        self.page = Page::CleanUp;
+        self.cleaning_up = 2;
+        self.scheduler.take();
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum ServerCallback {
-    LoadComplete,               // Callback
-    BlockFinished,              // Callback
-    BlockInterrupted,           // Callback
-    BlockCrashed(error::Error), // Callback
-    CleanupComplete(Result<(), error::Error>), // Callback
-                                // Relay(SchedulerMsg),                       // Callback
+pub enum ServerSignal {
+    LoadComplete,
+    BlockFinished,
+    BlockInterrupted,
+    BlockCrashed(error::Error),
+    SyncComplete(Result<(), error::Error>),
+    AsyncComplete(Result<(), error::Error>),
 }
 
 impl eframe::App for Server {
@@ -306,7 +297,7 @@ impl eframe::App for Server {
 
         #[cfg(feature = "benchmark")]
         self.profiler.tic(1);
-        while let Some(signal) = self.sync_qr.try_pop() {
+        while let Some(signal) = self.sync_reader.try_pop() {
             self.process(ctx, signal);
         }
         #[cfg(feature = "benchmark")]

@@ -35,7 +35,7 @@ pub struct Launcher {
     active_task: Option<String>,
     status: Status,
     sys_info: SystemInfo,
-    sync_qr: QReader<LauncherCallback>,
+    sync_reader: QReader<LauncherSignal>,
 }
 
 impl Default for Launcher {
@@ -86,7 +86,7 @@ impl Launcher {
                 active_task: None,
                 status: Status::None,
                 sys_info: SystemInfo::new(),
-                sync_qr: QReader::new(),
+                sync_reader: QReader::new(),
             }
         } else {
             Self {
@@ -97,7 +97,7 @@ impl Launcher {
                 active_task: None,
                 status: Status::None,
                 sys_info: SystemInfo::new(),
-                sync_qr: QReader::new(),
+                sync_reader: QReader::new(),
             }
         }
     }
@@ -117,7 +117,7 @@ impl Launcher {
         let curr = current_dir().unwrap();
         let root = current_exe().unwrap().parent().unwrap().to_path_buf();
         let path = root.join("bin").join("server").to_str().unwrap().to_owned();
-        let mut sync_qw = self.sync_qr.writer();
+        let mut sync_writer = self.sync_reader.writer();
         self.busy = true;
         self.active_task = Some(task.file_name().unwrap().to_str().unwrap().to_title_case());
         thread::spawn(move || {
@@ -133,9 +133,9 @@ impl Launcher {
                     }
                     if !stderr.is_empty() {
                         eprintln!("\n{stderr}");
-                        sync_qw.push(LauncherCallback::TaskCrashed(stderr));
+                        sync_writer.push(LauncherSignal::TaskCrashed(stderr));
                     } else {
-                        sync_qw.push(LauncherCallback::TaskClosed);
+                        sync_writer.push(LauncherSignal::TaskClosed);
                     }
                 }
                 Err(e) => {
@@ -144,7 +144,7 @@ impl Launcher {
                             bin/server relative to the launcher.\n{e:#?}"
                     );
                     println!("\nEE: {status}");
-                    sync_qw.push(LauncherCallback::TaskCrashed(status));
+                    sync_writer.push(LauncherSignal::TaskCrashed(status));
                 }
             }
         });
@@ -198,12 +198,12 @@ impl Launcher {
         );
     }
 
-    fn process(&mut self, msg: LauncherCallback) {
+    fn process(&mut self, msg: LauncherSignal) {
         match (self.busy, msg) {
-            (true, LauncherCallback::TaskClosed) => {
+            (true, LauncherSignal::TaskClosed) => {
                 self.busy = false;
             }
-            (true, LauncherCallback::TaskCrashed(status)) => {
+            (true, LauncherSignal::TaskCrashed(status)) => {
                 self.status = Status::Result(status);
                 self.busy = false;
             }
@@ -213,14 +213,14 @@ impl Launcher {
 }
 
 #[derive(Debug, Clone)]
-pub enum LauncherCallback {
+pub enum LauncherSignal {
     TaskCrashed(String),
     TaskClosed,
 }
 
 impl eframe::App for Launcher {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        while let Some(message) = self.sync_qr.try_pop() {
+        while let Some(message) = self.sync_reader.try_pop() {
             self.process(message);
         }
 

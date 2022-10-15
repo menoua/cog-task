@@ -1,6 +1,6 @@
 use crate::error::Error;
 use crate::scheduler::Scheduler;
-use crate::server::{Page, Progress, Server, ServerCallback};
+use crate::server::{Page, Progress, Server, ServerSignal};
 use crate::style;
 use crate::style::text::{body, button1, heading, tooltip};
 use crate::style::{
@@ -169,13 +169,13 @@ impl Server {
                     let block = self.task.block(i);
                     let config = block.config(self.task.config());
                     let resources = block.resources(&config);
-                    let mut sync_qw = self.sync_qr.writer();
+                    let mut sync_writer = self.sync_reader.writer();
                     let mut resource_map = self.resources().clone();
                     let mut tex_manager = ui.ctx().tex_manager();
                     thread::spawn(move || {
                         match resource_map.preload_block(resources, tex_manager, &config, &env) {
-                            Ok(()) => sync_qw.push(ServerCallback::LoadComplete),
-                            Err(e) => sync_qw.push(ServerCallback::BlockCrashed(e)),
+                            Ok(()) => sync_writer.push(ServerSignal::LoadComplete),
+                            Err(e) => sync_writer.push(ServerSignal::BlockCrashed(e)),
                         }
                     });
                 }
