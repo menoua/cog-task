@@ -1,4 +1,4 @@
-use crate::action::{Action, FINITE, Props, StatefulAction, VISUAL};
+use crate::action::{Action, FINITE, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -71,19 +71,19 @@ impl Action for Question {
         _res: &ResourceMap,
         _config: &Config,
         _io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<StatefulActionEnum, error::Error> {
         if self.group.is_empty() {
             Err(InvalidNameError(
                 "Question `group` cannot be an empty string".to_owned(),
             ))
         } else {
-            Ok(Box::new(StatefulQuestion {
+            Ok(StatefulQuestion {
                 id,
                 done: false,
                 group: self.group.clone(),
                 // _style: Style::new("action-question", &self.style),
                 list: self.list.iter().map(|q| q.stateful()).collect(),
-            }))
+            }.into())
         }
     }
 }

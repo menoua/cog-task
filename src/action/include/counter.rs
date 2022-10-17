@@ -1,4 +1,4 @@
-use crate::action::{Action, FINITE, Props, StatefulAction, VISUAL};
+use crate::action::{Action, FINITE, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::io::IO;
@@ -51,13 +51,13 @@ impl Action for Counter {
         _res: &ResourceMap,
         _config: &Config,
         _io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
-        Ok(Box::new(StatefulCounter {
+    ) -> Result<StatefulActionEnum, error::Error> {
+        Ok(StatefulCounter {
             id,
             done: self.from == 0,
             count: self.from,
             // style: Style::new("action-counter", &self.style),
-        }))
+        }.into())
     }
 }
 

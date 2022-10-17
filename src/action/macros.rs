@@ -1,6 +1,10 @@
 macro_rules! include_actions {
     ($($name:ident),* $(,)?) => {
-        use crate::action::Action;
+        use crate::action::{Action, StatefulAction};
+        use crate::config::Config;
+        use crate::error;
+        use serde::{Deserialize, Serialize};
+        use std::path::Path;
 
         $(
             pub mod $name;
@@ -12,35 +16,108 @@ macro_rules! include_actions {
             )*
         }
 
-        pub fn from_name_and_fields(
-            name: &str,
-            fields: Vec<u8>
-        ) -> Result<Option<Box<dyn Action>>, serde_json::Error> {
-            use serde::Deserialize;
-
-            fn boxed<'de, T: 'static + Action + Deserialize<'de>>(
-                fields: &'de [u8],
-            ) -> Result<Box<dyn Action>, serde_json::Error> {
-                let action: T = serde_json::from_slice(fields)?;
-                Ok(Box::new(action))
-            }
-
-            let action = match name {
+        paste::paste! {
+            #[derive(Deserialize, Serialize, Debug)]
+            #[serde(untagged)]
+            pub enum ActionEnum {
                 $(
-                    paste::paste!(stringify!([<$name:snake>])) => {
-                        paste::paste! {
-                            Some(boxed::<[<$name:camel>]>(&fields))
-                        }
-                    }
+                    [<$name:camel>]([<$name:camel>]),
                 )*
-                _ => None,
-            };
-
-            match action {
-                Some(Ok(action)) => Ok(Some(action)),
-                Some(Err(e)) => Err(e),
-                None => Ok(None),
             }
+
+            impl ActionEnum {
+                pub fn inner(&self) -> &dyn Action {
+                    match self {
+                        $(
+                            Self::[<$name:camel>](inner) => inner,
+                        )*
+                    }
+                }
+
+                pub fn inner_mut(&mut self) -> &mut dyn Action {
+                    match self {
+                        $(
+                            Self::[<$name:camel>](inner) => inner,
+                        )*
+                    }
+                }
+
+                pub fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
+                    if let Some(descendent) = self.inner().evolve(root_dir, config)? {
+                        *self = descendent;
+                    }
+                    self.inner_mut().init()?;
+                    Ok(())
+                }
+            }
+
+            $(
+                impl From<[<$name:camel>]> for ActionEnum {
+                    fn from(f: [<$name:camel>]) -> ActionEnum {
+                        ActionEnum::[<$name:camel>](f)
+                    }
+                }
+            )*
+        }
+    }
+}
+
+macro_rules! include_stateful_actions {
+    ($($name:ident),* $(,)?) => {
+        paste::paste!(
+            $(
+                pub use crate::action::[<$name>]::[<Stateful $name:camel>];
+            )*
+        );
+
+        paste::paste! {
+            pub enum StatefulActionEnum {
+                $(
+                    [<$name:camel>]([<Stateful $name:camel>]),
+                )*
+            }
+
+            impl StatefulActionEnum {
+                pub fn inner(&self) -> &dyn StatefulAction {
+                    match self {
+                        $(
+                            Self::[<$name:camel>](inner) => inner,
+                        )*
+                    }
+                }
+
+                pub fn inner_mut(&mut self) -> &mut dyn StatefulAction {
+                    match self {
+                        $(
+                            Self::[<$name:camel>](inner) => inner,
+                        )*
+                    }
+                }
+            }
+
+            impl std::fmt::Debug for StatefulActionEnum {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    use itertools::Itertools;
+
+                    write!(
+                        f,
+                        "Action({})",
+                        self.inner()
+                            .debug()
+                            .iter()
+                            .map(|(key, value)| format!("{key}={value}"))
+                            .join(", ")
+                    )
+                }
+            }
+
+            $(
+                impl From<[<Stateful $name:camel>]> for StatefulActionEnum {
+                    fn from(f: [<Stateful $name:camel>]) -> StatefulActionEnum {
+                        StatefulActionEnum::[<$name:camel>](f)
+                    }
+                }
+            )*
         }
     }
 }

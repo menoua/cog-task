@@ -1,4 +1,4 @@
-use crate::action::{Action, ActionSignal, CAP_KEYS, DEFAULT, Props, StatefulAction};
+use crate::action::{Action, ActionSignal, CAP_KEYS, DEFAULT, Props, StatefulAction, ActionEnum, StatefulActionEnum};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -40,17 +40,17 @@ impl Action for KeyLogger {
         _res: &ResourceMap,
         _config: &Config,
         _io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<StatefulActionEnum, error::Error> {
         if self.group.is_empty() {
             Err(InvalidNameError(
                 "KeyLogger `group` cannot be an empty string".to_owned(),
             ))
         } else {
-            Ok(Box::new(StatefulKeyLogger {
+            Ok(StatefulKeyLogger {
                 id,
                 done: false,
                 group: self.group.clone(),
-            }))
+            }.into())
         }
     }
 }

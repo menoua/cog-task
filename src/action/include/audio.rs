@@ -1,10 +1,14 @@
-use crate::action::{Action, DEFAULT, FINITE, Props, StatefulAction};
-use crate::signal::QWriter;
+use crate::action::{
+    Action, ActionEnum, Props, StatefulAction, StatefulActionEnum, DEFAULT, FINITE,
+};
 use crate::config::{Config, TimePrecision};
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use crate::signal::QWriter;
+use crate::util::spin_sleeper;
 use rodio::{Sink, Source};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
@@ -13,8 +17,6 @@ use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::util::spin_sleeper;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -45,7 +47,7 @@ impl Action for Audio {
         res: &ResourceMap,
         config: &Config,
         io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<StatefulActionEnum, error::Error> {
         if let ResourceValue::Audio(src) = res.fetch(&self.src)? {
             let duration = src.total_duration().unwrap();
             let sink = io.audio()?;
@@ -127,14 +129,15 @@ impl Action for Audio {
                 });
             }
 
-            Ok(Box::new(StatefulAudio {
+            Ok(StatefulAudio {
                 id,
                 done,
                 duration,
                 looping: self.looping,
                 sink,
                 link: Some((tx_start, rx_stop)),
-            }))
+            }
+            .into())
         } else {
             Err(InvalidResourceError(format!(
                 "Audio action supplied non-audio resource: `{:?}`",
@@ -149,11 +152,7 @@ impl StatefulAction for StatefulAudio {
 
     #[inline(always)]
     fn props(&self) -> Props {
-        if self.looping {
-            DEFAULT
-        } else {
-            FINITE
-        }.into()
+        if self.looping { DEFAULT } else { FINITE }.into()
     }
 
     fn start(

@@ -1,4 +1,6 @@
-use crate::action::ActionSignal;
+use crate::action::audio::Audio;
+use crate::action::counter::Counter;
+use crate::action::{Action, ActionEnum, ActionSignal, StatefulActionEnum};
 #[cfg(feature = "benchmark")]
 use crate::benchmark::Profiler;
 use crate::config::{Config, LogCondition};
@@ -7,7 +9,6 @@ use crate::error::Error;
 use crate::error::Error::{FlowError, InternalError, LoggerError};
 use crate::io::IO;
 use crate::logger::{Logger, LoggerSignal};
-use crate::scheduler::graph::{DependencyGraph, Edge, Node};
 use crate::scheduler::info::Info;
 use crate::scheduler::monitor::{Event, Monitor};
 use crate::scheduler::processor::{AsyncProcessor, AsyncSignal, Atomic, SyncProcessor, SyncSignal};
@@ -18,9 +19,6 @@ use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, RichText};
 use itertools::Itertools;
 use num_traits::Zero;
-use petgraph::prelude::EdgeRef;
-use petgraph::stable_graph::NodeIndex;
-use petgraph::EdgeDirection;
 use serde_json::Value;
 use std::collections::HashSet;
 use std::ops::Add;
@@ -28,15 +26,13 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime};
 
-pub mod flow;
-pub mod graph;
 pub mod info;
 pub mod monitor;
 pub mod processor;
 
 #[derive(Debug)]
 pub struct Scheduler {
-    atomic: Arc<Mutex<(DependencyGraph, Vec<NodeIndex<usize>>, Option<usize>)>>,
+    tree: Arc<Mutex<StatefulActionEnum>>,
     info: Info,
     last_esc: Option<SystemTime>,
     config: Config,
@@ -52,20 +48,19 @@ impl Scheduler {
     pub fn new(server: &Server, ctx: &egui::Context) -> Result<Self, error::Error> {
         let task = server.task();
         let block = server.active_block();
-        let actions = block.actions();
-        let flow = block.flow();
-        let resources = server.resources();
-
         let info = Info::new(server, task, block);
-
-        let io = IO::new()?;
+        let resources = server.resources();
         let config = block.config(server.config());
-        let (graph, nodes) = DependencyGraph::new(actions, flow, resources, &config, &io)?;
+        let io = IO::new()?;
+        let tree = block
+            .action_tree()
+            .inner()
+            .stateful(0, resources, &config, &io)?;
 
         let server_writer = server.callback_channel();
         let mut async_writer = AsyncProcessor::spawn(&info, &config, &server_writer)?;
-        let (mut sync_writer, atomic) =
-            SyncProcessor::spawn(ctx, graph, nodes, flow, &async_writer, &server_writer)?;
+        let (mut sync_writer, tree) =
+            SyncProcessor::spawn(ctx, tree, &async_writer, &server_writer)?;
 
         async_writer.push(LoggerSignal::Extend(
             "mainevent".to_owned(),
@@ -77,7 +72,7 @@ impl Scheduler {
         sync_writer.push(SyncSignal::UpdateGraph);
 
         Ok(Self {
-            atomic,
+            tree,
             info,
             last_esc: None,
             config,
@@ -145,28 +140,24 @@ impl Scheduler {
         #[cfg(feature = "benchmark")]
         self.profiler.tic(2);
         {
-            let (graph, nodes, foreground) = &mut (*self.atomic.lock().unwrap());
-            if let Some(i) = *foreground {
-                if let Some(node) = graph.node_mut(nodes[i]) {
-                    let result =
-                        node.action
-                            .show(ui, &mut self.sync_writer, &mut self.async_writer);
+            let mut tree = self.tree.lock().unwrap();
+            if tree.inner().props().visual() {
+                let result = tree.inner_mut().show(ui, &mut self.sync_writer, &mut self.async_writer);
 
-                    if let Err(e) = &result {
-                        self.async_writer.push(LoggerSignal::Append(
-                            "mainevent".to_owned(),
-                            ("crash".to_owned(), Value::String(format!("{e:#?}"))),
-                        ));
-                    }
-
-                    if node.action.props().animated() {
-                        ui.ctx().request_repaint();
-                    }
-
-                    #[cfg(feature = "benchmark")]
-                    self.profiler.toc(2);
-                    return result;
+                if let Err(e) = &result {
+                    self.async_writer.push(LoggerSignal::Append(
+                        "mainevent".to_owned(),
+                        ("crash".to_owned(), Value::String(format!("{e:#?}"))),
+                    ));
                 }
+
+                if tree.inner().props().animated() {
+                    ui.ctx().request_repaint();
+                }
+
+                #[cfg(feature = "benchmark")]
+                self.profiler.toc(2);
+                return result;
             }
         }
         #[cfg(feature = "benchmark")]

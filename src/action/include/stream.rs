@@ -1,4 +1,4 @@
-use crate::action::{Action, ANIMATED, DEFAULT, FINITE, Props, StatefulAction, VISUAL};
+use crate::action::{Action, ANIMATED, DEFAULT, FINITE, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -69,7 +69,7 @@ impl Action for Stream {
         res: &ResourceMap,
         config: &Config,
         _io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<StatefulActionEnum, error::Error> {
         match res.fetch(&self.src())? {
             ResourceValue::Stream(stream) => {
                 let frame = Arc::new(Mutex::new(None));
@@ -126,7 +126,7 @@ impl Action for Stream {
                     Ok(())
                 });
 
-                Ok(Box::new(StatefulStream {
+                Ok(StatefulStream {
                     id,
                     done,
                     frame,
@@ -135,7 +135,7 @@ impl Action for Stream {
                     looping,
                     link: Some((tx_start, rx_stop)),
                     join_handle: Some(join_handle),
-                }))
+                }.into())
             }
             _ => Err(InvalidResourceError(format!(
                 "Stream action supplied non-stream resource: `{:?}`",

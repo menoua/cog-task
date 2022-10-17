@@ -19,6 +19,7 @@ image = { version = "0.24.4", features = ["jpeg", "png", "gif", "bmp", "ico", "t
 serde = { version = "1.0.139", features = ["derive"] }
 serde_json = "1.0.82"
 serde_yaml = "0.8.26"
+ron = "0.8.0"
 petgraph = "0.6.2"
 itertools = "0.10.5"
 rodio = "0.15.0"
@@ -42,6 +43,7 @@ paste = "1.0.9"
 
 [build-dependencies]
 itertools = "0.10.5"
+heck = "0.4.0"
 
 [features]
 benchmark = []

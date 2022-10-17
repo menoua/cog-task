@@ -1,4 +1,4 @@
-use crate::action::{Action, Props, StatefulAction, VISUAL};
+use crate::action::{Action, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -46,15 +46,15 @@ impl Action for Image {
         res: &ResourceMap,
         _config: &Config,
         _io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<StatefulActionEnum, error::Error> {
         match res.fetch(&self.src)? {
-            ResourceValue::Image(texture, size) => Ok(Box::new(StatefulImage {
+            ResourceValue::Image(texture, size) => Ok(StatefulImage {
                 id,
                 done: false,
                 handle: texture,
                 size,
                 width: self.width,
-            })),
+            }.into()),
             _ => Err(InvalidResourceError(format!(
                 "Image action supplied non-image resource: `{:?}`",
                 self.src

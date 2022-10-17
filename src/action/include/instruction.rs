@@ -1,4 +1,4 @@
-use crate::action::{Action, FINITE, Props, StatefulAction, VISUAL};
+use crate::action::{Action, FINITE, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error::Error::TaskDefinitionError;
@@ -88,7 +88,7 @@ impl Action for Instruction {
         res: &ResourceMap,
         _config: &Config,
         _io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<StatefulActionEnum, error::Error> {
         let text = res.fetch_text(&self.text)?;
         let header = self.header.clone();
         let justify = match self.justify.to_lowercase().as_str() {
@@ -100,7 +100,7 @@ impl Action for Instruction {
             )))?,
         };
 
-        Ok(Box::new(StatefulInstruction {
+        Ok(StatefulInstruction {
             id,
             done: false,
             text,
@@ -108,7 +108,7 @@ impl Action for Instruction {
             justify,
             persistent: self.persistent,
             // style: Style::new("action-instruction", &self.style),
-        }))
+        }.into())
     }
 }
 

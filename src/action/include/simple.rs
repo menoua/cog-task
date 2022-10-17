@@ -1,4 +1,5 @@
-use crate::action::{Action, ExtAction, StatefulAction};
+use std::fs;
+use crate::action::{Action, ActionEnum, StatefulAction, StatefulActionEnum};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{ActionEvolveError, InternalError, TaskDefinitionError};
@@ -23,7 +24,7 @@ impl Action for Simple {
         _res: &ResourceMap,
         _config: &Config,
         _io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<StatefulActionEnum, error::Error> {
         Err(InternalError(Self::LARVA_PANIC_MSG.to_owned()))
     }
 
@@ -31,47 +32,24 @@ impl Action for Simple {
         &self,
         root_dir: &Path,
         config: &Config,
-    ) -> Result<Option<Box<dyn Action>>, error::Error> {
+    ) -> Result<Option<ActionEnum>, error::Error> {
         let path = root_dir.join(&self.src);
-        if path.extension().is_none() {
-            return Err(ActionEvolveError(format!(
-                "Simple action's `src` argument ({:?}) should have an extension",
-                self.src
-            )));
-        }
+        let content =
+            fs::read_to_string(path).map_err(|e| TaskDefinitionError(format!("{e:?}")))?;
 
-        let file = File::open(&path).map_err(|e| {
-            ActionEvolveError(format!(
-                "Unable to open simple action definition file ({path:?}):\n{e:#?}"
-            ))
-        })?;
+        let action = ron::from_str::<ActionEnum>(&content)
+            .map_err(|e| TaskDefinitionError(format!("{e:?}")))?;
 
-        let action = match path.extension().map(|s| s.to_str().unwrap()) {
-            Some("json") => {
-                serde_json::from_reader::<_, ExtAction>(BufReader::new(file)).map_err(|e| {
-                    TaskDefinitionError(format!("Invalid simple action file ({path:?}):\n{e:#?}"))
-                })
-            }
-            Some("yaml") => {
-                serde_yaml::from_reader::<_, ExtAction>(BufReader::new(file)).map_err(|e| {
-                    TaskDefinitionError(format!("Invalid simple action file ({path:?}):\n{e:#?}"))
-                })
-            }
-            _ => Err(TaskDefinitionError(format!(
-                "Simple action source ({path:?}) should be a `.json`, `.yml`, or `.ron` file"
-            ))),
-        }?
-        .action;
-
-        Ok(if config.nested_evolve() {
-            if let Some(nested_action) = action.evolve(root_dir, config)? {
-                Some(nested_action)
-            } else {
-                Some(action)
-            }
-        } else {
-            Some(action)
-        })
+        // Ok(if config.nested_evolve() {
+        //     if let Some(nested_action) = action.evolve(root_dir, config)? {
+        //         Some(nested_action)
+        //     } else {
+        //         Some(action)
+        //     }
+        // } else {
+        //     Some(action)
+        // })
+        Ok(Some(action))
     }
 }
 

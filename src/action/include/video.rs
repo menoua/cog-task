@@ -1,4 +1,4 @@
-use crate::action::{Action, ANIMATED, DEFAULT, FINITE, Props, StatefulAction, VISUAL};
+use crate::action::{Action, ANIMATED, DEFAULT, FINITE, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -57,7 +57,7 @@ impl Action for Video {
         res: &ResourceMap,
         _config: &Config,
         _io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<StatefulActionEnum, error::Error> {
         match res.fetch(&self.src())? {
             ResourceValue::Video(frames, framerate) => {
                 let done = Arc::new(Mutex::new(Ok(frames.is_empty())));
@@ -102,7 +102,7 @@ impl Action for Video {
                     });
                 }
 
-                Ok(Box::new(StatefulVideo {
+                Ok(StatefulVideo {
                     id,
                     done,
                     frames,
@@ -112,7 +112,7 @@ impl Action for Video {
                     width: self.width,
                     looping: self.looping,
                     link: Some((tx_start, rx_stop)),
-                }))
+                }.into())
             }
             _ => Err(InvalidResourceError(format!(
                 "Video action supplied non-video resource: `{:?}`",

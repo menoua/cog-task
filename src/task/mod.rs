@@ -5,6 +5,7 @@ use crate::util::Hash;
 use block::Block;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -25,36 +26,13 @@ pub struct Task {
 
 impl Task {
     pub fn new(root_dir: &Path) -> Result<Self, error::Error> {
-        let path_json = root_dir.join("task.json");
-        let path_yaml = root_dir.join("task.yml");
-        let path = match (path_json.exists(), path_yaml.exists()) {
-            (true, false) => path_json,
-            (false, true) => path_yaml,
-            _ => Err(TaskDefinitionError(
-                "There should be exactly one of `task.json` or `task.yml` files in task directory."
-                    .to_owned(),
-            ))?,
-        };
+        let path = root_dir.join("task.ron");
+        let content =
+            fs::read_to_string(path).map_err(|e| TaskDefinitionError(format!("{e:?}")))?;
 
-        let file = File::open(&path).map_err(|e| {
-            TaskDefinitionError(format!(
-                "Unable to open task definition file ({:?}):\n{e:#?}",
-                path
-            ))
-        })?;
-
-        match path.extension().unwrap().to_str().unwrap() {
-            "json" => serde_json::from_reader::<_, Task>(BufReader::new(file)).map_err(|e| {
-                TaskDefinitionError(format!("Invalid task definition file ({path:?}):\n{e:#?}"))
-            })?,
-            "yaml" => serde_yaml::from_reader::<_, Task>(BufReader::new(file)).map_err(|e| {
-                TaskDefinitionError(format!("Invalid task definition file ({path:?}):\n{e:#?}"))
-            })?,
-            ext => Err(TaskDefinitionError(format!(
-                "Invalid extension `{ext}` for task definition file ({path:?})"
-            )))?,
-        }
-        .init(root_dir)
+        ron::from_str::<Task>(&content)
+            .map_err(|e| TaskDefinitionError(format!("{e:?}")))?
+            .init(root_dir)
     }
 
     pub fn init(mut self, root_dir: &Path) -> Result<Self, error::Error> {

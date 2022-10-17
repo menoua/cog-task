@@ -1,4 +1,4 @@
-use crate::action::{Action, DEFAULT, FINITE, Props, StatefulAction};
+use crate::action::{Action, DEFAULT, FINITE, Props, StatefulAction, ActionEnum, StatefulActionEnum};
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
@@ -35,12 +35,12 @@ impl Action for Nop {
         _res: &ResourceMap,
         _config: &Config,
         _io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
-        Ok(Box::new(StatefulNop {
+    ) -> Result<StatefulActionEnum, error::Error> {
+        Ok(StatefulNop {
             id,
             done: false,
             persistent: self.persistent,
-        }))
+        }.into())
     }
 }
 

@@ -1,4 +1,4 @@
-use crate::action::{Action, StatefulAction};
+use crate::action::{Action, StatefulAction, ActionEnum, StatefulActionEnum};
 use crate::action::Image;
 use crate::config::Config;
 use crate::error;
@@ -24,7 +24,7 @@ impl Action for Fixation {
         _res: &ResourceMap,
         _config: &Config,
         _io: &IO,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<StatefulActionEnum, error::Error> {
         Err(InternalError(Self::LARVA_PANIC_MSG.to_owned()))
     }
 
@@ -32,8 +32,8 @@ impl Action for Fixation {
         &self,
         _root_dir: &Path,
         _config: &Config,
-    ) -> Result<Option<Box<dyn Action>>, error::Error> {
-        Ok(Some(Box::new(Image::from(self))))
+    ) -> Result<Option<ActionEnum>, error::Error> {
+        Ok(Some(Image::from(self).into()))
     }
 }
 
