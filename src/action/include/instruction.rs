@@ -10,7 +10,7 @@ use crate::style::{style_ui, Style};
 use crate::template::{center_x, header_body_controls};
 use crate::error;
 use eframe::egui;
-use eframe::egui::{RichText, ScrollArea};
+use eframe::egui::{CursorIcon, RichText, ScrollArea};
 use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -92,6 +92,7 @@ impl Action for Instruction {
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
         let text = res.fetch_text(&self.text)?;
+        println!("A := {} -> {}", self.text, text);
         let header = self.header.clone();
         let justify = match self.justify.to_lowercase().as_str() {
             "left" => Justification::Left,
@@ -163,8 +164,16 @@ impl StatefulAction for StatefulInstruction {
                     });
             });
             strip.empty();
-            strip.strip(|builder| self.show_controls(builder, sync_writer));
+            strip.strip(|builder| {
+                if !self.persistent {
+                    self.show_controls(builder, sync_writer);
+                }
+            });
         });
+
+        if self.persistent {
+            ui.output().cursor_icon = CursorIcon::None;
+        }
 
         Ok(())
     }

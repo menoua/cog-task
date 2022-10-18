@@ -23,12 +23,10 @@ pub enum Justification {
 // }
 
 pub fn text_or_file(text: &str) -> Option<PathBuf> {
-    let re = regex::Regex::new("^!!\\[.*\\]$").unwrap();
-    if let Some(m) = re.find(text) {
-        if let Ok(path) = PathBuf::from_str(m.as_str()) {
-            if path.exists() {
-                return Some(path);
-            }
+    let re = regex::Regex::new("^!!\\[(.*)\\]$").unwrap();
+    if let Some(m) = re.captures(text) {
+        if let Ok(path) = PathBuf::from_str(&m[1]) {
+            return Some(path);
         }
     }
 

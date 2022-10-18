@@ -161,7 +161,6 @@ impl StatefulAction for StatefulAudio {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        println!("Starting audio @ {:?}", chrono::Local::now());
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
                 "Link to audio thread could not be acquired for action `{}`",
