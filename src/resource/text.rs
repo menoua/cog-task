@@ -1,9 +1,9 @@
 use regex;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
-use regex::Regex;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 

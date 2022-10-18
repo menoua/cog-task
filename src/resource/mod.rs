@@ -123,28 +123,6 @@ impl ResourceMap {
         });
         let mut default_rustacean = true;
 
-        // resources.clone().into_iter().flat_map(|r| {
-        //     let path = env.resource().join(&src);
-        //     let extn = path
-        //         .extension()
-        //         .expect("Data file names need to have extensions")
-        //         .to_str()
-        //         .unwrap();
-        //
-        //     match extn {
-        //         "ron" => {
-        //             let content = fs::read_to_string(&path)
-        //                 .map_err(|e| TaskDefinitionError(format!("{e:?}")))?;
-        //             let res = ron::from_str::<ActionEnum>(&content)
-        //                 .map_err(|e| TaskDefinitionError(format!("{e:?}")))?
-        //                 .inner()
-        //                 .resources(config);
-        //             Some(res)
-        //         }
-        //         _ => None,
-        //     }
-        // });
-
         // Load resources used in new block
         for src in resources {
             let mut is_new = !map.contains_key(&src);
