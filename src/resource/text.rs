@@ -1,4 +1,6 @@
+use regex;
 use serde::{Deserialize, Serialize};
+use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -21,10 +23,14 @@ pub enum Justification {
 // }
 
 pub fn text_or_file(text: &str) -> Option<PathBuf> {
-    let parts: Vec<_> = text.split_whitespace().collect();
-    if parts.len() == 2 && parts[0] == "<" {
-        Some(PathBuf::from_str(parts[1]).unwrap())
-    } else {
-        None
+    let re = regex::Regex::new("^!!\\[.*\\]$").unwrap();
+    if let Some(m) = re.find(text) {
+        if let Ok(path) = PathBuf::from_str(m.as_str()) {
+            if path.exists() {
+                return Some(path);
+            }
+        }
     }
+
+    None
 }

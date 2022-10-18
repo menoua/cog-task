@@ -1,4 +1,4 @@
-use crate::action::{Action, ANIMATED, DEFAULT, FINITE, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum};
+use crate::action::{Action, DEFAULT, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum, INFINITE, ActionSignal};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -14,6 +14,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use crate::error::Error;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::util::spin_sleeper;
 
@@ -65,10 +66,11 @@ impl Action for Stream {
 
     fn stateful(
         &self,
-        id: usize,
+        io: &IO,
         res: &ResourceMap,
         config: &Config,
-        _io: &IO,
+        sync_writer: &QWriter<SyncSignal>,
+        async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
         match res.fetch(&self.src())? {
             ResourceValue::Stream(stream) => {
@@ -78,7 +80,7 @@ impl Action for Stream {
 
                 if !stream.has_video() && self.width.is_some() {
                     return Err(TaskDefinitionError(format!(
-                        "Video-less stream `{id}` should not be supplied a width"
+                        "Video-less stream `?` should not be supplied a width"
                     )));
                 }
 
@@ -127,7 +129,7 @@ impl Action for Stream {
                 });
 
                 Ok(StatefulStream {
-                    id,
+                    id: 0,
                     done,
                     frame,
                     framerate,
@@ -151,10 +153,10 @@ impl StatefulAction for StatefulStream {
     #[inline(always)]
     fn props(&self) -> Props {
         match (self.framerate, self.looping) {
-            (f, false) if f > 0.0 => FINITE | VISUAL | ANIMATED,
-            (f, true) if f > 0.0 => VISUAL | ANIMATED,
-            (_, false) => FINITE,
-            (_, true) => DEFAULT,
+            (f, false) if f > 0.0 => VISUAL,
+            (f, true) if f > 0.0 => INFINITE | VISUAL,
+            (_, false) => DEFAULT,
+            (_, true) => INFINITE,
         }.into()
     }
 
@@ -201,6 +203,10 @@ impl StatefulAction for StatefulStream {
         Ok(())
     }
 
+    fn update(&mut self, signal: &ActionSignal, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+        Ok(())
+    }
+
     fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -225,6 +231,9 @@ impl StatefulAction for StatefulStream {
             }
         });
 
+        if self.framerate > 0.0 {
+            ui.ctx().request_repaint();
+        }
         Ok(())
     }
 

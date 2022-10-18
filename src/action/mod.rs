@@ -34,20 +34,12 @@ pub trait Action: Debug {
 
     fn stateful(
         &self,
-        id: usize,
+        io: &IO,
         res: &ResourceMap,
         config: &Config,
-        io: &IO,
+        sync_writer: &QWriter<SyncSignal>,
+        async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error>;
-
-    #[inline(always)]
-    fn evolve(
-        &self,
-        _root_dir: &Path,
-        _config: &Config,
-    ) -> Result<Option<ActionEnum>, error::Error> {
-        Ok(None)
-    }
 }
 
 pub trait StatefulAction: Send {
@@ -64,19 +56,15 @@ pub trait StatefulAction: Send {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
-    ) -> Result<(), error::Error> {
-        Ok(())
-    }
+    ) -> Result<(), error::Error>;
 
     #[inline(always)]
     fn update(
         &mut self,
-        signal: ActionSignal,
+        signal: &ActionSignal,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
-    ) -> Result<(), error::Error> {
-        Ok(())
-    }
+    ) -> Result<(), error::Error>;
 
     #[inline(always)]
     fn show(
@@ -84,15 +72,7 @@ pub trait StatefulAction: Send {
         ui: &mut egui::Ui,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
-    ) -> Result<(), error::Error> {
-        Err(ActionViewError(format!(
-            "Attempted to show a non-visual action: Action({})",
-            self.debug()
-                .iter()
-                .map(|(key, value)| format!("{key}={value}"))
-                .join(", ")
-        )))
-    }
+    ) -> Result<(), error::Error>;
 
     fn stop(&mut self) -> Result<(), error::Error>;
 
@@ -101,7 +81,7 @@ pub trait StatefulAction: Send {
             ("id", format!("{:?}", self.id())),
             ("over", format!("{:?}", self.is_over())),
             ("visual", format!("{:?}", self.props().visual())),
-            ("finite", format!("{:?}", self.props().finite())),
+            ("infinite", format!("{:?}", self.props().infinite())),
             ("key_cap", format!("{:?}", self.props().captures_keys())),
             ("type", format!("{:?}", self.type_str())),
         ]
@@ -125,5 +105,6 @@ pub trait ImplStatefulAction: StatefulAction {}
 
 #[derive(Debug, Clone)]
 pub enum ActionSignal {
+    UpdateGraph,
     KeyPress(HashSet<egui::Key>),
 }

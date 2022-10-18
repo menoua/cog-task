@@ -1,4 +1,4 @@
-use crate::action::{Action, ActionSignal, CAP_KEYS, DEFAULT, Props, StatefulAction, ActionEnum, StatefulActionEnum};
+use crate::action::{Action, ActionSignal, CAP_KEYS, DEFAULT, Props, StatefulAction, ActionEnum, StatefulActionEnum, INFINITE};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -10,6 +10,8 @@ use crate::scheduler::monitor::{Event, Monitor};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
+use eframe::egui::Ui;
+use crate::error::Error;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -36,10 +38,11 @@ impl Action for KeyLogger {
 
     fn stateful(
         &self,
-        id: usize,
-        _res: &ResourceMap,
-        _config: &Config,
-        _io: &IO,
+        io: &IO,
+        res: &ResourceMap,
+        config: &Config,
+        sync_writer: &QWriter<SyncSignal>,
+        async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
         if self.group.is_empty() {
             Err(InvalidNameError(
@@ -47,7 +50,7 @@ impl Action for KeyLogger {
             ))
         } else {
             Ok(StatefulKeyLogger {
-                id,
+                id: 0,
                 done: false,
                 group: self.group.clone(),
             }.into())
@@ -60,12 +63,16 @@ impl StatefulAction for StatefulKeyLogger {
 
     #[inline(always)]
     fn props(&self) -> Props {
-        CAP_KEYS.into()
+        (INFINITE | CAP_KEYS).into()
+    }
+
+    fn start(&mut self, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+        Ok(())
     }
 
     fn update(
         &mut self,
-        signal: ActionSignal,
+        signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
@@ -74,13 +81,17 @@ impl StatefulAction for StatefulKeyLogger {
             let entry = (
                 "key".to_string(),
                 Value::Array(
-                    keys.into_iter()
+                    keys.iter()
                         .map(|k| Value::String(format!("{k:?}")))
                         .collect(),
                 ),
             );
             async_writer.push(LoggerSignal::Append(group, entry));
         }
+        Ok(())
+    }
+
+    fn show(&mut self, ui: &mut Ui, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
         Ok(())
     }
 

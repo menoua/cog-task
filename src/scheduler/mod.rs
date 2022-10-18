@@ -30,13 +30,13 @@ pub mod info;
 pub mod monitor;
 pub mod processor;
 
-#[derive(Debug)]
 pub struct Scheduler {
     tree: Arc<Mutex<StatefulActionEnum>>,
     info: Info,
     last_esc: Option<SystemTime>,
     config: Config,
     _io: IO,
+    ctx: egui::Context,
     sync_writer: QWriter<SyncSignal>,
     async_writer: QWriter<AsyncSignal>,
     server_writer: QWriter<ServerSignal>,
@@ -52,15 +52,20 @@ impl Scheduler {
         let resources = server.resources();
         let config = block.config(server.config());
         let io = IO::new()?;
-        let tree = block
-            .action_tree()
-            .inner()
-            .stateful(0, resources, &config, &io)?;
+        let tree = block.action_tree();
+        println!("{tree:?}");
 
         let server_writer = server.callback_channel();
         let mut async_writer = AsyncProcessor::spawn(&info, &config, &server_writer)?;
-        let (mut sync_writer, tree) =
-            SyncProcessor::spawn(ctx, tree, &async_writer, &server_writer)?;
+        let (mut sync_writer, tree) = SyncProcessor::spawn(
+            &io,
+            &resources,
+            &config,
+            ctx,
+            tree,
+            &async_writer,
+            &server_writer,
+        )?;
 
         async_writer.push(LoggerSignal::Extend(
             "mainevent".to_owned(),
@@ -77,6 +82,7 @@ impl Scheduler {
             last_esc: None,
             config,
             _io: io,
+            ctx: ctx.clone(),
             sync_writer,
             async_writer,
             server_writer,
@@ -109,6 +115,7 @@ impl Scheduler {
         ));
 
         self.server_writer.push(ServerSignal::BlockInterrupted);
+        self.ctx.request_repaint();
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui) -> Result<(), error::Error> {
@@ -142,17 +149,15 @@ impl Scheduler {
         {
             let mut tree = self.tree.lock().unwrap();
             if tree.inner().props().visual() {
-                let result = tree.inner_mut().show(ui, &mut self.sync_writer, &mut self.async_writer);
+                let result =
+                    tree.inner_mut()
+                        .show(ui, &mut self.sync_writer, &mut self.async_writer);
 
                 if let Err(e) = &result {
                     self.async_writer.push(LoggerSignal::Append(
                         "mainevent".to_owned(),
                         ("crash".to_owned(), Value::String(format!("{e:#?}"))),
                     ));
-                }
-
-                if tree.inner().props().animated() {
-                    ui.ctx().request_repaint();
                 }
 
                 #[cfg(feature = "benchmark")]
@@ -171,6 +176,11 @@ impl Scheduler {
 
 impl Drop for Scheduler {
     fn drop(&mut self) {
+        self.async_writer.push(LoggerSignal::Append(
+            "mainevent".to_owned(),
+            ("finish".to_owned(), Value::String("Success".to_owned())),
+        ));
+
         self.sync_writer.push(SyncSignal::Finish);
         self.async_writer.push(AsyncSignal::Finish);
     }

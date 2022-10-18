@@ -154,7 +154,7 @@ impl ResourceMap {
                 let path = path.with_extension(extn);
                 let extn = if mode.is_empty() { extn } else { mode };
                 let data = match extn {
-                    "txt" => {
+                    "txt" | "ron" => {
                         let text = std::fs::read_to_string(&path).map_err(|e| {
                             ResourceLoadError(format!(
                                 "Unable to read text file ({path:?})\n{e:#?}"

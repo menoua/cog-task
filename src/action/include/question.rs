@@ -1,4 +1,4 @@
-use crate::action::{Action, FINITE, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum};
+use crate::action::{Action, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum, ActionSignal};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -16,6 +16,7 @@ use serde_json::{Number, Value};
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
 use egui_extras::{Size, StripBuilder};
+use crate::error::Error;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::style::{CUSTOM_BLUE, Style, style_ui, TEXT_SIZE_BODY};
 use crate::template::{center_x, header_body_controls};
@@ -67,10 +68,11 @@ impl Action for Question {
 
     fn stateful(
         &self,
-        id: usize,
-        _res: &ResourceMap,
-        _config: &Config,
-        _io: &IO,
+        io: &IO,
+        res: &ResourceMap,
+        config: &Config,
+        sync_writer: &QWriter<SyncSignal>,
+        async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
         if self.group.is_empty() {
             Err(InvalidNameError(
@@ -78,7 +80,7 @@ impl Action for Question {
             ))
         } else {
             Ok(StatefulQuestion {
-                id,
+                id: 0,
                 done: false,
                 group: self.group.clone(),
                 // _style: Style::new("action-question", &self.style),
@@ -93,7 +95,15 @@ impl StatefulAction for StatefulQuestion {
 
     #[inline(always)]
     fn props(&self) -> Props {
-        (FINITE | VISUAL).into()
+        VISUAL.into()
+    }
+
+    fn start(&mut self, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn update(&mut self, signal: &ActionSignal, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+        Ok(())
     }
 
     fn show(

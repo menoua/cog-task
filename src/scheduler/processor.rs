@@ -2,7 +2,9 @@ use crate::action::{ActionEnum, ActionSignal, StatefulActionEnum};
 use crate::config::{Config, LogCondition};
 use crate::error;
 use crate::error::Error::{FlowError, InternalError};
+use crate::io::IO;
 use crate::logger::{Logger, LoggerSignal};
+use crate::resource::ResourceMap;
 use crate::scheduler::info::Info;
 use crate::server::ServerSignal;
 use crate::signal::{QReader, QWriter};
@@ -90,13 +92,19 @@ impl AsyncProcessor {
 
 impl SyncProcessor {
     pub fn spawn(
+        io: &IO,
+        res: &ResourceMap,
+        config: &Config,
         ctx: &egui::Context,
-        tree: StatefulActionEnum,
+        tree: &ActionEnum,
         async_writer: &QWriter<AsyncSignal>,
         server_writer: &QWriter<ServerSignal>,
     ) -> Result<(QWriter<SyncSignal>, Arc<Mutex<StatefulActionEnum>>), error::Error> {
         let sync_reader = QReader::new();
         let sync_writer = sync_reader.writer();
+        let tree = tree
+            .inner()
+            .stateful(io, res, config, &sync_writer, async_writer)?;
         let mut proc = Self {
             ctx: ctx.clone(),
             tree: Arc::new(Mutex::new(tree)),
@@ -111,7 +119,11 @@ impl SyncProcessor {
         let atomic = proc.tree.clone();
 
         thread::spawn(move || {
-            proc.init();
+            proc.sync_reader.pop();
+            proc.start().unwrap_or_else(|e| {
+                proc.server_writer.push(ServerSignal::BlockCrashed(e));
+            });
+            proc.ctx.request_repaint();
 
             while let Some(signal) = proc.sync_reader.pop() {
                 match signal {
@@ -121,17 +133,18 @@ impl SyncProcessor {
                 }
                 .unwrap_or_else(|e| {
                     proc.server_writer.push(ServerSignal::BlockCrashed(e));
+                    proc.ctx.request_repaint();
                 });
             }
 
-            // proc.tree.lock().unwrap().0.clear();
             proc.server_writer.push(ServerSignal::SyncComplete(Ok(())));
+            proc.ctx.request_repaint();
         });
 
         Ok((sync_writer, atomic))
     }
 
-    fn init(&mut self) {
+    fn start(&mut self) -> Result<(), error::Error> {
         let tree = &mut (*self.tree.lock().unwrap());
 
         self.async_writer.push(LoggerSignal::Append(
@@ -139,31 +152,30 @@ impl SyncProcessor {
             ("start".to_owned(), Value::String("Success".to_owned())),
         ));
 
-        // let time = Instant::now();
-        // self.timers.extend(timers.into_iter().map(|(v, t)| {
-        //     let mut sync_writer = self.sync_writer.clone();
-        //     thread::spawn(move || {
-        //         let offset = Instant::now() - time;
-        //         spin_sleeper().sleep(t - offset);
-        //         sync_writer.push(SyncSignal::UpdateGraph);
-        //     });
-        //     (v, Edge::Starter, time.add(t))
-        // }));
+        tree.inner_mut()
+            .start(&mut self.sync_writer, &mut self.async_writer)?;
+
+        if tree.inner().is_over()? {
+            self.server_writer.push(ServerSignal::BlockFinished);
+            self.ctx.request_repaint();
+        }
+
+        Ok(())
     }
 
     fn update_graph(&mut self) -> Result<(), error::Error> {
         let mut tree = self.tree.lock().unwrap();
-        // tree.inner_mut().update_tree();
+        tree.inner_mut().update(
+            &ActionSignal::UpdateGraph,
+            &mut self.sync_writer,
+            &mut self.async_writer,
+        )?;
 
         if tree.inner().is_over()? {
-            self.async_writer.push(LoggerSignal::Append(
-                "mainevent".to_owned(),
-                ("finish".to_owned(), Value::String("Success".to_owned())),
-            ));
-
             self.server_writer.push(ServerSignal::BlockFinished);
         }
 
+        self.ctx.request_repaint();
         Ok(())
     }
 

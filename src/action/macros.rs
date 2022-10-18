@@ -17,8 +17,8 @@ macro_rules! include_actions {
         }
 
         paste::paste! {
-            #[derive(Deserialize, Serialize, Debug)]
-            #[serde(untagged)]
+            #[derive(Deserialize, Serialize)]
+            #[serde(rename_all = "snake_case")]
             pub enum ActionEnum {
                 $(
                     [<$name:camel>]([<$name:camel>]),
@@ -43,10 +43,6 @@ macro_rules! include_actions {
                 }
 
                 pub fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
-                    if let Some(descendent) = self.inner().evolve(root_dir, config)? {
-                        *self = descendent;
-                    }
-                    self.inner_mut().init()?;
                     Ok(())
                 }
             }
@@ -58,6 +54,12 @@ macro_rules! include_actions {
                     }
                 }
             )*
+
+            impl std::fmt::Debug for ActionEnum {
+                fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                    write!(f, "{:#?}", self.inner())
+                }
+            }
         }
     }
 }
@@ -133,7 +135,7 @@ macro_rules! impl_base_stateful {
 
                 #[inline(always)]
                 fn type_str(&self) -> String {
-                    String::from(stringify!($name:snake))
+                    String::from(stringify!([<$name:snake>]))
                 }
             }
 

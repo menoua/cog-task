@@ -39,7 +39,7 @@ impl<T: Debug> QReader<T> {
     #[inline(always)]
     pub fn try_pop(&mut self) -> Option<T> {
         if let Ok(()) = self.2.try_recv() {
-            Some(self.0.lock().unwrap().pop_front().unwrap())
+            self.0.lock().unwrap().pop_front()
         } else {
             None
         }

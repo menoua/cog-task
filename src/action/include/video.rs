@@ -1,4 +1,4 @@
-use crate::action::{Action, ANIMATED, DEFAULT, FINITE, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum};
+use crate::action::{Action, DEFAULT, INFINITE, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum, ActionSignal};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -13,6 +13,7 @@ use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use crate::error::Error;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::util::spin_sleeper;
 
@@ -53,10 +54,11 @@ impl Action for Video {
 
     fn stateful(
         &self,
-        id: usize,
+        io: &IO,
         res: &ResourceMap,
-        _config: &Config,
-        _io: &IO,
+        config: &Config,
+        sync_writer: &QWriter<SyncSignal>,
+        async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
         match res.fetch(&self.src())? {
             ResourceValue::Video(frames, framerate) => {
@@ -103,7 +105,7 @@ impl Action for Video {
                 }
 
                 Ok(StatefulVideo {
-                    id,
+                    id: 0,
                     done,
                     frames,
                     framerate,
@@ -128,9 +130,9 @@ impl StatefulAction for StatefulVideo {
     #[inline(always)]
     fn props(&self) -> Props {
         if self.looping {
-            VISUAL | ANIMATED
+            INFINITE | VISUAL
         } else {
-            FINITE | VISUAL | ANIMATED
+            VISUAL
         }.into()
     }
 
@@ -165,6 +167,10 @@ impl StatefulAction for StatefulVideo {
         Ok(())
     }
 
+    fn update(&mut self, signal: &ActionSignal, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+        Ok(())
+    }
+
     fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -184,6 +190,7 @@ impl StatefulAction for StatefulVideo {
             }
         });
 
+        ui.ctx().request_repaint();
         Ok(())
     }
 

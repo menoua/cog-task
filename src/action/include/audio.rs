@@ -1,6 +1,4 @@
-use crate::action::{
-    Action, ActionEnum, Props, StatefulAction, StatefulActionEnum, DEFAULT, FINITE,
-};
+use crate::action::{Action, ActionEnum, Props, StatefulAction, StatefulActionEnum, DEFAULT, INFINITE, ActionSignal};
 use crate::config::{Config, TimePrecision};
 use crate::error;
 use crate::error::Error::{InternalError, InvalidResourceError};
@@ -17,6 +15,8 @@ use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
+use eframe::egui::Ui;
+use crate::error::Error;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -43,10 +43,11 @@ impl Action for Audio {
 
     fn stateful(
         &self,
-        id: usize,
+        io: &IO,
         res: &ResourceMap,
         config: &Config,
-        io: &IO,
+        sync_writer: &QWriter<SyncSignal>,
+        async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
         if let ResourceValue::Audio(src) = res.fetch(&self.src)? {
             let duration = src.total_duration().unwrap();
@@ -130,7 +131,7 @@ impl Action for Audio {
             }
 
             Ok(StatefulAudio {
-                id,
+                id: 0,
                 done,
                 duration,
                 looping: self.looping,
@@ -152,7 +153,7 @@ impl StatefulAction for StatefulAudio {
 
     #[inline(always)]
     fn props(&self) -> Props {
-        if self.looping { DEFAULT } else { FINITE }.into()
+        if self.looping { INFINITE } else { DEFAULT }.into()
     }
 
     fn start(
@@ -160,6 +161,7 @@ impl StatefulAction for StatefulAudio {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
+        println!("Starting audio @ {:?}", chrono::Local::now());
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
                 "Link to audio thread could not be acquired for action `{}`",
@@ -182,6 +184,14 @@ impl StatefulAction for StatefulAudio {
             sync_writer.push(SyncSignal::UpdateGraph);
         });
 
+        Ok(())
+    }
+
+    fn update(&mut self, signal: &ActionSignal, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn show(&mut self, ui: &mut Ui, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
         Ok(())
     }
 

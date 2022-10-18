@@ -1,4 +1,4 @@
-use crate::action::{Action, FINITE, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum};
+use crate::action::{Action, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum, INFINITE, ActionSignal};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error::Error::TaskDefinitionError;
@@ -14,6 +14,7 @@ use eframe::egui::{RichText, ScrollArea};
 use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use crate::error::Error;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -84,10 +85,11 @@ impl Action for Instruction {
 
     fn stateful(
         &self,
-        id: usize,
+        io: &IO,
         res: &ResourceMap,
-        _config: &Config,
-        _io: &IO,
+        config: &Config,
+        sync_writer: &QWriter<SyncSignal>,
+        async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
         let text = res.fetch_text(&self.text)?;
         let header = self.header.clone();
@@ -101,7 +103,7 @@ impl Action for Instruction {
         };
 
         Ok(StatefulInstruction {
-            id,
+            id: 0,
             done: false,
             text,
             header,
@@ -118,10 +120,18 @@ impl StatefulAction for StatefulInstruction {
     #[inline(always)]
     fn props(&self) -> Props {
         if self.persistent {
-            VISUAL
+            INFINITE | VISUAL
         } else {
-            VISUAL | FINITE
+            VISUAL
         }.into()
+    }
+
+    fn start(&mut self, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn update(&mut self, signal: &ActionSignal, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+        Ok(())
     }
 
     fn show(

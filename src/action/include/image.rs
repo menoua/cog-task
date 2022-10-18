@@ -1,4 +1,4 @@
-use crate::action::{Action, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum};
+use crate::action::{Action, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum, INFINITE, ActionSignal};
 use crate::signal::QWriter;
 use crate::config::Config;
 use crate::error;
@@ -10,6 +10,7 @@ use eframe::egui::{CentralPanel, CursorIcon, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use crate::error::Error;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -42,14 +43,15 @@ impl Action for Image {
 
     fn stateful(
         &self,
-        id: usize,
+        io: &IO,
         res: &ResourceMap,
-        _config: &Config,
-        _io: &IO,
+        config: &Config,
+        sync_writer: &QWriter<SyncSignal>,
+        async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
         match res.fetch(&self.src)? {
             ResourceValue::Image(texture, size) => Ok(StatefulImage {
-                id,
+                id: 0,
                 done: false,
                 handle: texture,
                 size,
@@ -68,7 +70,15 @@ impl StatefulAction for StatefulImage {
 
     #[inline(always)]
     fn props(&self) -> Props {
-        VISUAL.into()
+        (INFINITE | VISUAL).into()
+    }
+
+    fn start(&mut self, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+        Ok(())
+    }
+
+    fn update(&mut self, signal: &ActionSignal, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+        Ok(())
     }
 
     fn show(
