@@ -13,7 +13,7 @@ use eframe::egui;
 use eframe::egui::{CursorIcon, RichText, ScrollArea};
 use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use crate::error::Error;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
@@ -74,7 +74,7 @@ impl Action for Instruction {
     }
 
     #[inline(always)]
-    fn init(&self) -> Result<(), error::Error> {
+    fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
         match self.justify.to_lowercase().as_str() {
             "left" | "center" | "right" => Ok(()),
             j => Err(TaskDefinitionError(format!(

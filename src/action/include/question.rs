@@ -1,25 +1,30 @@
-use crate::action::{Action, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum, ActionSignal};
-use crate::signal::QWriter;
+use crate::action::{
+    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, VISUAL,
+};
 use crate::config::Config;
 use crate::error;
+use crate::error::Error;
 use crate::error::Error::{InternalError, InvalidNameError};
 use crate::io::IO;
 use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use crate::signal::QWriter;
 use crate::style;
 use crate::style::text::{body, button1, inactive};
+use crate::style::{style_ui, Style, CUSTOM_BLUE, TEXT_SIZE_BODY};
+use crate::template::{center_x, header_body_controls};
 use crate::util::{f32_with_precision, f64_with_precision, str_with_precision};
 use eframe::egui;
-use eframe::egui::{CentralPanel, Checkbox, Color32, RadioButton, ScrollArea, Slider, Stroke, TextEdit, Vec2, Widget};
+use eframe::egui::{
+    CentralPanel, Checkbox, Color32, RadioButton, ScrollArea, Slider, Stroke, TextEdit, Vec2,
+    Widget,
+};
+use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use egui_extras::{Size, StripBuilder};
-use crate::error::Error;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::style::{CUSTOM_BLUE, Style, style_ui, TEXT_SIZE_BODY};
-use crate::template::{center_x, header_body_controls};
 
 const SHIFT: usize = 0x1000;
 
@@ -85,7 +90,8 @@ impl Action for Question {
                 group: self.group.clone(),
                 // _style: Style::new("action-question", &self.style),
                 list: self.list.iter().map(|q| q.stateful()).collect(),
-            }.into())
+            }
+            .into())
         }
     }
 }
@@ -98,11 +104,20 @@ impl StatefulAction for StatefulQuestion {
         VISUAL.into()
     }
 
-    fn start(&mut self, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+    fn start(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
-    fn update(&mut self, signal: &ActionSignal, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+    fn update(
+        &mut self,
+        signal: &ActionSignal,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
@@ -112,24 +127,17 @@ impl StatefulAction for StatefulQuestion {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        header_body_controls(
-            ui,
-            |mut strip| {
-                strip.empty();
-                strip.empty();
-                strip.strip(|builder| {
-                    center_x(
-                        builder,
-                        1520.0,
-                        |ui| {
-                            ScrollArea::vertical().show(ui, |ui| self.show_items(ui));
-                        },
-                    );
+        header_body_controls(ui, |mut strip| {
+            strip.empty();
+            strip.empty();
+            strip.strip(|builder| {
+                center_x(builder, 1520.0, |ui| {
+                    ScrollArea::vertical().show(ui, |ui| self.show_items(ui));
                 });
-                strip.empty();
-                strip.strip(|builder| self.show_controls(builder, sync_writer, async_writer));
-            }
-        );
+            });
+            strip.empty();
+            strip.strip(|builder| self.show_controls(builder, sync_writer, async_writer));
+        });
 
         Ok(())
     }
@@ -168,7 +176,12 @@ impl StatefulQuestion {
         });
     }
 
-    fn show_controls(&mut self, builder: StripBuilder, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) {
+    fn show_controls(
+        &mut self,
+        builder: StripBuilder,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) {
         enum Interaction {
             None,
             Submit,
@@ -202,7 +215,6 @@ impl StatefulQuestion {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 #[serde(rename_all = "snake_case")]
-#[serde(tag = "type")]
 pub enum QItem {
     SingleLine {
         id: String,
@@ -337,40 +349,58 @@ pub enum StatefulQItem {
 impl StatefulQItem {
     fn ui(&mut self, ui: &mut egui::Ui) {
         match self {
-            StatefulQItem::SingleLine { input, .. } => {
-                Self::show_single_line(ui, input)
-            }
+            StatefulQItem::SingleLine { input, .. } => Self::show_single_line(ui, input),
             StatefulQItem::MultiLine { input, lines, .. } => {
                 Self::show_multi_line(ui, input, *lines)
             }
-            StatefulQItem::SingleChoice { options, choice, columns, .. } => {
-                Self::show_single_choice(ui, &options, choice, *columns)
-            }
-            StatefulQItem::MultiChoice { options, choice, columns, .. } => {
-                Self::show_multi_choice(ui, &options, choice, *columns)
-            }
-            StatefulQItem::Slider { range, step, choice, precision, .. } => {
-                Self::show_slider(ui, *range, *step, choice, *precision)
-            }
+            StatefulQItem::SingleChoice {
+                options,
+                choice,
+                columns,
+                ..
+            } => Self::show_single_choice(ui, &options, choice, *columns),
+            StatefulQItem::MultiChoice {
+                options,
+                choice,
+                columns,
+                ..
+            } => Self::show_multi_choice(ui, &options, choice, *columns),
+            StatefulQItem::Slider {
+                range,
+                step,
+                choice,
+                precision,
+                ..
+            } => Self::show_slider(ui, *range, *step, choice, *precision),
         }
     }
 
     fn show_single_line(ui: &mut egui::Ui, input: &mut String) {
         ui.vertical_centered_justified(|ui| {
-            TextEdit::singleline(input).hint_text(inactive("Your answer goes here")).ui(ui);
+            TextEdit::singleline(input)
+                .hint_text(inactive("Your answer goes here"))
+                .ui(ui);
         });
     }
 
     fn show_multi_line(ui: &mut egui::Ui, input: &mut String, lines: usize) {
         ui.vertical_centered_justified(|ui| {
-            TextEdit::multiline(input).hint_text(inactive("Your answer goes here")).desired_rows(lines).ui(ui);
+            TextEdit::multiline(input)
+                .hint_text(inactive("Your answer goes here"))
+                .desired_rows(lines)
+                .ui(ui);
         });
     }
 
-    fn show_single_choice(ui: &mut egui::Ui, options: &[String], choice: &mut Option<usize>, columns: usize) {
+    fn show_single_choice(
+        ui: &mut egui::Ui,
+        options: &[String],
+        choice: &mut Option<usize>,
+        columns: usize,
+    ) {
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing = Vec2::new(45.0, 15.0);
-            ui.spacing_mut().icon_width = TEXT_SIZE_BODY  * 0.75;
+            ui.spacing_mut().icon_width = TEXT_SIZE_BODY * 0.75;
             ui.spacing_mut().icon_width_inner = TEXT_SIZE_BODY * 0.5;
             ui.spacing_mut().icon_spacing = TEXT_SIZE_BODY * 0.25;
             ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
@@ -386,7 +416,8 @@ impl StatefulQItem {
                             while i < options.len() {
                                 if RadioButton::new(*choice == Some(i), body(options[i].as_str()))
                                     .ui(&mut ui[i % columns])
-                                    .clicked() {
+                                    .clicked()
+                                {
                                     *choice = Some(i);
                                 }
 
@@ -400,7 +431,8 @@ impl StatefulQItem {
                     options.iter().enumerate().for_each(|(i, option)| {
                         if RadioButton::new(*choice == Some(i), body(option.as_str()))
                             .ui(ui)
-                            .clicked() {
+                            .clicked()
+                        {
                             *choice = Some(i);
                         }
                     });
@@ -409,10 +441,15 @@ impl StatefulQItem {
         });
     }
 
-    fn show_multi_choice(ui: &mut egui::Ui, options: &[String], choice: &mut Vec<bool>, columns: usize) {
+    fn show_multi_choice(
+        ui: &mut egui::Ui,
+        options: &[String],
+        choice: &mut Vec<bool>,
+        columns: usize,
+    ) {
         ui.scope(|ui| {
             ui.spacing_mut().item_spacing = Vec2::new(45.0, 15.0);
-            ui.spacing_mut().icon_width = TEXT_SIZE_BODY  * 0.75;
+            ui.spacing_mut().icon_width = TEXT_SIZE_BODY * 0.75;
             ui.spacing_mut().icon_width_inner = TEXT_SIZE_BODY * 0.5;
             ui.spacing_mut().icon_spacing = TEXT_SIZE_BODY * 0.25;
             ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.5, Color32::DARK_GRAY);
@@ -437,15 +474,20 @@ impl StatefulQItem {
             } else {
                 ui.horizontal_wrapped(|ui| {
                     options.iter().enumerate().for_each(|(i, option)| {
-                        Checkbox::new(&mut choice[i], body(option.as_str()))
-                            .ui(ui);
+                        Checkbox::new(&mut choice[i], body(option.as_str())).ui(ui);
                     });
                 });
             }
         });
     }
 
-    fn show_slider(ui: &mut egui::Ui, range: (f32, f32), step: f32, choice: &mut f32, precision: u8) {
+    fn show_slider(
+        ui: &mut egui::Ui,
+        range: (f32, f32),
+        step: f32,
+        choice: &mut f32,
+        precision: u8,
+    ) {
         let range = RangeInclusive::new(
             f32_with_precision(range.0, precision),
             f32_with_precision(range.1, precision),

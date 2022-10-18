@@ -1,3 +1,4 @@
+use crate::action::nil::Nil;
 use crate::action::{Action, ActionEnum, StatefulAction, StatefulActionEnum};
 use crate::config::Config;
 use crate::error;
@@ -20,12 +21,40 @@ pub struct Template {
     src: PathBuf,
     #[serde(default)]
     params: HashMap<String, String>,
+    #[serde(skip_deserializing)]
+    #[serde(default = "defaults::inner")]
+    inner: Box<ActionEnum>,
+}
+
+mod defaults {
+    use super::*;
+
+    pub fn inner() -> Box<ActionEnum> {
+        Box::new(Nil.into())
+    }
 }
 
 impl Action for Template {
     #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<PathBuf> {
-        vec![self.src.to_owned()]
+    fn resources(&self, config: &Config) -> Vec<PathBuf> {
+        self.inner.inner().resources(config)
+    }
+
+    fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
+        let path = root_dir.join(&self.src);
+        let mut inner =
+            fs::read_to_string(&path).map_err(|e| TaskDefinitionError(format!("{e:?}")))?;
+
+        for (k, v) in self.params.iter() {
+            let re = regex::Regex::new(&format!(r"\$\{{{k}\}}")).unwrap();
+            inner = re.replace_all(&inner, v).to_string();
+        }
+
+        let inner = ron::from_str::<ActionEnum>(&inner)
+            .map_err(|e| TaskDefinitionError(format!("{e:?}")))?;
+        self.inner = Box::new(inner);
+
+        self.inner.init(root_dir, config)
     }
 
     #[inline(always)]
@@ -37,16 +66,8 @@ impl Action for Template {
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
-        if let Text(inner) = res.fetch(&self.src)? {
-            ron::from_str::<ActionEnum>(&inner)
-                .map_err(|e| TaskDefinitionError(format!("{e:?}")))?
-                .inner()
-                .stateful(io, res, config, sync_writer, async_writer)
-        } else {
-            Err(TaskDefinitionError(format!(
-                "`src` attribute of Template must be pointing to a `.ron` file: {:?}",
-                self.src
-            )))
-        }
+        self.inner
+            .inner()
+            .stateful(io, res, config, sync_writer, async_writer)
     }
 }

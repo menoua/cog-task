@@ -18,11 +18,6 @@ pub struct Block {
 }
 
 impl Block {
-    // #[inline(always)]
-    // pub fn iter(&self) -> Iter<'_, ActionEnum> {
-    //     self.tree.iter()
-    // }
-
     pub fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
         let config = self.config(config);
         self.verify_name()?;

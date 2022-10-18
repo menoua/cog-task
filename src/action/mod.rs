@@ -28,7 +28,7 @@ pub trait Action: Debug {
     }
 
     #[inline(always)]
-    fn init(&self) -> Result<(), error::Error> {
+    fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
         Ok(())
     }
 
@@ -80,9 +80,9 @@ pub trait StatefulAction: Send {
         vec![
             ("id", format!("{:?}", self.id())),
             ("over", format!("{:?}", self.is_over())),
-            ("visual", format!("{:?}", self.props().visual())),
-            ("infinite", format!("{:?}", self.props().infinite())),
-            ("key_cap", format!("{:?}", self.props().captures_keys())),
+            ("viz", format!("{:?}", self.props().visual())),
+            ("inf", format!("{:?}", self.props().infinite())),
+            ("keys", format!("{:?}", self.props().captures_keys())),
             ("type", format!("{:?}", self.type_str())),
         ]
     }

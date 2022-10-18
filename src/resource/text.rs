@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
+use regex::Regex;
 
 #[derive(Debug, Deserialize, Serialize, Clone, Copy)]
 
@@ -23,7 +24,7 @@ pub enum Justification {
 // }
 
 pub fn text_or_file(text: &str) -> Option<PathBuf> {
-    let re = regex::Regex::new("^!!\\[(.*)\\]$").unwrap();
+    let re = Regex::new(r"^!!\[(.*)\]$").unwrap();
     if let Some(m) = re.captures(text) {
         if let Ok(path) = PathBuf::from_str(&m[1]) {
             return Some(path);

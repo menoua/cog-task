@@ -43,7 +43,11 @@ macro_rules! include_actions {
                 }
 
                 pub fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
-                    Ok(())
+                    match self {
+                        $(
+                            Self::[<$name:camel>](inner) => inner.init(root_dir, config),
+                        )*
+                    }
                 }
             }
 

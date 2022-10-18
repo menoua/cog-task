@@ -1,19 +1,20 @@
-use crate::action::{Action, DEFAULT, Props, StatefulAction, ActionEnum, StatefulActionEnum, VISUAL, CAP_KEYS, ActionSignal};
+use crate::action::{
+    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, CAP_KEYS, DEFAULT,
+    VISUAL,
+};
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
 use crate::resource::ResourceMap;
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use eframe::egui;
-use itertools::Itertools;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
+use eframe::egui;
+use itertools::Itertools;
+use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Seq(
-    Vec<ActionEnum>,
-);
+pub struct Seq(Vec<ActionEnum>);
 
 stateful!(Seq {
     children: Vec<StatefulActionEnum>,
@@ -35,6 +36,13 @@ impl Action for Seq {
             .collect()
     }
 
+    fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
+        for c in self.0.iter_mut() {
+            c.inner_mut().init(root_dir, config)?;
+        }
+        Ok(())
+    }
+
     fn stateful(
         &self,
         io: &IO,
@@ -46,8 +54,17 @@ impl Action for Seq {
         Ok(StatefulSeq {
             id: 0,
             done: false,
-            children: self.0.iter().map(|a| a.inner().stateful(io, res, config, sync_writer, async_writer).unwrap()).collect(),
-        }.into())
+            children: self
+                .0
+                .iter()
+                .map(|a| {
+                    a.inner()
+                        .stateful(io, res, config, sync_writer, async_writer)
+                        .unwrap()
+                })
+                .collect(),
+        }
+        .into())
     }
 }
 

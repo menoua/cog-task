@@ -1,6 +1,6 @@
 use crate::action::{
-    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum,
-    CAP_KEYS, DEFAULT, INFINITE, VISUAL,
+    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, CAP_KEYS, DEFAULT,
+    INFINITE, VISUAL,
 };
 use crate::config::Config;
 use crate::error;
@@ -11,7 +11,7 @@ use crate::signal::QWriter;
 use eframe::egui;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Par(Vec<ActionEnum>, #[serde(default)] Vec<ActionEnum>);
@@ -36,6 +36,14 @@ impl Action for Par {
             .flat_map(|c| c.inner().resources(config))
             .unique()
             .collect()
+    }
+
+    fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
+        let children = self.0.iter_mut().chain(self.1.iter_mut());
+        for c in children {
+            c.inner_mut().init(root_dir, config)?;
+        }
+        Ok(())
     }
 
     fn stateful(

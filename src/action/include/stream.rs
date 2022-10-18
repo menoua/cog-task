@@ -8,7 +8,7 @@ use crate::resource::{ResourceMap, ResourceValue};
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
@@ -55,7 +55,7 @@ impl Action for Stream {
     }
 
     #[inline(always)]
-    fn init(&self) -> Result<(), error::Error> {
+    fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
         match self.volume {
             Some(f) if !(0.0..=1.0).contains(&f) => Err(TaskDefinitionError(
                 "Stream volume should be a float number between 0.0 and 1.0".to_owned(),

@@ -33,6 +33,10 @@ impl Action for Delayed {
         self.1.inner().resources(config)
     }
 
+    fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
+        self.1.inner_mut().init(root_dir, config)
+    }
+
     fn stateful(
         &self,
         io: &IO,

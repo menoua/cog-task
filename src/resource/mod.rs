@@ -9,11 +9,12 @@ use audio::audio_from_file;
 use text::text_or_file;
 use video::video_from_file;
 
+use crate::action::ActionEnum;
 use crate::assets::{IMAGE_FIXATION, IMAGE_RUSTACEAN};
 use crate::config::Config;
 use crate::env::Env;
 use crate::error;
-use crate::error::Error::ResourceLoadError;
+use crate::error::Error::{ResourceLoadError, TaskDefinitionError};
 use crate::resource::stream::{stream_from_file, Stream};
 use crate::task::block::Block;
 use eframe::egui::mutex::RwLock;
@@ -25,6 +26,7 @@ use rodio::source::Buffered;
 use rodio::Source;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
+use std::fs;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -120,6 +122,28 @@ impl ResourceMap {
             data
         });
         let mut default_rustacean = true;
+
+        // resources.clone().into_iter().flat_map(|r| {
+        //     let path = env.resource().join(&src);
+        //     let extn = path
+        //         .extension()
+        //         .expect("Data file names need to have extensions")
+        //         .to_str()
+        //         .unwrap();
+        //
+        //     match extn {
+        //         "ron" => {
+        //             let content = fs::read_to_string(&path)
+        //                 .map_err(|e| TaskDefinitionError(format!("{e:?}")))?;
+        //             let res = ron::from_str::<ActionEnum>(&content)
+        //                 .map_err(|e| TaskDefinitionError(format!("{e:?}")))?
+        //                 .inner()
+        //                 .resources(config);
+        //             Some(res)
+        //         }
+        //         _ => None,
+        //     }
+        // });
 
         // Load resources used in new block
         for src in resources {
