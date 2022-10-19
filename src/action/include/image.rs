@@ -1,17 +1,19 @@
-use crate::action::{Action, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum, INFINITE, ActionSignal};
-use crate::signal::QWriter;
+use crate::action::{
+    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, INFINITE, VISUAL,
+};
 use crate::config::Config;
 use crate::error;
+use crate::error::Error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use crate::signal::QWriter;
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use crate::error::Error;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -56,7 +58,8 @@ impl Action for Image {
                 handle: texture,
                 size,
                 width: self.width,
-            }.into()),
+            }
+            .into()),
             _ => Err(InvalidResourceError(format!(
                 "Image action supplied non-image resource: `{:?}`",
                 self.src
@@ -73,11 +76,20 @@ impl StatefulAction for StatefulImage {
         (INFINITE | VISUAL).into()
     }
 
-    fn start(&mut self, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+    fn start(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
-    fn update(&mut self, signal: &ActionSignal, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+    fn update(
+        &mut self,
+        signal: &ActionSignal,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
@@ -102,7 +114,11 @@ impl StatefulAction for StatefulImage {
     }
 
     #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
+    fn stop(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), error::Error> {
         self.done = true;
         Ok(())
     }

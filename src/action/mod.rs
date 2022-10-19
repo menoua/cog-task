@@ -74,7 +74,11 @@ pub trait StatefulAction: Send {
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error>;
 
-    fn stop(&mut self) -> Result<(), error::Error>;
+    fn stop(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), error::Error>;
 
     fn debug(&self) -> Vec<(&str, String)> {
         vec![

@@ -1,3 +1,4 @@
+use crate::action::nil::{Nil, StatefulNil};
 use crate::action::{ActionEnum, ActionSignal, StatefulActionEnum};
 use crate::config::{Config, LogCondition};
 use crate::error;
@@ -172,7 +173,10 @@ impl SyncProcessor {
         )?;
 
         if tree.inner().is_over()? {
+            tree.inner_mut()
+                .stop(&mut self.sync_writer, &mut self.async_writer)?;
             self.server_writer.push(ServerSignal::BlockFinished);
+            *tree = StatefulNil::new().into()
         }
 
         self.ctx.request_repaint();

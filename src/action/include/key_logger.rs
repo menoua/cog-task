@@ -1,25 +1,28 @@
-use crate::action::{Action, ActionSignal, CAP_KEYS, DEFAULT, Props, StatefulAction, ActionEnum, StatefulActionEnum, INFINITE};
-use crate::signal::QWriter;
+use crate::action::{
+    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, CAP_KEYS, DEFAULT,
+    INFINITE,
+};
 use crate::config::Config;
 use crate::error;
+use crate::error::Error;
 use crate::error::Error::InvalidNameError;
 use crate::io::IO;
 use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
 use crate::scheduler::monitor::{Event, Monitor};
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use crate::signal::QWriter;
+use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::PathBuf;
-use eframe::egui::Ui;
-use crate::error::Error;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct KeyLogger {
+pub struct KeyLogger(
     #[serde(default = "defaults::group")]
-    group: String,
-}
+    String,
+);
 
 stateful!(KeyLogger { group: String });
 
@@ -44,7 +47,7 @@ impl Action for KeyLogger {
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
-        if self.group.is_empty() {
+        if self.0.is_empty() {
             Err(InvalidNameError(
                 "KeyLogger `group` cannot be an empty string".to_owned(),
             ))
@@ -52,8 +55,9 @@ impl Action for KeyLogger {
             Ok(StatefulKeyLogger {
                 id: 0,
                 done: false,
-                group: self.group.clone(),
-            }.into())
+                group: self.0.clone(),
+            }
+            .into())
         }
     }
 }
@@ -66,7 +70,11 @@ impl StatefulAction for StatefulKeyLogger {
         (INFINITE | CAP_KEYS).into()
     }
 
-    fn start(&mut self, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+    fn start(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
@@ -91,12 +99,21 @@ impl StatefulAction for StatefulKeyLogger {
         Ok(())
     }
 
-    fn show(&mut self, ui: &mut Ui, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+    fn show(
+        &mut self,
+        ui: &mut Ui,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
     #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
+    fn stop(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), error::Error> {
         self.done = true;
         Ok(())
     }

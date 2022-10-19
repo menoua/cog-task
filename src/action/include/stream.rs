@@ -1,10 +1,17 @@
-use crate::action::{Action, DEFAULT, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum, INFINITE, ActionSignal};
-use crate::signal::QWriter;
+use crate::action::{
+    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, DEFAULT, INFINITE,
+    VISUAL,
+};
 use crate::config::Config;
 use crate::error;
+use crate::error::Error;
 use crate::error::Error::{InternalError, InvalidResourceError, TaskDefinitionError};
 use crate::io::IO;
+use crate::resource::audio::Trigger;
 use crate::resource::{ResourceMap, ResourceValue};
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use crate::signal::QWriter;
+use crate::util::spin_sleeper;
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
@@ -14,9 +21,6 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
-use crate::error::Error;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::util::spin_sleeper;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -29,7 +33,7 @@ pub struct Stream {
     #[serde(default)]
     looping: bool,
     #[serde(default)]
-    style: String,
+    trigger: Trigger,
 }
 
 stateful_arc!(Stream {
@@ -51,7 +55,11 @@ impl Stream {
 impl Action for Stream {
     #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
-        vec![self.src()]
+        if let Trigger::Ext(trig) = &self.trigger {
+            vec![self.src(), trig.clone()]
+        } else {
+            vec![self.src()]
+        }
     }
 
     #[inline(always)]
@@ -72,78 +80,97 @@ impl Action for Stream {
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
-        match res.fetch(&self.src())? {
-            ResourceValue::Stream(stream) => {
-                let frame = Arc::new(Mutex::new(None));
-                let volume = config.volume(self.volume);
-                let mut stream = stream.cloned(frame.clone(), volume)?;
-
-                if !stream.has_video() && self.width.is_some() {
-                    return Err(TaskDefinitionError(format!(
-                        "Video-less stream `?` should not be supplied a width"
-                    )));
-                }
-
-                let framerate = stream.framerate();
-                let sleeper = spin_sleeper();
-                let period = if stream.has_video() {
-                    Duration::from_secs_f64(0.5 / framerate)
-                } else {
-                    Duration::from_millis(5)
-                };
-
-                let done = Arc::new(Mutex::new(Ok(stream.eos())));
-                let (tx_start, rx_start) = mpsc::channel();
-                let (tx_stop, rx_stop) = mpsc::channel();
-                let looping = self.looping;
-
-                let done_clone = done.clone();
-                let join_handle = thread::spawn(move || -> Result<(), error::Error> {
-                    if rx_start.recv().is_err() {
-                        return Ok(());
-                    }
-
-                    stream.start()?;
-
-                    loop {
-                        if let Err(TryRecvError::Disconnected) = rx_start.try_recv() {
-                            stream.pause()?;
-                            break;
-                        }
-
-                        sleeper.sleep(period);
-                        let mut done = done_clone.lock().unwrap();
-                        match (stream.eos(), stream.process_bus(looping)) {
-                            (true, _) => *done = Ok(true),
-                            (false, Ok(true)) => *done = Ok(true),
-                            (false, Err(e)) => *done = Err(e),
-                            _ => {}
-                        }
-                        if let Ok(true) = *done {
-                            break;
-                        }
-                    }
-
-                    let _ = tx_stop.send(());
-                    Ok(())
-                });
-
-                Ok(StatefulStream {
-                    id: 0,
-                    done,
-                    frame,
-                    framerate,
-                    width: self.width,
-                    looping,
-                    link: Some((tx_start, rx_stop)),
-                    join_handle: Some(join_handle),
-                }.into())
-            }
-            _ => Err(InvalidResourceError(format!(
+        let stream = if let ResourceValue::Stream(stream) = res.fetch(&self.src)? {
+            stream
+        } else {
+            return Err(InvalidResourceError(format!(
                 "Stream action supplied non-stream resource: `{:?}`",
                 self.src
-            ))),
+            )));
+        };
+
+        // let trig = match (&self.trigger, config.use_trigger()) {
+        //     (Trigger::Ext(trig), true) => {
+        //         let trig = if let ResourceValue::Audio(trig) = res.fetch(trig)? {
+        //             trig
+        //         } else {
+        //             return Err(InvalidResourceError(format!(
+        //                 "Audio action supplied non-audio trigger resource: `{:?}`",
+        //                 trig
+        //             )));
+        //         };
+        //
+        //         interlace_channels(src, trig)?
+        //     }
+        //     (Trigger::Int, false) => drop_channel(src)?,
+        //     _ => buffered(src)?,
+        // };
+
+        let frame = Arc::new(Mutex::new(None));
+        let volume = config.volume(self.volume);
+        let mut stream = stream.cloned(frame.clone(), volume)?;
+
+        if !stream.has_video() && self.width.is_some() {
+            return Err(TaskDefinitionError(format!(
+                "Video-less stream `?` should not be supplied a width"
+            )));
         }
+
+        let framerate = stream.framerate();
+        let sleeper = spin_sleeper();
+        let period = if stream.has_video() {
+            Duration::from_secs_f64(0.5 / framerate)
+        } else {
+            Duration::from_millis(5)
+        };
+
+        let done = Arc::new(Mutex::new(Ok(stream.eos())));
+        let (tx_start, rx_start) = mpsc::channel();
+        let (tx_stop, rx_stop) = mpsc::channel();
+        let looping = self.looping;
+
+        let done_clone = done.clone();
+        let join_handle = thread::spawn(move || -> Result<(), error::Error> {
+            if rx_start.recv().is_err() {
+                return Ok(());
+            }
+
+            stream.start()?;
+
+            loop {
+                if let Err(TryRecvError::Disconnected) = rx_start.try_recv() {
+                    stream.pause()?;
+                    break;
+                }
+
+                sleeper.sleep(period);
+                let mut done = done_clone.lock().unwrap();
+                match (stream.eos(), stream.process_bus(looping)) {
+                    (true, _) => *done = Ok(true),
+                    (false, Ok(true)) => *done = Ok(true),
+                    (false, Err(e)) => *done = Err(e),
+                    _ => {}
+                }
+                if let Ok(true) = *done {
+                    break;
+                }
+            }
+
+            let _ = tx_stop.send(());
+            Ok(())
+        });
+
+        Ok(StatefulStream {
+            id: 0,
+            done,
+            frame,
+            framerate,
+            width: self.width,
+            looping,
+            link: Some((tx_start, rx_stop)),
+            join_handle: Some(join_handle),
+        }
+        .into())
     }
 }
 
@@ -157,7 +184,8 @@ impl StatefulAction for StatefulStream {
             (f, true) if f > 0.0 => INFINITE | VISUAL,
             (_, false) => DEFAULT,
             (_, true) => INFINITE,
-        }.into()
+        }
+        .into()
     }
 
     fn start(
@@ -203,7 +231,12 @@ impl StatefulAction for StatefulStream {
         Ok(())
     }
 
-    fn update(&mut self, signal: &ActionSignal, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+    fn update(
+        &mut self,
+        signal: &ActionSignal,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
@@ -238,7 +271,11 @@ impl StatefulAction for StatefulStream {
     }
 
     #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
+    fn stop(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), error::Error> {
         *self.done.lock().unwrap() = Ok(true);
         Ok(())
     }
@@ -251,14 +288,5 @@ impl StatefulAction for StatefulStream {
                 ("looping", format!("{:?}", self.looping)),
             ])
             .collect()
-    }
-}
-
-impl Drop for StatefulStream {
-    fn drop(&mut self) {
-        self.stop().unwrap_or_else(|e| {
-            eprintln!("{e:#?}");
-            std::process::exit(2);
-        });
     }
 }

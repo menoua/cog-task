@@ -143,6 +143,13 @@ impl StatefulAction for StatefulPar {
         }
 
         if matches!(signal, ActionSignal::UpdateGraph) {
+            let children = self.children.iter_mut().chain(self.children_opt.iter_mut());
+            for c in children {
+                if c.inner().is_over()? {
+                    c.inner_mut().stop(sync_writer, async_writer)?;
+                }
+            }
+            
             self.children.retain(|c| !c.inner().is_over().unwrap());
             self.children_opt.retain(|c| !c.inner().is_over().unwrap());
             if self.children.is_empty() {
@@ -169,10 +176,14 @@ impl StatefulAction for StatefulPar {
     }
 
     #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
+    fn stop(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), error::Error> {
         let children = self.children.iter_mut().chain(self.children_opt.iter_mut());
         for c in children {
-            c.inner_mut().stop()?;
+            c.inner_mut().stop(sync_writer, async_writer)?;
         }
         self.done = true;
         Ok(())

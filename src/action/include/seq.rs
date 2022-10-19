@@ -11,13 +11,14 @@ use crate::signal::QWriter;
 use eframe::egui;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Seq(Vec<ActionEnum>);
 
 stateful!(Seq {
-    children: Vec<StatefulActionEnum>,
+    children: VecDeque<StatefulActionEnum>,
 });
 
 impl Seq {
@@ -70,7 +71,7 @@ impl Action for Seq {
 
 impl StatefulSeq {
     pub fn push(&mut self, child: impl Into<StatefulActionEnum>) {
-        self.children.push(child.into());
+        self.children.push_back(child.into());
     }
 }
 
@@ -112,8 +113,12 @@ impl StatefulAction for StatefulSeq {
         }
 
         if matches!(signal, ActionSignal::UpdateGraph) {
-            if let Some(true) = self.children.get(0).map(|c| c.inner().is_over().unwrap()) {
-                self.children.remove(0);
+            while let Some(true) = self.children.get(0).map(|c| c.inner().is_over().unwrap()) {
+                self.children
+                    .pop_front()
+                    .unwrap()
+                    .inner_mut()
+                    .stop(sync_writer, async_writer)?;
 
                 if let Some(c) = self.children.get_mut(0) {
                     c.inner_mut().start(sync_writer, async_writer)?;
@@ -141,9 +146,13 @@ impl StatefulAction for StatefulSeq {
     }
 
     #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
+    fn stop(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), error::Error> {
         for c in self.children.iter_mut() {
-            c.inner_mut().stop()?;
+            c.inner_mut().stop(sync_writer, async_writer)?;
         }
         self.done = true;
         Ok(())

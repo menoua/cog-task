@@ -1,8 +1,12 @@
-use crate::action::{Action, INFINITE, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum, ActionSignal};
-use crate::signal::QWriter;
+use crate::action::{
+    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, INFINITE, VISUAL,
+};
 use crate::config::Config;
+use crate::error::Error;
 use crate::io::IO;
 use crate::resource::ResourceMap;
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use crate::signal::QWriter;
 use crate::style::{style_ui, Style};
 use crate::{error, style};
 use eframe::egui;
@@ -10,8 +14,6 @@ use eframe::egui::CentralPanel;
 use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use crate::error::Error;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -59,7 +61,8 @@ impl Action for Counter {
             done: self.from == 0,
             count: self.from,
             // style: Style::new("action-counter", &self.style),
-        }.into())
+        }
+        .into())
     }
 }
 
@@ -71,11 +74,20 @@ impl StatefulAction for StatefulCounter {
         VISUAL.into()
     }
 
-    fn start(&mut self, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+    fn start(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
-    fn update(&mut self, signal: &ActionSignal, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+    fn update(
+        &mut self,
+        signal: &ActionSignal,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
@@ -136,7 +148,11 @@ impl StatefulAction for StatefulCounter {
     }
 
     #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
+    fn stop(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), error::Error> {
         self.done = true;
         Ok(())
     }

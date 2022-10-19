@@ -37,6 +37,12 @@ impl Action for Nil {
     }
 }
 
+impl Nil {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 impl StatefulAction for StatefulNil {
     impl_stateful!();
 
@@ -70,7 +76,20 @@ impl StatefulAction for StatefulNil {
         Ok(())
     }
 
-    fn stop(&mut self) -> Result<(), Error> {
+    fn stop(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
+    }
+}
+
+impl StatefulNil {
+    pub fn new() -> Self {
+        Self {
+            id: 0,
+            done: true,
+        }
     }
 }

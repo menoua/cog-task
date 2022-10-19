@@ -118,8 +118,12 @@ impl StatefulAction for StatefulDelayed {
         }
     }
 
-    fn stop(&mut self) -> Result<(), Error> {
-        self.inner.inner_mut().stop()?;
+    fn stop(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
+        self.inner.inner_mut().stop(sync_writer, async_writer)?;
         self.done = true;
         Ok(())
     }

@@ -1,21 +1,23 @@
-use crate::action::{Action, Props, StatefulAction, VISUAL, ActionEnum, StatefulActionEnum, INFINITE, ActionSignal};
-use crate::signal::QWriter;
+use crate::action::{
+    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, INFINITE, VISUAL,
+};
 use crate::config::Config;
+use crate::error;
+use crate::error::Error;
 use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
 use crate::resource::text::Justification;
 use crate::resource::{text::text_or_file, ResourceMap};
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use crate::signal::QWriter;
 use crate::style::text::{body, button1};
 use crate::style::{style_ui, Style};
 use crate::template::{center_x, header_body_controls};
-use crate::error;
 use eframe::egui;
 use eframe::egui::{CursorIcon, RichText, ScrollArea};
 use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use crate::error::Error;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -92,7 +94,6 @@ impl Action for Instruction {
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
         let text = res.fetch_text(&self.text)?;
-        println!("A := {} -> {}", self.text, text);
         let header = self.header.clone();
         let justify = match self.justify.to_lowercase().as_str() {
             "left" => Justification::Left,
@@ -111,7 +112,8 @@ impl Action for Instruction {
             justify,
             persistent: self.persistent,
             // style: Style::new("action-instruction", &self.style),
-        }.into())
+        }
+        .into())
     }
 }
 
@@ -124,14 +126,24 @@ impl StatefulAction for StatefulInstruction {
             INFINITE | VISUAL
         } else {
             VISUAL
-        }.into()
+        }
+        .into()
     }
 
-    fn start(&mut self, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+    fn start(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
-    fn update(&mut self, signal: &ActionSignal, sync_writer: &mut QWriter<SyncSignal>, async_writer: &mut QWriter<AsyncSignal>) -> Result<(), Error> {
+    fn update(
+        &mut self,
+        signal: &ActionSignal,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
@@ -179,18 +191,18 @@ impl StatefulAction for StatefulInstruction {
     }
 
     #[inline(always)]
-    fn stop(&mut self) -> Result<(), error::Error> {
+    fn stop(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), error::Error> {
         self.done = true;
         Ok(())
     }
 }
 
 impl StatefulInstruction {
-    fn show_controls(
-        &mut self,
-        builder: StripBuilder,
-        sync_writer: &mut QWriter<SyncSignal>,
-    ) {
+    fn show_controls(&mut self, builder: StripBuilder, sync_writer: &mut QWriter<SyncSignal>) {
         enum Interaction {
             None,
             Next,

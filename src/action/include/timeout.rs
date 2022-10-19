@@ -104,7 +104,7 @@ impl StatefulAction for StatefulTimeout {
 
         if matches!(signal, ActionSignal::UpdateGraph) && !self.done {
             if *self.timeout_over.lock().unwrap() {
-                self.inner.inner_mut().stop()?;
+                self.inner.inner_mut().stop(sync_writer, async_writer)?;
                 self.done = true;
                 sync_writer.push(SyncSignal::UpdateGraph);
             }
@@ -121,8 +121,12 @@ impl StatefulAction for StatefulTimeout {
         self.inner.inner_mut().show(ui, sync_writer, async_writer)
     }
 
-    fn stop(&mut self) -> Result<(), Error> {
-        self.inner.inner_mut().stop()?;
+    fn stop(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<(), Error> {
+        self.inner.inner_mut().stop(sync_writer, async_writer)?;
         self.done = true;
         Ok(())
     }

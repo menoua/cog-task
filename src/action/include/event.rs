@@ -4,32 +4,29 @@ use crate::action::{
 use crate::config::Config;
 use crate::error;
 use crate::error::Error;
+use crate::error::Error::{ActionEvolveError, InternalError, TaskDefinitionError};
 use crate::io::IO;
+use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
+use crate::resource::ResourceValue::Text;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
-use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::sync::mpsc::{self, Sender};
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::Duration;
+use serde_json::Value;
+use std::collections::HashMap;
+use std::fs;
+use std::fs::File;
+use std::io::BufReader;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-pub struct Wait(f32);
+pub struct Event(String);
 
-stateful_arc!(Wait { duration: Duration });
+stateful!(Event { name: String });
 
-impl Wait {
-    pub fn new(dur: f32) -> Self {
-        Self(dur)
-    }
-}
-
-impl Action for Wait {
+impl Action for Event {
+    #[inline(always)]
     fn stateful(
         &self,
         io: &IO,
@@ -38,37 +35,31 @@ impl Action for Wait {
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<StatefulActionEnum, error::Error> {
-        Ok(StatefulWait {
+        Ok(StatefulEvent {
             id: 0,
-            done: Arc::new(Mutex::new(Ok(false))),
-            duration: Duration::from_secs_f32(self.0),
+            done: false,
+            name: self.0.clone(),
         }
         .into())
     }
 }
 
-impl StatefulAction for StatefulWait {
+impl StatefulAction for StatefulEvent {
     impl_stateful!();
 
-    #[inline(always)]
     fn props(&self) -> Props {
-        DEFAULT.into()
+        INFINITE.into()
     }
 
-    #[inline(always)]
     fn start(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
-    ) -> Result<(), error::Error> {
-        let mut done = self.done.clone();
-        let duration = self.duration;
-        let mut sync_writer = sync_writer.clone();
-        thread::spawn(move || {
-            spin_sleeper().sleep(duration);
-            *done.lock().unwrap() = Ok(true);
-            sync_writer.push(SyncSignal::UpdateGraph);
-        });
+    ) -> Result<(), Error> {
+        async_writer.push(LoggerSignal::Append(
+            "Event".to_owned(),
+            (self.name.clone(), Value::String("start".to_owned())),
+        ));
         Ok(())
     }
 
@@ -90,13 +81,15 @@ impl StatefulAction for StatefulWait {
         Ok(())
     }
 
-    #[inline(always)]
     fn stop(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
-    ) -> Result<(), error::Error> {
-        *self.done.lock().unwrap() = Ok(true);
+    ) -> Result<(), Error> {
+        async_writer.push(LoggerSignal::Append(
+            "Event".to_owned(),
+            (self.name.clone(), Value::String("stop".to_owned())),
+        ));
         Ok(())
     }
 }
