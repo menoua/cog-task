@@ -15,8 +15,6 @@ use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-pub type Atomic = Arc<Mutex<Box<dyn StatefulAction>>>;
-
 #[derive(Debug, Clone)]
 pub enum AsyncSignal {
     Logger(DateTime<Local>, LoggerSignal),
@@ -39,8 +37,7 @@ pub enum SyncSignal {
 
 pub struct SyncProcessor {
     ctx: egui::Context,
-    tree: Atomic,
-    // key_monitors: HashSet<usize>,
+    tree: Arc<Mutex<Box<dyn StatefulAction>>>,
     sync_reader: QReader<SyncSignal>,
     sync_writer: QWriter<SyncSignal>,
     async_writer: QWriter<AsyncSignal>,
