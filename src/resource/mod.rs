@@ -4,8 +4,8 @@ pub mod stream;
 pub mod text;
 pub mod video;
 
+use crate::resource::image::{image_from_file, svg_from_bytes, svg_from_file};
 use audio::audio_from_file;
-use image::{image_from_file, svg_from_bytes, svg_from_file};
 use text::text_or_file;
 use video::video_from_file;
 
@@ -15,8 +15,9 @@ use crate::env::Env;
 use crate::error;
 use crate::error::Error::ResourceLoadError;
 use crate::resource::stream::{stream_from_file, Stream};
-use crate::task::block::Block;
-use iced::pure::widget::{image as img, svg};
+use eframe::egui::mutex::RwLock;
+use eframe::egui::{TextureId, Vec2};
+use eframe::epaint;
 use rodio::buffer::SamplesBuffer;
 use rodio::source::Buffered;
 use rodio::Source;
@@ -24,15 +25,15 @@ use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
-pub type FrameBuffer = Arc<Vec<img::Handle>>;
+pub type FrameBuffer = Arc<Vec<(TextureId, Vec2)>>;
 pub type AudioBuffer = Buffered<SamplesBuffer<i16>>;
 
+#[derive(Clone)]
 pub enum ResourceValue {
     Text(Arc<String>),
-    Image(Arc<img::Handle>),
-    Svg(Arc<svg::Handle>),
+    Image(TextureId, Vec2),
     Audio(AudioBuffer),
     Video(FrameBuffer, f64),
     Stream(Stream),
@@ -44,11 +45,8 @@ impl Debug for ResourceValue {
             ResourceValue::Text(_) => {
                 write!(f, "[Text]")
             }
-            ResourceValue::Image(_) => {
-                write!(f, "[Image]") // ({} x {})", image)
-            }
-            ResourceValue::Svg(_) => {
-                write!(f, "[Svg (vector graphic)]") // ({} x {})", image)
+            ResourceValue::Image(_, size) => {
+                write!(f, "[Image ({} x {})]", size.x, size.y)
             }
             ResourceValue::Audio(buffer) => {
                 write!(
@@ -73,36 +71,38 @@ impl Debug for ResourceValue {
     }
 }
 
-#[derive(Default, Debug)]
-pub struct ResourceMap {
-    map: HashMap<PathBuf, ResourceValue>,
-}
+#[derive(Default, Debug, Clone)]
+pub struct ResourceMap(Arc<Mutex<HashMap<PathBuf, ResourceValue>>>);
 
 impl ResourceMap {
-    #[inline(always)]
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn clear(&mut self) {
-        self.map.clear();
+        self.0.lock().unwrap().clear();
     }
 
     pub fn preload_block(
         &mut self,
-        block: &Block,
-        env: &Env,
+        resources: Vec<PathBuf>,
+        tex_manager: Arc<RwLock<epaint::TextureManager>>,
         config: &Config,
+        env: &Env,
     ) -> Result<(), error::Error> {
+        // Lock map
+        let mut map = self.0.lock().unwrap();
+
         // Clean up existing resource map
-        self.clear();
-        let config = block.config(config);
+        map.clear();
 
         // Load default fixation image
         let src = PathBuf::from_str("fixation.svg").unwrap();
-        self.map.entry(src.clone()).or_insert_with(|| {
-            let data =
-                ResourceValue::Svg(Arc::new(svg_from_bytes(IMAGE_FIXATION.to_owned(), &src)));
+        map.entry(src.clone()).or_insert({
+            let tex_manager = tex_manager.clone();
+            let (texture, size) = svg_from_bytes(tex_manager, IMAGE_FIXATION, &src)?;
+            let data = ResourceValue::Image(texture, size);
             println!("+ default fixation : {data:?}");
             data
         });
@@ -110,17 +110,18 @@ impl ResourceMap {
 
         // Load default rustacean image
         let src = PathBuf::from_str("rustacean.svg").unwrap();
-        self.map.entry(src.clone()).or_insert_with(|| {
-            let data =
-                ResourceValue::Svg(Arc::new(svg_from_bytes(IMAGE_RUSTACEAN.to_owned(), &src)));
+        map.entry(src.clone()).or_insert({
+            let tex_manager = tex_manager.clone();
+            let (texture, size) = svg_from_bytes(tex_manager, IMAGE_RUSTACEAN, &src)?;
+            let data = ResourceValue::Image(texture, size);
             println!("+ default rustacean : {data:?}");
             data
         });
         let mut default_rustacean = true;
 
         // Load resources used in new block
-        for src in block.resources(&config) {
-            let mut is_new = !self.map.contains_key(&src);
+        for src in resources {
+            let mut is_new = !map.contains_key(&src);
             match src.to_str().unwrap() {
                 "fixation.svg" => {
                     if default_fixation {
@@ -151,7 +152,7 @@ impl ResourceMap {
                 let path = path.with_extension(extn);
                 let extn = if mode.is_empty() { extn } else { mode };
                 let data = match extn {
-                    "txt" => {
+                    "txt" | "ron" => {
                         let text = std::fs::read_to_string(&path).map_err(|e| {
                             ResourceLoadError(format!(
                                 "Unable to read text file ({path:?})\n{e:#?}"
@@ -159,33 +160,47 @@ impl ResourceMap {
                         })?;
                         Ok(ResourceValue::Text(Arc::new(text)))
                     }
-                    "png" | "jpg" | "jpeg" => {
-                        Ok(ResourceValue::Image(Arc::new(image_from_file(&path)?)))
+                    "png" | "jpg" | "jpeg" | "bmp" | "tiff" | "ico" => {
+                        let tex_manager = tex_manager.clone();
+                        let (texture, size) = image_from_file(tex_manager, &path)?;
+                        Ok(ResourceValue::Image(texture, size))
                     }
-                    "svg" => Ok(ResourceValue::Svg(Arc::new(svg_from_file(&path)?))),
+                    "svg" => {
+                        let tex_manager = tex_manager.clone();
+                        let (texture, size) = svg_from_file(tex_manager, &path)?;
+                        Ok(ResourceValue::Image(texture, size))
+                    }
                     "wav" | "flac" | "ogg" => {
                         Ok(ResourceValue::Audio(audio_from_file(&path, &config)?))
                     }
                     "avi" | "gif" | "mkv" | "mov" | "mp4" | "mpg" | "webm" => {
-                        let (frames, framerate) = video_from_file(&path, &config)?;
+                        let tex_manager = tex_manager.clone();
+                        let (frames, framerate) = video_from_file(tex_manager, &path, &config)?;
                         Ok(ResourceValue::Video(frames, framerate))
                     }
-                    "stream" => Ok(ResourceValue::Stream(stream_from_file(&path, &config)?)),
+                    "stream" => {
+                        let tex_manager = tex_manager.clone();
+                        Ok(ResourceValue::Stream(stream_from_file(
+                            tex_manager,
+                            &path,
+                            &config,
+                        )?))
+                    }
                     _ => Err(ResourceLoadError(format!(
                         "Invalid extension `{extn}` with mode `{mode}` for data file `{src:?}`"
                     ))),
                 }?;
                 println!("+ {src:?} : {data:?}");
-                self.map.insert(src, data);
+                map.insert(src, data);
             }
         }
 
         Ok(())
     }
 
-    pub fn fetch(&self, src: &PathBuf) -> Result<&ResourceValue, error::Error> {
-        if let Some(res) = self.map.get(src) {
-            Ok(res)
+    pub fn fetch(&self, src: &PathBuf) -> Result<ResourceValue, error::Error> {
+        if let Some(res) = self.0.lock().unwrap().get(src) {
+            Ok(res.clone())
         } else {
             Err(ResourceLoadError(format!(
                 "Tried to fetch unexpected resource: {src:?}"
@@ -194,18 +209,18 @@ impl ResourceMap {
     }
 
     pub fn fetch_text(&self, text: &str) -> Result<String, error::Error> {
-        let text: &str = match text_or_file(text) {
+        let text: String = match text_or_file(text) {
             Some(src) => {
                 if let ResourceValue::Text(text) = self.fetch(&src)? {
-                    Ok(text.as_str())
+                    Ok((*text).clone())
                 } else {
                     Err(ResourceLoadError(format!(
                         "Text file caused unexpected error: `{src:?}`"
                     )))
                 }
             }
-            None => Ok(text),
+            None => Ok(text.to_owned()),
         }?;
-        Ok(text.to_owned())
+        Ok(text)
     }
 }

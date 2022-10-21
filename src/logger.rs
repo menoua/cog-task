@@ -1,14 +1,16 @@
 use crate::config::{Config, LogFormat};
 use crate::error;
 use crate::error::Error::LoggerError;
-use crate::scheduler::{info::Info, SchedulerMsg};
-use crate::server::ServerMsg;
-use iced::Command;
+use crate::scheduler::info::Info;
+use crate::scheduler::processor::AsyncSignal;
+use crate::signal::QWriter;
+use chrono::{DateTime, Local};
 use itertools::Itertools;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::{create_dir_all, File};
+use std::io::Write;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
@@ -24,33 +26,32 @@ pub struct Logger {
 }
 
 #[derive(Debug, Clone)]
-pub enum LoggerMsg {
+pub enum LoggerSignal {
     Append(String, (String, Value)),
     Extend(String, Vec<(String, Value)>),
     Flush,
-    Finish,
 }
 
-impl LoggerMsg {
-    #[inline(always)]
+impl LoggerSignal {
+    #[inline]
     fn requires_flush(&self) -> bool {
-        matches!(self, LoggerMsg::Append(_, _) | LoggerMsg::Extend(_, _))
+        matches!(
+            self,
+            LoggerSignal::Append(_, _) | LoggerSignal::Extend(_, _)
+        )
     }
-
-    #[inline(always)]
-    pub fn wrap(self) -> ServerMsg {
-        ServerMsg::Relay(SchedulerMsg::Logger(self))
+}
+impl From<LoggerSignal> for AsyncSignal {
+    fn from(signal: LoggerSignal) -> Self {
+        AsyncSignal::Logger(Local::now(), signal)
     }
 }
 
 impl Logger {
     pub fn new(info: &Info, config: &Config) -> Result<Self, error::Error> {
         let block = normalized_name(info.block());
-        let date = chrono::Local::now().format("%F").to_string();
-        let time = chrono::Local::now()
-            .format("%T")
-            .to_string()
-            .replace(':', "-");
+        let date = Local::now().format("%F").to_string();
+        let time = Local::now().format("%T").to_string().replace(':', "-");
         let out_dir = info
             .output()
             .join(&info.subject())
@@ -75,8 +76,8 @@ impl Logger {
         })
     }
 
-    fn append(&mut self, group: String, entry: (String, Value)) {
-        let time = chrono::Local::now().to_string();
+    fn append(&mut self, time: DateTime<Local>, group: String, entry: (String, Value)) {
+        let time = time.to_string();
         let (name, value) = entry;
         let (vec, flush) = self.content.entry(group).or_default();
         vec.push((time, name, value));
@@ -84,8 +85,8 @@ impl Logger {
         self.needs_flush = true;
     }
 
-    fn extend(&mut self, group: String, entries: Vec<(String, Value)>) {
-        let time = chrono::Local::now().to_string();
+    fn extend(&mut self, time: DateTime<Local>, group: String, entries: Vec<(String, Value)>) {
+        let time = time.to_string();
         let (vec, flush) = self.content.entry(group).or_default();
         vec.extend(
             entries
@@ -100,7 +101,7 @@ impl Logger {
         for (group, (vec, flush)) in self.content.iter_mut().filter(|(_, (_, flush))| *flush) {
             let name = format!("{}.log", normalized_name(group));
             let path = self.out_dir.join(name);
-            let file = File::create(&path).map_err(|e| {
+            let mut file = File::create(&path).map_err(|e| {
                 LoggerError(format!(
                     "Failed to create log file for group `{group}`:\n{e:#?}"
                 ))
@@ -113,49 +114,63 @@ impl Logger {
                 LogFormat::YAML => serde_yaml::to_writer(file, vec).map_err(|e| {
                     LoggerError(format!("Failed to log YAML to file: {path:?}\n{e:#?}"))
                 })?,
+                LogFormat::RON => file
+                    .write_all(
+                        ron::to_string(vec)
+                            .map_err(|e| {
+                                LoggerError(format!("Failed to serialize log to RON:\n{e:#?}"))
+                            })?
+                            .as_bytes(),
+                    )
+                    .map_err(|e| {
+                        LoggerError(format!("Failed to log RON to file: {path:?}\n{e:#?}"))
+                    })?,
             }
             *flush = false;
 
             #[cfg(debug_assertions)]
-            println!("{:?} -> Wrote to file: {path:?}", chrono::Local::now());
+            println!("{:?} -> Wrote to file: {path:?}", Local::now());
         }
         self.needs_flush = false;
         Ok(())
     }
 
-    pub fn update(&mut self, msg: LoggerMsg) -> Result<Command<ServerMsg>, error::Error> {
-        let cmd = if msg.requires_flush() && !self.needs_flush {
-            Command::perform(
-                async {
-                    thread::sleep(Duration::from_secs(30));
-                    LoggerMsg::Flush
-                },
-                LoggerMsg::wrap,
-            )
-        } else {
-            Command::none()
-        };
+    pub fn update(
+        &mut self,
+        time: DateTime<Local>,
+        signal: LoggerSignal,
+        async_writer: &QWriter<AsyncSignal>,
+    ) -> Result<(), error::Error> {
+        if signal.requires_flush() && !self.needs_flush {
+            let mut async_writer = async_writer.clone();
+            thread::spawn(move || {
+                thread::sleep(Duration::from_secs(5));
+                async_writer.push(LoggerSignal::Flush);
+            });
+        }
 
-        match msg {
-            LoggerMsg::Append(group, entry) => {
-                self.append(group, entry);
+        match signal {
+            LoggerSignal::Append(group, entry) => {
+                self.append(time, group, entry);
             }
-            LoggerMsg::Extend(group, entries) => {
-                self.extend(group, entries);
+            LoggerSignal::Extend(group, entries) => {
+                self.extend(time, group, entries);
             }
-            LoggerMsg::Flush => {
+            LoggerSignal::Flush => {
                 self.flush()?;
                 self.needs_flush = false;
             }
-            LoggerMsg::Finish => {
-                self.flush().map_err(|e| {
-                    LoggerError(format!("Failed to graciously close logger:\n{e:#?}"))
-                })?;
-                self.content.clear();
-            }
         }
 
-        Ok(cmd)
+        Ok(())
+    }
+
+    pub fn finish(&mut self) -> Result<(), error::Error> {
+        self.flush()
+            .map_err(|e| LoggerError(format!("Failed to graciously close logger:\n{e:#?}")))?;
+
+        self.content.clear();
+        Ok(())
     }
 }
 

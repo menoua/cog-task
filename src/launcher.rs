@@ -1,30 +1,27 @@
-use crate::assets::{Icon, TEXT_LARGE, TEXT_TINY, TEXT_XSMALL, VERSION};
+use crate::assets::{Icon, VERSION};
+use crate::signal::QReader;
 use crate::style;
-use crate::style::CUSTOM_RED;
+use crate::style::text::{button1, tooltip};
+use crate::style::{style_ui, Style, TEXT_SIZE_DIALOGUE_BODY, TEXT_SIZE_DIALOGUE_TITLE};
+use crate::system::SystemInfo;
+use eframe::egui;
+use eframe::egui::{CursorIcon, Direction, Layout, Vec2, Window};
+use eframe::glow::HasContext;
+use egui::widget_text::RichText;
+use egui_extras::{Size, StripBuilder};
 use heck::ToTitleCase;
-use iced::alignment::{Horizontal, Vertical};
-use iced::pure::widget::{
-    tooltip::Position, Button, Column, Container, Row, Scrollable, Space, Text,
-};
-use iced::pure::{button, column, text, tooltip, Application, Element};
-use iced::{Alignment, Color, Command, Length, Renderer};
-use iced_aw::pure::{Card, Modal};
 use itertools::Itertools;
 use native_dialog::FileDialog;
 use std::env::{current_dir, current_exe};
 use std::path::PathBuf;
+use std::thread;
+use std::time::Duration;
 
-#[derive(Default, Debug)]
-struct SystemInfo {
-    sys_name: String,
-    sys_kernel: String,
-    sys_version: String,
-    cpu_brand: String,
-    cpu_cores: String,
-    memory_total: String,
-    memory_used: String,
-    graphics_adapter: String,
-    graphics_backend: String,
+enum Status {
+    None,
+    Result(String),
+    SystemInfo,
+    Help,
 }
 
 pub struct Launcher {
@@ -33,10 +30,9 @@ pub struct Launcher {
     task_labels: Vec<String>,
     busy: bool,
     active_task: Option<String>,
-    status_message: Option<String>,
-    show_system_info: bool,
-    show_help: bool,
+    status: Status,
     sys_info: SystemInfo,
+    sync_reader: QReader<LauncherSignal>,
 }
 
 impl Default for Launcher {
@@ -85,10 +81,9 @@ impl Launcher {
                 task_labels,
                 busy: false,
                 active_task: None,
-                status_message: None,
-                show_system_info: false,
-                show_help: false,
-                sys_info: SystemInfo::default(),
+                status: Status::None,
+                sys_info: SystemInfo::new(),
+                sync_reader: QReader::new(),
             }
         } else {
             Self {
@@ -97,462 +92,375 @@ impl Launcher {
                 task_labels: vec![],
                 busy: false,
                 active_task: None,
-                status_message: None,
-                show_system_info: false,
-                show_help: false,
-                sys_info: Default::default(),
+                status: Status::None,
+                sys_info: SystemInfo::new(),
+                sync_reader: QReader::new(),
             }
         }
     }
 
-    pub fn window_size(&self) -> (u32, u32) {
+    pub fn window_size(&self) -> Vec2 {
         let count = self.task_paths.len() as u32;
-        let width = 600;
-        let height = match count {
-            0 => 275,
-            1 => 350,
-            2 => 400,
-            3 => 475,
-            4 => 575,
-            _ => 625,
-        };
-
-        (width, height)
+        let width = 580;
+        let height = (185 + count * 75).max(245).min(640);
+        Vec2::from([width as f32, height as f32])
     }
 
-    fn run_task(&mut self, task: PathBuf) -> Command<LauncherMsg> {
-        if task.file_name().is_none() {
-            return Command::none();
+    fn run_task(&mut self, task: PathBuf) {
+        if task.file_name().is_none() || self.busy {
+            return;
         }
 
         let curr = current_dir().unwrap();
         let root = current_exe().unwrap().parent().unwrap().to_path_buf();
         let path = root.join("bin").join("server").to_str().unwrap().to_owned();
+        let mut sync_writer = self.sync_reader.writer();
         self.busy = true;
         self.active_task = Some(task.file_name().unwrap().to_str().unwrap().to_title_case());
-        Command::perform(
-            async move {
-                use std::process::Command;
-                let proc = Command::new(path).current_dir(curr).arg(task).output();
+        thread::spawn(move || {
+            use std::process::Command;
+            let proc = Command::new(path).current_dir(curr).arg(task).output();
 
-                match proc {
-                    Ok(o) => {
-                        let stdout = o.stdout.into_iter().map(|c| c as char).collect::<String>();
-                        let stderr = o.stderr.into_iter().map(|c| c as char).collect::<String>();
-                        if !stdout.is_empty() {
-                            println!("\n{stdout}");
-                        }
-                        if !stderr.is_empty() {
-                            eprintln!("\n{stderr}");
-                            LauncherMsg::TaskCrash(stderr)
-                        } else {
-                            LauncherMsg::TaskClose
-                        }
+            match proc {
+                Ok(o) => {
+                    let stdout = o.stdout.into_iter().map(|c| c as char).collect::<String>();
+                    let stderr = o.stderr.into_iter().map(|c| c as char).collect::<String>();
+                    if !stdout.is_empty() {
+                        println!("\n{stdout}");
                     }
-                    Err(e) => {
-                        let status = format!(
-                            "Failed to spawn server. Make sure it is located in \
-                            bin/server relative to the launcher.\n{e:#?}"
-                        );
-                        println!("\nEE: {status}");
-                        LauncherMsg::TaskCrash(status)
+                    if !stderr.is_empty() {
+                        eprintln!("\n{stderr}");
+                        sync_writer.push(LauncherSignal::TaskCrashed(stderr));
+                    } else {
+                        sync_writer.push(LauncherSignal::TaskClosed);
                     }
                 }
-            },
-            |msg| msg,
-        )
+                Err(e) => {
+                    let status = format!(
+                        "Failed to spawn server. Make sure it is located in \
+                            bin/server relative to the launcher.\n{e:#?}"
+                    );
+                    println!("\nEE: {status}");
+                    sync_writer.push(LauncherSignal::TaskCrashed(status));
+                }
+            }
+        });
+    }
+
+    #[inline]
+    pub fn title() -> &'static str {
+        "CogTask Launcher"
+    }
+
+    pub fn run(mut self) {
+        let options = eframe::NativeOptions {
+            always_on_top: false,
+            maximized: false,
+            decorated: true,
+            fullscreen: false,
+            drag_and_drop_support: false,
+            icon_data: None,
+            initial_window_pos: None,
+            initial_window_size: Some(self.window_size() * 2.0),
+            min_window_size: None,
+            max_window_size: None,
+            resizable: false,
+            transparent: false,
+            vsync: true,
+            multisampling: 0,
+            depth_buffer: 0,
+            stencil_buffer: 0,
+            hardware_acceleration: eframe::HardwareAcceleration::Preferred,
+            renderer: Default::default(),
+            follow_system_theme: false,
+            default_theme: eframe::Theme::Light,
+            run_and_return: false,
+        };
+
+        self.sys_info.renderer = format!("{:#?}", options.renderer);
+        self.sys_info.hw_acceleration = format!("{:#?}", options.hardware_acceleration);
+
+        eframe::run_native(
+            Self::title(),
+            options,
+            Box::new(|cc| {
+                style::init(&cc.egui_ctx);
+                if let Some(gl) = &cc.gl {
+                    self.sys_info
+                        .renderer
+                        .push_str(&format!(" ({:?})", gl.version()))
+                }
+                Box::new(self)
+            }),
+        );
+    }
+
+    fn process(&mut self, msg: LauncherSignal) {
+        match (self.busy, msg) {
+            (true, LauncherSignal::TaskClosed) => {
+                self.busy = false;
+            }
+            (true, LauncherSignal::TaskCrashed(status)) => {
+                self.status = Status::Result(status);
+                self.busy = false;
+            }
+            _ => {}
+        };
     }
 }
 
 #[derive(Debug, Clone)]
-pub enum LauncherMsg {
-    StartTask(usize),
-    TaskCrash(String),
-    TaskClose,
-    ToClipboard,
-    CloseCard,
-    LoadTask,
-    LoadTaskRepo,
-    ShowSystemInfo,
-    // SystemInfoReceived(system::Information),
-    ShowHelp,
+pub enum LauncherSignal {
+    TaskCrashed(String),
+    TaskClosed,
 }
 
-impl Application for Launcher {
-    type Executor = iced::executor::Default;
-    type Message = LauncherMsg;
-    type Flags = ();
-
-    #[inline(always)]
-    fn new(_flags: Self::Flags) -> (Self, Command<Self::Message>) {
-        (
-            Launcher::default(),
-            Command::none(), // system::fetch_information(LauncherMsg::SystemInfoReceived),
-        )
-    }
-
-    #[inline(always)]
-    fn title(&self) -> String {
-        "CogTask Launcher".to_owned()
-    }
-
-    fn update(&mut self, message: Self::Message) -> Command<LauncherMsg> {
-        match (self.busy, message) {
-            (false, LauncherMsg::LoadTask) => {
-                let path = FileDialog::new()
-                    .set_location(current_dir().unwrap().to_str().unwrap())
-                    .show_open_single_dir()
-                    .unwrap();
-
-                match path {
-                    Some(path) => self.run_task(path),
-                    None => Command::none(),
-                }
-            }
-            (false, LauncherMsg::LoadTaskRepo) => {
-                let path = FileDialog::new()
-                    .set_location(current_dir().unwrap().to_str().unwrap())
-                    .show_open_single_dir()
-                    .unwrap();
-
-                match path {
-                    Some(path) => {
-                        *self = Self::new(path);
-                        let (width, height) = self.window_size();
-                        iced::window::resize(width, height)
-                    }
-                    None => Command::none(),
-                }
-            }
-            (false, LauncherMsg::ShowSystemInfo) => {
-                self.show_system_info = !self.show_system_info;
-                Command::none()
-            }
-            // (false, LauncherMsg::SystemInfoReceived(information)) => {
-            //     self.system_info.system_name = format!(
-            //         "System name: {}",
-            //         information
-            //             .system_name
-            //             .as_ref()
-            //             .unwrap_or(&"unknown".to_owned())
-            //     );
-            //
-            //     self.system_info.system_kernel = format!(
-            //         "System kernel: {}",
-            //         information
-            //             .system_kernel
-            //             .as_ref()
-            //             .unwrap_or(&"unknown".to_owned())
-            //     );
-            //
-            //     self.system_info.system_version = format!(
-            //         "System version: {}",
-            //         information
-            //             .system_version
-            //             .as_ref()
-            //             .unwrap_or(&"unknown".to_owned())
-            //     );
-            //
-            //     self.system_info.cpu_brand = format!("Processor brand: {}", information.cpu_brand);
-            //
-            //     self.system_info.cpu_cores = format!(
-            //         "Processor cores: {}",
-            //         information
-            //             .cpu_cores
-            //             .map_or("unknown".to_owned(), |cores| cores.to_string())
-            //     );
-            //
-            //     self.system_info.memory_readable =
-            //         ByteSize::kb(information.memory_total).to_string();
-            //
-            //     self.system_info.memory_total = format!(
-            //         "Memory (total): {} kb ({})",
-            //         information.memory_total, memory_readable
-            //     );
-            //
-            //     self.system_info.memory_text = if let Some(memory_used) = information.memory_used {
-            //         let memory_readable = ByteSize::kb(memory_used).to_string();
-            //         format!("{} kb ({})", memory_used, memory_readable)
-            //     } else {
-            //         "None".to_owned()
-            //     };
-            //
-            //     self.system_info.memory_used = format!("Memory (used): {}", memory_text);
-            //
-            //     self.system_info.graphics_adapter =
-            //         format!("Graphics adapter: {}", information.graphics_adapter);
-            //
-            //     self.system_info.graphics_backend =
-            //         format!("Graphics backend: {}", information.graphics_backend);
-            //
-            //     Command::none()
-            // }
-            (false, LauncherMsg::ShowHelp) => Command::none(),
-            (false, LauncherMsg::StartTask(i)) => self.run_task(self.task_paths[i].clone()),
-            (true, LauncherMsg::TaskClose) => {
-                self.busy = false;
-                Command::none()
-            }
-            (true, LauncherMsg::TaskCrash(status)) => {
-                self.busy = false;
-                self.status_message = Some(status);
-                Command::none()
-            }
-            (_, LauncherMsg::ToClipboard) => {
-                if let Some(status) = self.status_message.as_ref() {
-                    iced::clipboard::write(format!(
-                        "Task \"{}\" failed with error:\n{status}",
-                        self.active_task.as_ref().unwrap_or(&"[NONE]".to_owned())
-                    ))
-                } else {
-                    iced::clipboard::write(format!("{:#?}", self.sys_info))
-                }
-            }
-            (_, LauncherMsg::CloseCard) => {
-                self.status_message = None;
-                self.show_system_info = false;
-                self.show_help = false;
-                Command::none()
-            }
-            _ => Command::none(),
+impl eframe::App for Launcher {
+    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        while let Some(message) = self.sync_reader.try_pop() {
+            self.process(message);
         }
-    }
 
-    fn view(&self) -> Element<'_, Self::Message> {
-        let buttons: Vec<_> = self
-            .task_labels
-            .iter()
-            .enumerate()
-            .map(|(i, label)| {
-                let button = Button::new(
-                    Text::new(label)
-                        .size(TEXT_XSMALL)
-                        .horizontal_alignment(Horizontal::Center)
-                        .vertical_alignment(Vertical::Center),
-                )
-                .padding([15, 20])
-                .width(Length::Units(450))
-                .style(style::Select);
+        frame.set_window_size(self.window_size());
 
-                if self.busy {
-                    button
-                } else {
-                    button.on_press(LauncherMsg::StartTask(i))
-                }
-            })
-            .collect();
+        self.show(ctx);
 
-        let content = if buttons.is_empty() {
-            Container::new(Text::new("(No tasks found in task directory)").size(TEXT_XSMALL))
-        } else {
-            Container::new(Scrollable::new(style::grid(buttons, 1, 25, 25)))
-        }
-        .width(Length::Fill)
-        .center_x()
-        .center_y();
-
-        let content = Container::new(
-            Column::new()
-                .spacing(25)
-                .align_items(Alignment::Center)
-                .push(
-                    Container::new(
-                        Column::new()
-                            .spacing(3)
-                            .align_items(Alignment::Center)
-                            .push(
-                                Text::new(if self.busy {
-                                    format!("CogTask v{VERSION} (busy)")
-                                } else {
-                                    format!("CogTask v{VERSION}")
-                                })
-                                .size(TEXT_LARGE),
-                            )
-                            .push(
-                                Row::new()
-                                    .spacing(2)
-                                    .align_items(Alignment::Center)
-                                    .push(tooltip(
-                                        button(Icon::Folder)
-                                            .style(style::Transparent)
-                                            .on_press(LauncherMsg::LoadTask),
-                                        "Load task",
-                                        Position::Bottom,
-                                    ))
-                                    .push(tooltip(
-                                        button(Icon::FolderTree)
-                                            .style(style::Transparent)
-                                            .on_press(LauncherMsg::LoadTaskRepo),
-                                        "Load task catalogue",
-                                        Position::Bottom,
-                                    ))
-                                    .push(tooltip(
-                                        button(Icon::SystemInfo)
-                                            .style(style::Transparent)
-                                            .on_press(LauncherMsg::ShowSystemInfo),
-                                        "System information",
-                                        Position::Bottom,
-                                    ))
-                                    .push(tooltip(
-                                        button(Icon::Help)
-                                            .style(style::Transparent)
-                                            .on_press(LauncherMsg::ShowHelp),
-                                        "Help",
-                                        Position::Bottom,
-                                    )),
-                            ),
-                    )
-                    .center_x()
-                    .center_y(),
-                )
-                .push(content),
-        )
-        .padding([30, 50, 50, 50])
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .center_x()
-        .center_y();
-
-        let status = self.status_message.clone().unwrap_or_else(|| "".to_owned());
-        if !status.is_empty() || self.show_system_info {
-            Modal::new(true, content, move || {
-                Container::new(
-                    Row::new()
-                        .push(Space::with_width(Length::FillPortion(1)))
-                        .push(
-                            Column::new()
-                                .push(Space::with_height(Length::FillPortion(1)))
-                                .push(
-                                    if !status.is_empty() {
-                                        self.view_status()
-                                    } else {
-                                        self.view_sys_info()
-                                    }
-                                    .foot(
-                                        Container::new(
-                                            Row::new()
-                                                .spacing(3)
-                                                .padding(5)
-                                                .align_items(Alignment::Center)
-                                                .push(
-                                                    button(
-                                                        Icon::Clipboard,
-                                                        // svg::Svg::new(svg::Handle::from_memory(
-                                                        //     ICON_TO_CLIPBOARD,
-                                                        // ))
-                                                        // .content_fit(Contain),
-                                                    )
-                                                    .style(style::Transparent)
-                                                    .width(Length::Units(36))
-                                                    .height(Length::Units(36))
-                                                    .on_press(LauncherMsg::ToClipboard),
-                                                )
-                                                .push(
-                                                    button(
-                                                        Icon::Close, // svg::Svg::new(svg::Handle::from_memory(
-                                                                     //     ICON_CLOSE_WINDOW,
-                                                                     // ))
-                                                                     // .content_fit(Contain),
-                                                    )
-                                                    .style(style::Transparent)
-                                                    .width(Length::Units(36))
-                                                    .height(Length::Units(36))
-                                                    .on_press(LauncherMsg::CloseCard),
-                                                ),
-                                        )
-                                        .width(Length::Fill)
-                                        .align_x(Horizontal::Right),
-                                    )
-                                    .height(Length::FillPortion(14))
-                                    .padding_head(5.0),
-                                )
-                                .push(Space::with_height(Length::FillPortion(1)))
-                                .width(Length::FillPortion(14)),
-                        )
-                        .push(Space::with_width(Length::FillPortion(1))),
-                )
-                .height(Length::Fill)
-                .width(Length::Fill)
-                .center_x()
-                .center_y()
-                .into()
-            })
-            .on_esc(LauncherMsg::CloseCard)
-            .into()
-        } else {
-            content.into()
-        }
+        ctx.set_pixels_per_point(2.0);
+        ctx.request_repaint_after(Duration::from_millis(250));
     }
 }
 
 impl Launcher {
-    fn view_sys_info(&self) -> Card<LauncherMsg, Renderer> {
-        Card::new(
-            Text::new("System information:").size(TEXT_XSMALL),
-            column()
-                .spacing(10)
-                .align_items(Alignment::Start)
-                .push(
-                    text(format!(
-                        "System: {} - {} - {}",
-                        self.sys_info.sys_name, self.sys_info.sys_kernel, self.sys_info.sys_version
-                    ))
-                    .size(TEXT_TINY),
-                )
-                .push(
-                    text(format!(
-                        "CPU: {} - {}",
-                        self.sys_info.cpu_brand, self.sys_info.cpu_cores
-                    ))
-                    .size(TEXT_TINY),
-                )
-                .push(
-                    text(format!(
-                        "Memory: {} - {}",
-                        self.sys_info.memory_total, self.sys_info.memory_used
-                    ))
-                    .size(TEXT_TINY),
-                )
-                .push(
-                    text(format!(
-                        "Graphics: {} - {}",
-                        self.sys_info.graphics_adapter, self.sys_info.graphics_backend
-                    ))
-                    .size(TEXT_TINY),
-                ),
-        )
-        .style(style::Status)
+    fn show(&mut self, ctx: &egui::Context) {
+        let frame = egui::Frame::window(&ctx.style())
+            .inner_margin(0.0)
+            .outer_margin(0.0);
+
+        egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
+            if self.busy {
+                ui.output().cursor_icon = CursorIcon::NotAllowed;
+            }
+
+            ui.add_enabled_ui(!self.busy, |ui| {
+                StripBuilder::new(ui)
+                    .size(Size::exact(60.0))
+                    .size(Size::exact(40.0))
+                    .size(Size::exact(18.0))
+                    .size(Size::exact(4.0))
+                    .size(Size::exact(18.0))
+                    .size(Size::remainder())
+                    .vertical(|mut strip| {
+                        strip.cell(|ui| {
+                            ui.centered_and_justified(|ui| {
+                                ui.heading(if self.busy {
+                                    format!("CogTask v{VERSION} (busy)")
+                                } else {
+                                    format!("CogTask v{VERSION}")
+                                });
+                            });
+                        });
+
+                        strip.cell(|ui| {
+                            StripBuilder::new(ui)
+                                .size(Size::remainder())
+                                .size(Size::exact(240.0))
+                                .size(Size::remainder())
+                                .horizontal(|mut strip| {
+                                    strip.empty();
+                                    strip.cell(|ui| self.show_controls(ui));
+                                    strip.empty();
+                                });
+                        });
+
+                        strip.empty();
+
+                        strip.strip(|builder| {
+                            builder
+                                .size(Size::remainder())
+                                .size(Size::exact(240.0))
+                                .size(Size::remainder())
+                                .horizontal(|mut strip| {
+                                    strip.empty();
+                                    strip.cell(|ui| {
+                                        ui.vertical_centered_justified(|ui| {
+                                            ui.separator();
+                                        });
+                                    });
+                                    strip.empty();
+                                });
+                        });
+
+                        strip.empty();
+
+                        strip.cell(|ui| self.show_tasks(ui));
+                    });
+            });
+        });
+
+        if !matches!(self.status, Status::None) {
+            self.show_status(ctx);
+        }
     }
 
-    fn view_status(&self) -> Card<LauncherMsg, Renderer> {
-        use regex::Regex;
-        let re = Regex::new(r"^\[[a-zA-Z\d]+\]$").unwrap();
+    fn show_controls(&mut self, ui: &mut egui::Ui) {
+        enum Interaction {
+            None,
+            LoadTask,
+            LoadTaskRepo,
+            ShowSystemInfo,
+            ShowHelp,
+        }
 
-        let text = self
-            .status_message
-            .as_ref()
-            .map_or("".to_owned(), |s| s.clone());
-        let text = text.lines().into_iter().map(|line| {
-            if re.is_match(line) {
-                Text::new(line).size(TEXT_TINY).color(CUSTOM_RED)
-            } else {
-                Text::new(line).size(TEXT_TINY).color(Color::BLACK)
+        let mut interaction = Interaction::None;
+
+        style_ui(ui, Style::IconControls);
+        ui.columns(4, |columns| {
+            if columns[0]
+                .button(Icon::Folder)
+                .on_hover_text(tooltip("Load task"))
+                .clicked()
+            {
+                interaction = Interaction::LoadTask;
+            }
+            if columns[1]
+                .button(Icon::FolderTree)
+                .on_hover_text(tooltip("Load task catalogue"))
+                .clicked()
+            {
+                interaction = Interaction::LoadTaskRepo;
+            }
+            if columns[2]
+                .button(Icon::SystemInfo)
+                .on_hover_text(tooltip("System information"))
+                .clicked()
+            {
+                interaction = Interaction::ShowSystemInfo;
+            }
+            if columns[3]
+                .button(Icon::Help)
+                .on_hover_text(tooltip("Help"))
+                .clicked()
+            {
+                interaction = Interaction::ShowHelp;
             }
         });
 
-        let mut content = column().spacing(5);
-        for line in text {
-            content = content.push(line);
+        match interaction {
+            Interaction::None => {}
+            Interaction::LoadTask => {
+                let path = FileDialog::new()
+                    .set_location(current_dir().unwrap().to_str().unwrap())
+                    .show_open_single_dir()
+                    .unwrap();
+
+                if let Some(path) = path {
+                    self.run_task(path);
+                }
+            }
+            Interaction::LoadTaskRepo => {
+                let path = FileDialog::new()
+                    .set_location(current_dir().unwrap().to_str().unwrap())
+                    .show_open_single_dir()
+                    .unwrap();
+
+                if let Some(path) = path {
+                    let sys_info = self.sys_info.clone();
+                    *self = Self::new(path);
+                    self.sys_info = sys_info;
+                }
+            }
+            Interaction::ShowSystemInfo => {
+                self.status = Status::SystemInfo;
+            }
+            Interaction::ShowHelp => {
+                self.status = Status::Help;
+            }
+        }
+    }
+
+    fn show_tasks(&mut self, ui: &mut egui::Ui) {
+        enum Interaction {
+            None,
+            StartTask(usize),
         }
 
-        Card::new(
-            Text::new(format!(
-                "Task \"{}\" failed with error:",
-                self.active_task.as_ref().unwrap_or(&"[INVALID]".to_owned())
-            ))
-            .size(TEXT_TINY),
-            Scrollable::new(content),
+        let mut interaction = Interaction::None;
+
+        let task_buttons: Vec<_> = self
+            .task_labels
+            .iter()
+            .map(|label| egui::Button::new(button1(label)))
+            .collect();
+
+        if task_buttons.is_empty() {
+            ui.horizontal_centered(|ui| {
+                ui.vertical_centered(|ui| {
+                    ui.label("(No tasks found in task directory)");
+                });
+            });
+        } else {
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                ui.vertical_centered(|ui| {
+                    style_ui(ui, Style::SelectButton);
+                    ui.spacing_mut().item_spacing = Vec2::new(25.0, 20.0);
+                    for (i, button) in task_buttons.into_iter().enumerate() {
+                        if ui.add(button).clicked() {
+                            interaction = Interaction::StartTask(i);
+                        }
+                    }
+                });
+            });
+        }
+
+        match interaction {
+            Interaction::None => {}
+            Interaction::StartTask(i) => self.run_task(self.task_paths[i].clone()),
+        }
+    }
+
+    fn show_status(&mut self, ctx: &egui::Context) {
+        if matches!(self.status, Status::None) {
+            return;
+        }
+
+        let (title, content) = match &self.status {
+            Status::Result(status) => ("Status", status.to_owned()),
+            Status::SystemInfo => ("System Info", format!("{:#?}", self.sys_info)),
+            Status::Help => ("Help", "...".to_owned()),
+            _ => ("", "".to_owned()),
+        };
+
+        let mut open = true;
+        Window::new(
+            RichText::from(title)
+                .size(TEXT_SIZE_DIALOGUE_TITLE)
+                .strong(),
         )
-        .style(style::Error)
+        .collapsible(false)
+        .open(&mut open)
+        .vscroll(true)
+        .min_width(550.0)
+        .default_size(Vec2::new(550.0, 240.0))
+        .show(ctx, |ui| {
+            ui.with_layout(
+                Layout::centered_and_justified(Direction::LeftToRight),
+                |ui| {
+                    ui.label(RichText::from(content.clone()).size(TEXT_SIZE_DIALOGUE_BODY * 0.9));
+                },
+            )
+            .response
+            .context_menu(|ui| {
+                if ui
+                    .button(RichText::new("Copy").size(TEXT_SIZE_DIALOGUE_BODY * 0.9))
+                    .clicked()
+                {
+                    ui.close_menu();
+                    ui.output().copied_text = content.trim().to_owned();
+                }
+            });
+        });
+        if !open {
+            self.status = Status::None;
+        }
     }
 }

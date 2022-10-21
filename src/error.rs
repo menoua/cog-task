@@ -1,125 +1,44 @@
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
+use thiserror::Error;
 
-#[derive(Clone)]
+#[derive(Clone, Error, Debug)]
 pub enum Error {
+    #[error("Failed to load resource: {0}")]
     ResourceLoadError(String),
+    #[error("Failed to load resource: {0}")]
     AudioDecodingError(String),
-    VideoDecodingError(String),
+    #[error("Failed to decode stream: {0}")]
+    StreamDecodingError(String),
+    #[error("Invalid trigger configuration: {0}")]
     TriggerConfigError(String),
+    #[error("Invalid resource: {0}")]
     InvalidResourceError(String),
+    #[error("Invalid name format: {0}")]
     InvalidNameError(String),
+    #[error("Failed to evolve action: {0}")]
     ActionEvolveError(String),
+    #[error("Failed to update action: {0}")]
     ActionUpdateError(String),
+    #[error("Failed to display action: {0}")]
     ActionViewError(String),
+    #[error("I/O error: {0}")]
     IoAccessError(String),
+    #[error("Internal error: {0}")]
     InternalError(String),
+    #[error("Invalid task definition: {0}")]
     TaskDefinitionError(String),
+    #[error("Invalid configuration: {0}")]
     InvalidConfigError(String),
+    #[error("Environment error: {0}")]
     EnvironmentError(String),
+    #[error("Logger error: {0}")]
     LoggerError(String),
+    #[error("Flow error: {0}")]
     FlowError(String),
+    #[error("Graph error: {0}")]
     GraphError(String),
+    #[error("Checksum error: {0}")]
     ChecksumError(String),
+    #[error("Backend error: {0}")]
     BackendError(String),
-}
-
-impl Debug for Error {
-    // fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    //     match self {
-    //         Error::ResourceLoadError(e) => write!(f, "ResourceLoadError ->\n{e}"),
-    //         Error::AudioDecodingError(e) => write!(f, "AudioDecodingError ->\n{e}"),
-    //         Error::VideoDecodingError(e) => {
-    //             write!(
-    //                 f,
-    //                 "VideoDecodingError ->\n{e}\n\
-    //                 --------------------------------------------------------------------\n\
-    //                 If the video file isn't corrupted, this is most likely a problem with \
-    //                 finding GStreamer and the necessary plugins on the system. Make sure \
-    //                 that you have GStreamer and its plugins installed on your system. If \
-    //                 you are still having problems, try setting the environment variable \
-    //                 `GST_PLUGIN_PATH` to the location of your GStreamer plugins before \
-    //                 launching this application, e.g., by running the following command:\n\
-    //                 ```GST_PLUGIN_PATH=\"/usr/local/lib/gstreamer-1.0\" ./launcher```"
-    //             )
-    //         }
-    //         Error::TriggerConfigError(e) => write!(f, "TriggerConfigError ->\n{e}"),
-    //         Error::InvalidResourceError(e) => write!(f, "InvalidResourceError ->\n{e}"),
-    //         Error::InvalidNameError(e) => write!(f, "InvalidNameError ->\n{e}"),
-    //         Error::ActionEvolveError(e) => write!(f, "ActionEvolveError ->\n{e}"),
-    //         Error::ActionUpdateError(e) => write!(f, "ActionUpdateError ->\n{e}"),
-    //         Error::ActionViewError(e) => write!(f, "ActionViewError ->\n{e}"),
-    //         Error::IoAccessError(e) => write!(f, "IoAccessError ->\n{e}"),
-    //         Error::InternalError(e) => write!(f, "InternalError ->\n{e}"),
-    //         Error::TaskDefinitionError(e) => write!(f, "TaskDefinitionError ->\n{e}"),
-    //         Error::InvalidConfigError(e) => write!(f, "InvalidConfigError ->\n{e}"),
-    //         Error::EnvironmentError(e) => write!(f, "EnvironmentError ->\n{e}"),
-    //         Error::LoggerError(e) => write!(f, "LoggerError ->\n{e}"),
-    //         Error::FlowError(e) => write!(f, "FlowError ->\n{e}"),
-    //         Error::GraphError(e) => write!(f, "GraphError ->\n{e}"),
-    //         Error::ChecksumError(e) => write!(f, "ChecksumError ->\n{e}"),
-    //     }
-    // }
-
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Error::ResourceLoadError(e)
-            | Error::AudioDecodingError(e)
-            | Error::TriggerConfigError(e)
-            | Error::InvalidResourceError(e)
-            | Error::InvalidNameError(e)
-            | Error::ActionEvolveError(e)
-            | Error::ActionUpdateError(e)
-            | Error::ActionViewError(e)
-            | Error::IoAccessError(e)
-            | Error::InternalError(e)
-            | Error::TaskDefinitionError(e)
-            | Error::InvalidConfigError(e)
-            | Error::EnvironmentError(e)
-            | Error::LoggerError(e)
-            | Error::FlowError(e)
-            | Error::GraphError(e)
-            | Error::ChecksumError(e)
-            | Error::BackendError(e) => write!(f, "{e}"),
-            Error::VideoDecodingError(e) => {
-                write!(
-                    f,
-                    "{e}\n\
-                    --------------------------------------------------------------------\n\
-                    If the video file isn't corrupted, this is most likely a problem with \
-                    finding GStreamer and the necessary plugins on the system. Make sure \
-                    that you have GStreamer and its plugins installed on your system. If \
-                    you are still having problems, try setting the environment variable \
-                    `GST_PLUGIN_PATH` to the location of your GStreamer plugins before \
-                    launching this application, e.g., by running the following command:\n\
-                    ```GST_PLUGIN_PATH=\"/usr/local/lib/gstreamer-1.0\" ./launcher```"
-                )
-            }
-        }
-    }
-}
-
-impl Error {
-    pub fn type_(&self) -> &str {
-        match self {
-            Error::ResourceLoadError(_) => "ResourceLoadError",
-            Error::AudioDecodingError(_) => "AudioDecodingError",
-            Error::VideoDecodingError(_) => "VideoDecodingError",
-            Error::TriggerConfigError(_) => "TriggerConfigError",
-            Error::InvalidResourceError(_) => "InvalidResourceError",
-            Error::InvalidNameError(_) => "InvalidNameError",
-            Error::ActionEvolveError(_) => "ActionEvolveError",
-            Error::ActionUpdateError(_) => "ActionUpdateError",
-            Error::ActionViewError(_) => "ActionViewError",
-            Error::IoAccessError(_) => "IoAccessError",
-            Error::InternalError(_) => "InternalError",
-            Error::TaskDefinitionError(_) => "TaskDefinitionError",
-            Error::InvalidConfigError(_) => "InvalidConfigError",
-            Error::EnvironmentError(_) => "EnvironmentError",
-            Error::LoggerError(_) => "LoggerError",
-            Error::FlowError(_) => "FlowError",
-            Error::GraphError(_) => "GraphError",
-            Error::ChecksumError(_) => "ChecksumError",
-            Error::BackendError(_) => "BackendError",
-        }
-    }
 }

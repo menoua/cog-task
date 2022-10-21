@@ -1,26 +1,33 @@
 use crate::backend::{ffmpeg, gst, MediaMode, MediaStream};
-use crate::config::{Config, MediaBackend, TriggerType};
+use crate::config::{Config, MediaBackend};
 use crate::error;
 use crate::error::Error::{BackendError, ResourceLoadError};
 use crate::resource::FrameBuffer;
-use iced::pure::widget::image;
+use eframe::egui::mutex::RwLock;
+use eframe::egui::{TextureId, Vec2};
+use eframe::epaint::TextureManager;
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-pub fn stream_from_file(path: &Path, config: &Config) -> Result<Stream, error::Error> {
-    Stream::new(path, config)
+pub fn stream_from_file(
+    tex_manager: Arc<RwLock<TextureManager>>,
+    path: &Path,
+    config: &Config,
+) -> Result<Stream, error::Error> {
+    Stream::new(tex_manager, path, config)
 }
 
+#[derive(Clone)]
 pub enum Stream {
     Gst(gst::Stream),
     Ffmpeg(ffmpeg::Stream),
 }
 
 impl Debug for Stream {
-    #[inline(always)]
+    #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "[video::Handle]")
     }
@@ -28,23 +35,16 @@ impl Debug for Stream {
 
 impl Stream {
     /// Create a new video object from a given video file.
-    pub fn new(path: &Path, config: &Config) -> Result<Self, error::Error> {
+    pub fn new(
+        tex_manager: Arc<RwLock<TextureManager>>,
+        path: &Path,
+        config: &Config,
+    ) -> Result<Self, error::Error> {
         {
             File::open(path).map_err(|e| {
                 ResourceLoadError(format!("Failed to load video file ({path:?}):\n{e:#?}"))
             })?;
         }
-
-        let use_trigger = config.use_trigger();
-        let trigger_type = config.trigger_type();
-        let media_mode = match (use_trigger, trigger_type) {
-            (false, TriggerType::LastChannel) => MediaMode::SansIntTrigger,
-            (true, TriggerType::SeparateFile) => {
-                let trigger = path.with_extension("trig.wav");
-                MediaMode::WithExtTrigger(trigger)
-            }
-            (_, _) => MediaMode::Normal,
-        };
 
         let media_backend = config.media_backend();
         match media_backend {
@@ -52,14 +52,14 @@ impl Stream {
                 "Action type `stream` cannot be used with media backend `None`".to_owned(),
             )),
             MediaBackend::Ffmpeg => {
-                ffmpeg::Stream::new(path, config, media_mode).map(Stream::Ffmpeg)
+                ffmpeg::Stream::new(tex_manager, path, config).map(Stream::Ffmpeg)
             }
-            MediaBackend::Gst => gst::Stream::new(path, config, media_mode).map(Stream::Gst),
+            MediaBackend::Gst => gst::Stream::new(tex_manager, path, config).map(Stream::Gst),
         }
     }
 
     /// Check if stream has reached its end.
-    #[inline(always)]
+    #[inline]
     pub fn eos(&self) -> bool {
         match self {
             Stream::Gst(stream) => stream.eos(),
@@ -68,7 +68,7 @@ impl Stream {
     }
 
     /// Get the size/resolution of the video as `[width, height]`.
-    #[inline(always)]
+    #[inline]
     pub fn size(&self) -> [u32; 2] {
         match self {
             Stream::Gst(stream) => stream.size(),
@@ -77,7 +77,7 @@ impl Stream {
     }
 
     /// Get the framerate of the video as frames per second.
-    #[inline(always)]
+    #[inline]
     pub fn framerate(&self) -> f64 {
         match self {
             Stream::Gst(stream) => stream.framerate(),
@@ -86,7 +86,7 @@ impl Stream {
     }
 
     /// Get the number of audio channels.
-    #[inline(always)]
+    #[inline]
     pub fn channels(&self) -> u16 {
         match self {
             Stream::Gst(stream) => stream.channels(),
@@ -95,7 +95,7 @@ impl Stream {
     }
 
     /// Get the media duration.
-    #[inline(always)]
+    #[inline]
     pub fn duration(&self) -> Duration {
         match self {
             Stream::Gst(stream) => stream.duration(),
@@ -104,7 +104,7 @@ impl Stream {
     }
 
     /// Check if stream has a video channel.
-    #[inline(always)]
+    #[inline]
     pub fn has_video(&self) -> bool {
         match self {
             Stream::Gst(stream) => stream.has_video(),
@@ -113,7 +113,7 @@ impl Stream {
     }
 
     /// Check if stream has an audio channel.
-    #[inline(always)]
+    #[inline]
     pub fn has_audio(&self) -> bool {
         match self {
             Stream::Gst(stream) => stream.has_audio(),
@@ -133,13 +133,13 @@ impl Stream {
     // }
 
     // /// Get if the stream ended or not.
-    // #[inline(always)]
+    // #[inline]
     // pub fn eos(&self) -> bool {
     //     self.is_eos
     // }
 
     // /// Get if the stream is paused.
-    // #[inline(always)]
+    // #[inline]
     // pub fn paused(&self) -> bool {
     //     self.paused
     // }
@@ -190,12 +190,13 @@ impl Stream {
 
     pub fn cloned(
         &self,
-        frame: Arc<Mutex<Option<image::Handle>>>,
+        frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
+        media_mode: MediaMode,
         volume: Option<f32>,
     ) -> Result<Self, error::Error> {
         match self {
-            Stream::Gst(stream) => stream.cloned(frame, volume).map(Stream::Gst),
-            Stream::Ffmpeg(stream) => stream.cloned(frame, volume).map(Stream::Ffmpeg),
+            Stream::Gst(stream) => stream.cloned(frame, media_mode, volume).map(Stream::Gst),
+            Stream::Ffmpeg(stream) => stream.cloned(frame, media_mode, volume).map(Stream::Ffmpeg),
         }
     }
 

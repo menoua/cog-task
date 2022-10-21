@@ -1,20 +1,15 @@
-use crate::config::{Config, TriggerType};
+use crate::config::Config;
 use crate::error;
 use crate::error::Error::{AudioDecodingError, ResourceLoadError, TriggerConfigError};
+use crate::resource::AudioBuffer;
 use rodio::buffer::SamplesBuffer;
-use rodio::source::Buffered;
 use rodio::{Decoder, Source};
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::BufReader;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
-pub fn audio_from_file(
-    path: &Path,
-    config: &Config,
-) -> Result<Buffered<SamplesBuffer<i16>>, error::Error> {
-    let trigger_type = config.trigger_type();
-    let use_trigger = config.use_trigger();
-
+pub fn audio_from_file(path: &Path, _config: &Config) -> Result<AudioBuffer, error::Error> {
     let decoder = Decoder::new(BufReader::new(File::open(&path).map_err(|e| {
         ResourceLoadError(format!("Failed to open audio file: `{path:?}`\n{e:#?}"))
     })?))
@@ -22,73 +17,89 @@ pub fn audio_from_file(
 
     let sample_rate = decoder.sample_rate();
     let in_channels = decoder.channels() as i16;
-    let out_channels = match (trigger_type, use_trigger) {
-        (TriggerType::None, _) => in_channels,
-        (TriggerType::LastChannel, false) => in_channels - 1,
-        (TriggerType::LastChannel, true) => in_channels,
-        (TriggerType::SeparateFile, false) => in_channels,
-        (TriggerType::SeparateFile, true) => in_channels + 1,
-    };
-    let mut trigger = if matches!(trigger_type, TriggerType::SeparateFile) && use_trigger {
-        let ext = if let Some(ext) = path.extension() {
-            Ok(ext.to_str().unwrap().to_owned())
-        } else {
-            Err(ResourceLoadError(format!(
-                "Audio file name {path:?} should have extension"
-            )))
-        }?;
-        let path = path.with_extension(format!("trig.{ext}"));
-        let decoder = Decoder::new(BufReader::new(File::open(&path).map_err(|e| {
-            ResourceLoadError(format!(
-                "Failed to open audio trigger file: `{path:?}`:\n{e:#?}"
-            ))
-        })?))
-        .map_err(|e| {
-            AudioDecodingError(format!(
-                "Failed to decode audio trigger file: `{path:?}`:\n{e:#?}"
-            ))
-        })?;
-        if decoder.sample_rate() != sample_rate {
-            return Err(TriggerConfigError(format!(
-                "Trigger ({path:?}) has different sampling rate than corresponding audio"
-            )));
-        }
-        if decoder.channels() != 1 {
-            return Err(TriggerConfigError(format!(
-                "Trigger ({path:?}) should have exactly 1 channel"
-            )));
-        }
-        Some(decoder)
-    } else {
-        None
-    };
+    let out_channels = in_channels;
 
     let mut c = -1;
     let mut samples = vec![];
     for s in decoder {
         c = (c + 1) % in_channels;
-        if c < in_channels - 1 || trigger.is_none() || use_trigger {
-            samples.push(s);
-        }
+        samples.push(s);
+    }
+
+    Ok(SamplesBuffer::new(out_channels as u16, sample_rate, samples).buffered())
+}
+
+pub fn interlace_channels(
+    src1: AudioBuffer,
+    mut src2: AudioBuffer,
+) -> Result<AudioBuffer, error::Error> {
+    let sample_rate = src1.sample_rate();
+    let in_channels = src1.channels() as i16;
+    let out_channels = in_channels + 1;
+
+    if src2.sample_rate() != sample_rate {
+        return Err(TriggerConfigError(format!(
+            "Trigger (?) has different sampling rate than corresponding audio"
+        )));
+    }
+    if src2.channels() != 1 {
+        return Err(TriggerConfigError(format!(
+            "Trigger (?) should have exactly 1 channel"
+        )));
+    }
+
+    let mut c = -1;
+    let mut samples = vec![];
+    for s in src1 {
+        c = (c + 1) % in_channels;
+        samples.push(s);
         if c == in_channels - 1 {
-            if let Some(trigger) = &mut trigger {
-                if let Some(s) = trigger.next() {
-                    samples.push(s);
-                } else {
-                    return Err(TriggerConfigError(format!(
-                        "Trigger for ({path:?}) is shorter than itself"
-                    )));
-                }
+            if let Some(s) = src2.next() {
+                samples.push(s);
             }
         }
     }
-    if let Some(mut trigger) = trigger {
-        if trigger.next().is_some() {
-            return Err(TriggerConfigError(format!(
-                "Trigger for ({path:?}) is longer than itself"
-            )));
+    if src2.next().is_some() {
+        return Err(TriggerConfigError(format!(
+            "Trigger for (?) is longer than itself"
+        )));
+    }
+
+    Ok(SamplesBuffer::new(out_channels as u16, sample_rate, samples).buffered())
+}
+
+pub fn drop_channel(src: AudioBuffer) -> Result<AudioBuffer, error::Error> {
+    let sample_rate = src.sample_rate();
+    let in_channels = src.channels() as i16;
+    let out_channels = in_channels - 1;
+    if out_channels == 0 {
+        return Err(TriggerConfigError(
+            "Audio with internal trigger should have at least one channel".to_owned(),
+        ));
+    }
+
+    let mut c = -1;
+    let mut samples = vec![];
+    for s in src {
+        c = (c + 1) % in_channels;
+        if c < in_channels - 1 {
+            samples.push(s);
         }
     }
 
     Ok(SamplesBuffer::new(out_channels as u16, sample_rate, samples).buffered())
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum Trigger {
+    Ext(PathBuf),
+    Int,
+    None,
+}
+
+impl Default for Trigger {
+    fn default() -> Self {
+        Trigger::None
+    }
 }

@@ -2,13 +2,15 @@ use crate::backend::{MediaMode, MediaStream};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error::{
-    BackendError, InternalError, InvalidConfigError, ResourceLoadError, VideoDecodingError,
+    BackendError, InternalError, InvalidConfigError, ResourceLoadError, StreamDecodingError,
 };
 use crate::resource::FrameBuffer;
+use eframe::egui::mutex::RwLock;
+use eframe::egui::{ColorImage, ImageData, TextureFilter, TextureId, Vec2};
+use eframe::epaint::TextureManager;
 use gst::prelude::*;
 use gstreamer as gst;
 use gstreamer_app as gst_app;
-use iced::pure::widget::image;
 use num_rational::Rational32;
 use num_traits::ToPrimitive;
 use once_cell::sync::OnceCell;
@@ -24,12 +26,12 @@ static GST_INIT: OnceCell<()> = OnceCell::new();
 /// A video handle that uses GStreamer to stream video content.
 /// This `struct` and its associated `impl` is a simplified version of the
 /// `VideoPlayer` struct found at: https://github.com/jazzfool/iced_video_player.
+#[derive(Clone)]
 pub struct Stream {
     path: PathBuf,
     source: gst::Bin,
     playbin: gst::Bin,
     bus: gst::Bus,
-    media_mode: MediaMode,
     frame_size: [u32; 2],
     frame_rate: f64,
     audio_chan: u16,
@@ -37,11 +39,16 @@ pub struct Stream {
     duration: Duration,
     is_eos: bool,
     paused: bool,
+    tex_manager: Arc<RwLock<TextureManager>>,
 }
 
 impl MediaStream for Stream {
     /// Create a new video object from a given video file.
-    fn new(path: &Path, _config: &Config, media_mode: MediaMode) -> Result<Self, error::Error> {
+    fn new(
+        tex_manager: Arc<RwLock<TextureManager>>,
+        path: &Path,
+        _config: &Config,
+    ) -> Result<Self, error::Error> {
         init()?;
 
         let (source, playbin) = launch(path, &MediaMode::Query, None)?;
@@ -58,6 +65,7 @@ impl MediaStream for Stream {
             Some(sink) => audio_meta_from_sink(sink)?,
             None => (0, 0),
         };
+        println!("--> width={width} height={height} framerate={frame_rate} audio_chan={audio_chan} audio_sr={audio_rate}");
 
         let duration = Duration::from_nanos(
             source
@@ -68,33 +76,16 @@ impl MediaStream for Stream {
         );
 
         source.set_state(gst::State::Null).map_err(|e| {
-            VideoDecodingError(format!(
+            StreamDecodingError(format!(
                 "Failed to close video graciously ({path:?}):\n{e:#?}"
             ))
         })?;
-
-        let (media_mode, audio_chan) = match (media_mode, audio_chan) {
-            (MediaMode::SansIntTrigger, 0) => Err(InvalidConfigError(format!(
-                "Cannot assume integrated trigger due to missing audio stream: {path:?}"
-            ))),
-            (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
-            (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
-            (MediaMode::SansIntTrigger, _) => Err(InvalidConfigError(format!(
-                "Cannot use integrated trigger with multichannel (n = {audio_chan} > 2) audio: {path:?}"
-            ))),
-            (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
-            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
-                "Cannot add trigger stream to non-mono (n = {audio_chan}) audio stream: {path:?}"
-            ))),
-            (mode, c) => Ok((mode, c)),
-        }?;
 
         Ok(Stream {
             path: path.to_owned(),
             source,
             playbin,
             bus,
-            media_mode,
             frame_size: [width as u32, height as u32],
             frame_rate,
             audio_chan,
@@ -102,21 +93,44 @@ impl MediaStream for Stream {
             duration,
             is_eos: false,
             paused: true,
+            tex_manager,
         })
     }
 
     fn cloned(
         &self,
-        frame: Arc<Mutex<Option<image::Handle>>>,
+        frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
+        media_mode: MediaMode,
         volume: Option<f32>,
     ) -> Result<Self, error::Error> {
-        let (source, playbin) = launch(&self.path, &self.media_mode, volume)?;
+        let (media_mode, audio_chan) = match (media_mode, self.audio_chan) {
+            (MediaMode::SansIntTrigger, 0) => Err(InvalidConfigError(format!(
+                "Cannot assume integrated trigger due to missing audio stream: {:?}",
+                self.path
+            ))),
+            (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
+            (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
+            (MediaMode::SansIntTrigger, _) => Err(InvalidConfigError(format!(
+                "Cannot use integrated trigger with multichannel (n = {} > 2) audio: {:?}",
+                self.audio_chan, self.path,
+            ))),
+            (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
+            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
+                "Cannot add trigger stream to non-mono (n = {}) audio stream: {:?}",
+                self.audio_chan, self.path
+            ))),
+            (mode, c) => Ok((mode, c)),
+        }?;
+
+        let (source, playbin) = launch(&self.path, &media_mode, volume)?;
         let bus = source.bus().unwrap();
 
         let video_sink = get_video_sink(&playbin, true);
         if let Some(sink) = video_sink {
             sink.set_max_buffers(5 * self.frame_rate.ceil() as u32);
+            let path = self.path.clone();
             let [width, height] = self.size();
+            let tex_manager = self.tex_manager.clone();
 
             thread::spawn(move || {
                 sink.set_callbacks(
@@ -126,12 +140,17 @@ impl MediaStream for Stream {
                             let buffer = sample.buffer().ok_or(gst::FlowError::Error)?;
                             let map = buffer.map_readable().map_err(|_| gst::FlowError::Error)?;
 
-                            *frame.lock().map_err(|_| gst::FlowError::Error)? =
-                                Some(image::Handle::from_pixels(
-                                    width,
-                                    height,
-                                    map.as_slice().to_owned(),
-                                ));
+                            *frame.lock().map_err(|_| gst::FlowError::Error)? = Some((
+                                tex_manager.write().alloc(
+                                    format!("{:?}:@:[current]", path),
+                                    ImageData::Color(ColorImage::from_rgba_unmultiplied(
+                                        [width as _, height as _],
+                                        map.as_slice(),
+                                    )),
+                                    TextureFilter::Linear,
+                                ),
+                                Vec2::new(width as _, height as _),
+                            ));
 
                             Ok(gst::FlowSuccess::Ok)
                         })
@@ -145,55 +164,55 @@ impl MediaStream for Stream {
             source,
             playbin,
             bus,
-            media_mode: self.media_mode.clone(),
             frame_size: self.frame_size,
             frame_rate: self.frame_rate,
-            audio_chan: self.audio_chan,
+            audio_chan,
             audio_rate: self.audio_rate,
             duration: self.duration,
             is_eos: self.is_eos,
             paused: self.paused,
+            tex_manager: self.tex_manager.clone(),
         })
     }
 
     /// Get if the stream ended or not.
-    #[inline(always)]
+    #[inline]
     fn eos(&self) -> bool {
         self.is_eos
     }
 
     /// Get the size/resolution of the video as `[width, height]`.
-    #[inline(always)]
+    #[inline]
     fn size(&self) -> [u32; 2] {
         self.frame_size
     }
 
     /// Get the framerate of the video as frames per second.
-    #[inline(always)]
+    #[inline]
     fn framerate(&self) -> f64 {
         self.frame_rate
     }
 
     /// Get the number of audio channels.
-    #[inline(always)]
+    #[inline]
     fn channels(&self) -> u16 {
         self.audio_chan
     }
 
     /// Get the media duration.
-    #[inline(always)]
+    #[inline]
     fn duration(&self) -> Duration {
         self.duration
     }
 
     /// Check if stream has a video channel.
-    #[inline(always)]
+    #[inline]
     fn has_video(&self) -> bool {
         self.frame_size.iter().sum::<u32>() > 0
     }
 
     /// Check if stream has an audio channel.
-    #[inline(always)]
+    #[inline]
     fn has_audio(&self) -> bool {
         self.audio_chan > 0
     }
@@ -210,7 +229,7 @@ impl MediaStream for Stream {
         let position: gst::GenericFormattedValue = gst::format::Default(0).into();
         self.source
             .seek_simple(gst::SeekFlags::FLUSH, position)
-            .map_err(|e| VideoDecodingError(format!("Failed to seek video position:\n{e:#?}")))?;
+            .map_err(|e| StreamDecodingError(format!("Failed to seek video position:\n{e:#?}")))?;
         self.set_paused(false)?;
         Ok(())
     }
@@ -235,7 +254,7 @@ impl MediaStream for Stream {
 
         playbin.set_property("mute", true);
         source.set_state(gst::State::Playing).map_err(|e| {
-            VideoDecodingError(format!(
+            StreamDecodingError(format!(
                 "Failed to change video state (\"{:?}\"):\n{e:#?}",
                 self.path
             ))
@@ -248,22 +267,28 @@ impl MediaStream for Stream {
         let t1 = Instant::now();
         while let Ok(sample) = video_sink.pull_sample() {
             let buffer = sample.buffer().ok_or_else(|| {
-                VideoDecodingError(format!(
+                StreamDecodingError(format!(
                     "Failed to obtain buffer on video sample (\"{:?}\").",
                     self.path
                 ))
             })?;
             let map = buffer.map_readable().map_err(|e| {
-                VideoDecodingError(format!(
+                StreamDecodingError(format!(
                     "Failed to obtain map on buffered sample (\"{:?}\"):\n{e:#?}",
                     self.path
                 ))
             })?;
 
-            frames.push(image::Handle::from_pixels(
-                self.frame_size[0] as _,
-                self.frame_size[1] as _,
-                map.as_slice().to_owned(),
+            frames.push((
+                self.tex_manager.write().alloc(
+                    format!("{:?}:@:{}", self.path, frames.len()),
+                    ImageData::Color(ColorImage::from_rgba_unmultiplied(
+                        [self.frame_size[0] as _, self.frame_size[1] as _],
+                        map.as_slice(),
+                    )),
+                    TextureFilter::Linear,
+                ),
+                Vec2::new(self.frame_size[0] as _, self.frame_size[1] as _),
             ));
         }
         println!("Took {:?} to pull samples for video.", Instant::now() - t1);
@@ -276,7 +301,7 @@ impl MediaStream for Stream {
         let mut eos = false;
         for msg in self.bus.iter() {
             match msg.view() {
-                gst::MessageView::Error(e) => Err(VideoDecodingError(format!(
+                gst::MessageView::Error(e) => Err(StreamDecodingError(format!(
                     "Encountered error in gstreamer bus:\n{e:#?}"
                 )))?,
                 gst::MessageView::Eos(_eos) => eos = true,
@@ -310,7 +335,7 @@ impl Stream {
     }
 
     /// Get if the stream is paused.
-    #[inline(always)]
+    #[inline]
     pub fn paused(&self) -> bool {
         self.paused
     }
@@ -323,7 +348,7 @@ impl Stream {
             } else {
                 gst::State::Playing
             })
-            .map_err(|e| VideoDecodingError(format!("Failed to change video state:\n{e:#?}")))?;
+            .map_err(|e| StreamDecodingError(format!("Failed to change video state:\n{e:#?}")))?;
         self.paused = paused;
         Ok(())
     }
@@ -378,7 +403,7 @@ fn pipeline(path: &Path, mode: &MediaMode) -> Result<String, error::Error> {
     let mut pipeline = format!(
         "\
         playbin uri=\"file://{}\" name=playbin \
-        video-sink=\"videoconvert ! videoscale ! appsink name=video_sink caps=video/x-raw,format=BGRA,pixel-aspect-ratio=1/1\"",
+        video-sink=\"videoconvert ! videoscale ! appsink name=video_sink caps=video/x-raw,format=RGBA,pixel-aspect-ratio=1/1\"",
         path.canonicalize()
             .map_err(|e| ResourceLoadError(format!(
                 "Failed to canonicalize resource path: {path:?}\n{e:#?}"
@@ -426,7 +451,7 @@ fn launch(
 ) -> Result<(gst::Bin, gst::Bin), error::Error> {
     let source = gst::parse_launch(&pipeline(path, mode)?)
         .map_err(|e| {
-            VideoDecodingError(format!(
+            StreamDecodingError(format!(
                 "Failed to parse gstreamer command for video ({path:?}):\n{e:#?}"
             ))
         })?
@@ -448,7 +473,7 @@ fn launch(
     }
 
     source.set_state(gst::State::Paused).map_err(|e| {
-        VideoDecodingError(format!(
+        StreamDecodingError(format!(
             "Failed to change state for video ({path:?}):\n{e:#?}"
         ))
     })?;
@@ -456,7 +481,7 @@ fn launch(
         .state(gst::ClockTime::from_seconds(5))
         .0
         .map_err(|e| {
-            VideoDecodingError(format!(
+            StreamDecodingError(format!(
                 "Failed to read state for video ({path:?}):\n{e:#?}"
             ))
         })?;
@@ -556,6 +581,6 @@ pub enum Error {
 
 impl From<Error> for error::Error {
     fn from(e: Error) -> Self {
-        VideoDecodingError(format!("{e:#?}"))
+        StreamDecodingError(format!("{e:#?}"))
     }
 }

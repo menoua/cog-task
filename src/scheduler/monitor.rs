@@ -1,13 +1,11 @@
-use iced::keyboard::KeyCode;
+use eframe::egui;
 
 #[derive(Debug)]
 pub enum Monitor {
     Keys,
-    Frames(f64),
 }
 
 #[derive(Debug, Clone)]
 pub enum Event {
-    Key(KeyCode),
-    Refresh,
+    Key(egui::Key),
 }

@@ -1,7 +1,9 @@
 use crate::config::Config;
 use crate::error;
 use crate::resource::FrameBuffer;
-use iced::pure::widget::image;
+use eframe::egui::mutex::RwLock;
+use eframe::egui::{TextureId, Vec2};
+use eframe::epaint::TextureManager;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -13,10 +15,15 @@ pub trait MediaStream
 where
     Self: Sized,
 {
-    fn new(path: &Path, config: &Config, media_mode: MediaMode) -> Result<Self, error::Error>;
+    fn new(
+        tex_manager: Arc<RwLock<TextureManager>>,
+        path: &Path,
+        config: &Config,
+    ) -> Result<Self, error::Error>;
     fn cloned(
         &self,
-        frame: Arc<Mutex<Option<image::Handle>>>,
+        frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
+        media_mode: MediaMode,
         volume: Option<f32>,
     ) -> Result<Self, error::Error>;
 

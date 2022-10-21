@@ -1,39 +1,49 @@
 use crate::backend::{MediaMode, MediaStream};
 use crate::config::Config;
 use crate::error;
-use crate::error::Error::{BackendError, InternalError, InvalidConfigError, VideoDecodingError};
+use crate::error::Error::{BackendError, InternalError, InvalidConfigError, StreamDecodingError};
 use crate::resource::FrameBuffer;
+use crate::util::spin_sleeper;
+use eframe::egui::mutex::RwLock;
+use eframe::egui::{ColorImage, ImageData, TextureFilter, TextureId, Vec2};
+use eframe::epaint::TextureManager;
 use ffmpeg::format::{context::Input, input, Pixel};
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{context::Context, flag::Flags};
 use ffmpeg::util::frame::video::Video;
 use ffmpeg_next as ffmpeg;
-use iced::pure::widget::image;
 use once_cell::sync::OnceCell;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::Sender;
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 static FFMPEG_INIT: OnceCell<()> = OnceCell::new();
 
+#[derive(Clone)]
 pub struct Stream {
     path: PathBuf,
     _context: Option<Arc<Mutex<Input>>>,
     video_index: Option<usize>,
     audio_index: Option<usize>,
-    media_mode: MediaMode,
     frame_size: [u32; 2],
     frame_rate: f64,
     audio_chan: u16,
     audio_rate: u32,
     duration: Duration,
-    is_eos: bool,
+    is_eos: Arc<Mutex<bool>>,
     paused: bool,
+    starter: Option<Sender<()>>,
+    tex_manager: Arc<RwLock<TextureManager>>,
 }
 
 impl MediaStream for Stream {
-    fn new(path: &Path, _config: &Config, media_mode: MediaMode) -> Result<Self, error::Error> {
+    fn new(
+        tex_manager: Arc<RwLock<TextureManager>>,
+        path: &Path,
+        _config: &Config,
+    ) -> Result<Self, error::Error> {
         init()?;
 
         let context = input(&path)?;
@@ -68,51 +78,64 @@ impl MediaStream for Stream {
             context.duration() as f64 / f64::from(ffmpeg::ffi::AV_TIME_BASE),
         );
 
-        let (media_mode, audio_chan) = match (media_mode, audio_chan) {
-            (MediaMode::SansIntTrigger, 0) => Err(InvalidConfigError(format!(
-                "Cannot assume integrated trigger due to missing audio stream: {path:?}"
-            ))),
-            (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
-            (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
-            (MediaMode::SansIntTrigger, _) => Err(InvalidConfigError(format!(
-                "Cannot use integrated trigger with multichannel (n = {audio_chan} > 2) audio: {path:?}"
-            ))),
-            (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
-            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
-                "Cannot add trigger stream to non-mono (n = {audio_chan}) audio stream: {path:?}"
-            ))),
-            (mode, c) => Ok((mode, c)),
-        }?;
-
         Ok(Stream {
             path: path.to_owned(),
             _context: None,
             video_index,
             audio_index,
-            media_mode,
             frame_size: [width, height],
             frame_rate,
             audio_chan,
             audio_rate,
             duration,
-            is_eos: false,
+            is_eos: Arc::new(Mutex::new(false)),
             paused: true,
+            starter: None,
+            tex_manager,
         })
     }
 
     fn cloned(
         &self,
-        frame: Arc<Mutex<Option<image::Handle>>>,
+        frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
+        media_mode: MediaMode,
         _volume: Option<f32>,
     ) -> Result<Self, error::Error> {
+        let (_media_mode, audio_chan) = match (media_mode, self.audio_chan) {
+            (MediaMode::SansIntTrigger, 0) => Err(InvalidConfigError(format!(
+                "Cannot assume integrated trigger due to missing audio stream: {:?}",
+                self.path
+            ))),
+            (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
+            (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
+            (MediaMode::SansIntTrigger, _) => Err(InvalidConfigError(format!(
+                "Cannot use integrated trigger with multichannel (n = {} > 2) audio: {:?}",
+                self.audio_chan, self.path
+            ))),
+            (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
+            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
+                "Cannot add trigger stream to non-mono (n = {}) audio stream: {:?}",
+                self.audio_chan, self.path
+            ))),
+            (mode, c) => Ok((mode, c)),
+        }?;
+
         let context = input(&self.path)?;
         // context
         //     .pause()
         //     .map_err(|e| InternalError(format!("{e:#?}")))?;
 
         let context = Arc::new(Mutex::new(context));
+        let is_eos = Arc::new(Mutex::new(*self.is_eos.lock().unwrap()));
+        let (tx_start, rx_start) = mpsc::channel();
+
         if let Some(index) = self.video_index {
+            let path = self.path.clone();
+            let framerate = self.frame_rate;
             let context = context.clone();
+            let tex_manager = self.tex_manager.clone();
+            let is_eos = is_eos.clone();
+
             thread::spawn(move || {
                 let (mut decoder, mut scaler) = {
                     let context = context.lock().unwrap();
@@ -129,7 +152,7 @@ impl MediaStream for Stream {
                         decoder.format(),
                         decoder.width(),
                         decoder.height(),
-                        Pixel::BGRA,
+                        Pixel::RGBA,
                         decoder.width(),
                         decoder.height(),
                         Flags::BILINEAR,
@@ -139,7 +162,19 @@ impl MediaStream for Stream {
                     (decoder, scaler)
                 };
 
+                let sleeper = spin_sleeper();
+
+                if let Err(_) = rx_start.recv() {
+                    *is_eos.lock().unwrap() = true;
+                    return;
+                }
+
+                let dt = Duration::from_secs_f64(1.0 / framerate);
+                let mut frame_start;
+
                 loop {
+                    frame_start = Instant::now();
+
                     {
                         let mut context = context.lock().unwrap();
                         let (stream, packet) = match context.packets().next() {
@@ -156,21 +191,35 @@ impl MediaStream for Stream {
 
                         let mut decoded = Video::empty();
                         while decoder.receive_frame(&mut decoded).is_ok() {
-                            let mut bgra_frame = Video::empty();
+                            let mut rgba_frame = Video::empty();
                             scaler
-                                .run(&decoded, &mut bgra_frame)
+                                .run(&decoded, &mut rgba_frame)
                                 .expect("Failed to run scaler");
-                            *frame.lock().unwrap() = Some(image::Handle::from_pixels(
-                                bgra_frame.width(),
-                                bgra_frame.height(),
-                                bgra_frame.data(0).to_owned(),
+                            *frame.lock().unwrap() = Some((
+                                tex_manager.write().alloc(
+                                    format!("{:?}:@:[current]", path),
+                                    ImageData::Color(ColorImage::from_rgba_unmultiplied(
+                                        [rgba_frame.width() as _, rgba_frame.height() as _],
+                                        rgba_frame.data(0),
+                                    )),
+                                    TextureFilter::Linear,
+                                ),
+                                Vec2::new(rgba_frame.width() as _, rgba_frame.height() as _),
                             ));
                         }
                     }
-                    thread::sleep(Duration::from_secs_f64(1.0 / 25.0));
+
+                    let now = Instant::now();
+                    sleeper.sleep(frame_start + dt - now);
                 }
 
-                decoder.send_eof().expect("Failed to send EOF to decoder");
+                *is_eos.lock().unwrap() = true;
+                decoder
+                    .send_eof()
+                    .map_err(|e| {
+                        StreamDecodingError(format!("Failed to send EOF to decoder: {e:?}"))
+                    })
+                    .unwrap();
             });
         }
 
@@ -197,19 +246,20 @@ impl MediaStream for Stream {
             _context: Some(context),
             video_index: self.video_index,
             audio_index: self.audio_index,
-            media_mode: self.media_mode.clone(),
             frame_size: self.frame_size,
             frame_rate: self.frame_rate,
-            audio_chan: self.audio_chan,
+            audio_chan,
             audio_rate: self.audio_rate,
             duration: self.duration,
-            is_eos: self.is_eos,
+            is_eos,
             paused: self.paused,
+            starter: Some(tx_start),
+            tex_manager: self.tex_manager.clone(),
         })
     }
 
     fn eos(&self) -> bool {
-        self.is_eos
+        *self.is_eos.lock().unwrap()
     }
 
     fn size(&self) -> [u32; 2] {
@@ -250,7 +300,14 @@ impl MediaStream for Stream {
         //         ))
         //     })?;
         self.paused = false;
-        Ok(())
+        if let Some(link) = self.starter.take() {
+            link.send(())
+                .map_err(|_| InternalError("Failed to start ffmpeg parallel thread".to_owned()))
+        } else {
+            Err(InternalError(
+                "Tried to start ffmpeg parallel thread twice".to_owned(),
+            ))
+        }
     }
 
     fn restart(&mut self) -> Result<(), error::Error> {
@@ -272,6 +329,7 @@ impl MediaStream for Stream {
         //         ))
         //     })?;
         self.paused = true;
+        self._context.take();
         Ok(())
     }
 
@@ -297,7 +355,7 @@ impl MediaStream for Stream {
                 decoder.format(),
                 decoder.width(),
                 decoder.height(),
-                Pixel::BGRA,
+                Pixel::RGBA,
                 decoder.width(),
                 decoder.height(),
                 Flags::BILINEAR,
@@ -319,14 +377,25 @@ impl MediaStream for Stream {
 
             let mut decoded = Video::empty();
             while decoder.receive_frame(&mut decoded).is_ok() {
-                let mut bgra_frame = Video::empty();
+                let mut rgba_frame = Video::empty();
                 scaler
-                    .run(&decoded, &mut bgra_frame)
+                    .run(&decoded, &mut rgba_frame)
                     .expect("Failed to run scaler");
-                frames.push(image::Handle::from_pixels(
-                    bgra_frame.width(),
-                    bgra_frame.height(),
-                    bgra_frame.data(0).to_owned(),
+                // frames.push(image::Handle::from_pixels(
+                //     bgra_frame.width(),
+                //     bgra_frame.height(),
+                //     bgra_frame.data(0).to_owned(),
+                // ));
+                frames.push((
+                    self.tex_manager.write().alloc(
+                        format!("{:?}:@:{}", self.path, frames.len()),
+                        ImageData::Color(ColorImage::from_rgba_unmultiplied(
+                            [rgba_frame.width() as _, rgba_frame.height() as _],
+                            rgba_frame.data(0),
+                        )),
+                        TextureFilter::Linear,
+                    ),
+                    Vec2::new(rgba_frame.width() as _, rgba_frame.height() as _),
                 ));
             }
         }
@@ -336,7 +405,7 @@ impl MediaStream for Stream {
     }
 
     fn process_bus(&mut self, _looping: bool) -> Result<bool, error::Error> {
-        Ok(self.is_eos)
+        Ok(self.eos())
     }
 }
 
@@ -360,6 +429,6 @@ pub fn init() -> Result<(), error::Error> {
 
 impl From<ffmpeg::Error> for error::Error {
     fn from(e: ffmpeg::Error) -> Self {
-        VideoDecodingError(format!("{e:#?}"))
+        StreamDecodingError(format!("{e:#?}"))
     }
 }

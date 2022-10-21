@@ -4,12 +4,15 @@ use crate::error::Error::{InvalidNameError, TaskDefinitionError};
 use crate::util::Hash;
 use block::Block;
 use itertools::Itertools;
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
-use std::io::BufReader;
-use std::path::Path;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 pub mod block;
+
+pub static ROOT_DIR: OnceCell<PathBuf> = OnceCell::new();
+pub static CONFIG: OnceCell<Config> = OnceCell::new();
 
 #[derive(Deserialize, Debug, Default, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -25,41 +28,20 @@ pub struct Task {
 
 impl Task {
     pub fn new(root_dir: &Path) -> Result<Self, error::Error> {
-        let path_json = root_dir.join("task.json");
-        let path_yaml = root_dir.join("task.yml");
-        let path = match (path_json.exists(), path_yaml.exists()) {
-            (true, false) => path_json,
-            (false, true) => path_yaml,
-            _ => Err(TaskDefinitionError(
-                "There should be exactly one of `task.json` or `task.yml` files in task directory."
-                    .to_owned(),
-            ))?,
-        };
+        ROOT_DIR.set(root_dir.to_owned()).unwrap();
 
-        let file = File::open(&path).map_err(|e| {
-            TaskDefinitionError(format!(
-                "Unable to open task definition file ({:?}):\n{e:#?}",
-                path
-            ))
-        })?;
+        let path = root_dir.join("task.ron");
+        let content =
+            fs::read_to_string(path).map_err(|e| TaskDefinitionError(format!("{e:?}")))?;
 
-        match path.extension().unwrap().to_str().unwrap() {
-            "json" => serde_json::from_reader::<_, Task>(BufReader::new(file)).map_err(|e| {
-                TaskDefinitionError(format!("Invalid task definition file ({path:?}):\n{e:#?}"))
-            })?,
-            "yaml" => serde_yaml::from_reader::<_, Task>(BufReader::new(file)).map_err(|e| {
-                TaskDefinitionError(format!("Invalid task definition file ({path:?}):\n{e:#?}"))
-            })?,
-            ext => Err(TaskDefinitionError(format!(
-                "Invalid extension `{ext}` for task definition file ({path:?})"
-            )))?,
-        }
-        .init(root_dir)
+        ron::from_str::<Task>(&content)
+            .map_err(|e| TaskDefinitionError(format!("{e:?}")))?
+            .init(root_dir)
     }
 
     pub fn init(mut self, root_dir: &Path) -> Result<Self, error::Error> {
         for block in self.blocks.iter_mut() {
-            block.init(root_dir, &self.config)?;
+            block.init()?;
         }
 
         for (name, count) in self.block_labels().into_iter().counts() {
@@ -72,7 +54,7 @@ impl Task {
 
         if self.description.is_empty() {
             let path = root_dir.join("description.text");
-            let description = std::fs::read_to_string(&path).map_err(|e| {
+            let description = fs::read_to_string(&path).map_err(|e| {
                 TaskDefinitionError(format!(
                     "Unable to open task description file ({path:?}):\n{e:#?}"
                 ))
@@ -80,33 +62,34 @@ impl Task {
             self.description = description;
         }
 
-        self.config.verify()?;
+        // self.config.verify()?;
         self.config.verify_checksum(self.hash())?;
+        CONFIG.set(self.config.clone()).unwrap();
 
         Ok(self)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn name(&self) -> &String {
         &self.name
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn version(&self) -> &String {
         &self.version
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn title(&self) -> String {
         format!("{} ({})", self.name, self.version)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn config(&self) -> &Config {
         &self.config
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn block(&self, i: usize) -> &Block {
         &self.blocks[i]
     }
@@ -115,7 +98,7 @@ impl Task {
         self.blocks.iter().map(|b| b.label().to_string()).collect()
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn description(&self) -> &str {
         &self.description
     }

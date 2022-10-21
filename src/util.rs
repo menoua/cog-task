@@ -1,18 +1,27 @@
 use serde::Serialize;
+use spin_sleep::{SpinSleeper, SpinStrategy};
 
-#[inline(always)]
+pub const SPIN_DURATION: u32 = 100_000_000; // equivalent to 100ms
+pub const SPIN_STRATEGY: SpinStrategy = SpinStrategy::SpinLoopHint;
+
+#[inline]
+pub fn spin_sleeper() -> SpinSleeper {
+    SpinSleeper::new(SPIN_DURATION).with_spin_strategy(SPIN_STRATEGY)
+}
+
+#[inline]
 pub fn f32_with_precision(x: f32, precision: u8) -> f32 {
     let precision = 10_f32.powi(precision as i32);
     (x * precision).round() / precision
 }
 
-#[inline(always)]
+#[inline]
 pub fn f64_with_precision(x: f32, precision: u8) -> f64 {
     let shift = 10_f64.powi(precision as i32);
     (x as f64 * shift).round() / shift
 }
 
-#[inline(always)]
+#[inline]
 pub fn str_with_precision(x: f32, precision: u8) -> String {
     let shift = 10_f64.powi(precision as i32);
     let string = format!("{}", (x as f64 * shift).round());
