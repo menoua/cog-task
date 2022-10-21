@@ -1,15 +1,11 @@
 use crate::assets::Icon;
 use crate::server::{Page, Server};
 use crate::style;
-use crate::style::text::{body, heading, inactive, tooltip};
-use crate::style::{style_ui, Style, CUSTOM_RED, FOREST_GREEN, TEXT_SIZE_ICON};
+use crate::style::text::{body, inactive, tooltip};
+use crate::style::{style_ui, Style};
 use crate::template::header_body_controls;
-use crate::util::{f32_with_precision, str_with_precision};
 use eframe::egui;
-use eframe::egui::style::Margin;
-use eframe::egui::{FontSelection, TextStyle};
-use eframe::emath::Vec2;
-use egui::{CentralPanel, Color32, RichText, ScrollArea, TextEdit, Widget};
+use egui::{ScrollArea, TextEdit, Widget};
 use egui_extras::{Size, StripBuilder};
 
 impl Server {

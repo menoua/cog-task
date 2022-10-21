@@ -1,6 +1,4 @@
-use crate::action::{
-    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, INFINITE, VISUAL,
-};
+use crate::action::{Action, ActionSignal, Props, StatefulAction, VISUAL};
 use crate::config::Config;
 use crate::error::Error;
 use crate::io::IO;
@@ -8,26 +6,20 @@ use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use crate::style::{style_ui, Style};
-use crate::{error, style};
+use crate::error;
 use eframe::egui;
-use eframe::egui::CentralPanel;
 use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-pub struct Counter {
-    #[serde(default = "defaults::from")]
-    from: u32,
-    #[serde(default)]
-    style: String,
-}
+pub struct Counter(#[serde(default = "defaults::from")] u32);
 
 stateful!(Counter { count: u32 });
 
 mod defaults {
-    #[inline(always)]
+    #[inline]
     pub fn from() -> u32 {
         3
     }
@@ -35,41 +27,35 @@ mod defaults {
 
 impl From<u32> for Counter {
     fn from(i: u32) -> Self {
-        Self {
-            from: i,
-            style: "".to_owned(),
-        }
+        Self(i)
     }
 }
 
 impl Action for Counter {
-    #[inline(always)]
+    #[inline]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![]
     }
 
     fn stateful(
         &self,
-        io: &IO,
-        res: &ResourceMap,
-        config: &Config,
-        sync_writer: &QWriter<SyncSignal>,
-        async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<StatefulActionEnum, error::Error> {
-        Ok(StatefulCounter {
-            id: 0,
-            done: self.from == 0,
-            count: self.from,
-            // style: Style::new("action-counter", &self.style),
-        }
-        .into())
+        _io: &IO,
+        _res: &ResourceMap,
+        _config: &Config,
+        _sync_writer: &QWriter<SyncSignal>,
+        _async_writer: &QWriter<AsyncSignal>,
+    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+        Ok(Box::new(StatefulCounter {
+            done: false,
+            count: self.0,
+        }))
     }
 }
 
 impl StatefulAction for StatefulCounter {
     impl_stateful!();
 
-    #[inline(always)]
+    #[inline]
     fn props(&self) -> Props {
         VISUAL.into()
     }
@@ -77,16 +63,21 @@ impl StatefulAction for StatefulCounter {
     fn start(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
+        if self.count == 0 {
+            self.done = true;
+            sync_writer.push(SyncSignal::UpdateGraph);
+        }
+
         Ok(())
     }
 
     fn update(
         &mut self,
-        signal: &ActionSignal,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _signal: &ActionSignal,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -100,7 +91,7 @@ impl StatefulAction for StatefulCounter {
         enum Interaction {
             None,
             Decrement,
-        };
+        }
 
         let mut interaction = Interaction::None;
 
@@ -147,11 +138,11 @@ impl StatefulAction for StatefulCounter {
         Ok(())
     }
 
-    #[inline(always)]
+    #[inline]
     fn stop(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         self.done = true;
         Ok(())

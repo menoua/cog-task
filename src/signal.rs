@@ -19,7 +19,7 @@ impl<T: Debug> QReader<T> {
         Self(queue, tx, rx)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn push(&mut self, msg: impl Into<T>) {
         let mut queue = self.0.lock().unwrap();
         if self.1.send(()).is_ok() {
@@ -27,7 +27,7 @@ impl<T: Debug> QReader<T> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn pop(&mut self) -> Option<T> {
         if self.2.recv().is_ok() {
             Some(self.0.lock().unwrap().pop_front().unwrap())
@@ -36,7 +36,7 @@ impl<T: Debug> QReader<T> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn try_pop(&mut self) -> Option<T> {
         if let Ok(()) = self.2.try_recv() {
             self.0.lock().unwrap().pop_front()
@@ -45,19 +45,19 @@ impl<T: Debug> QReader<T> {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn clear(&mut self) {
         self.0.lock().unwrap().clear();
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn writer(&self) -> QWriter<T> {
         QWriter(self.0.clone(), self.1.clone())
     }
 }
 
 impl<T: Debug> QWriter<T> {
-    #[inline(always)]
+    #[inline]
     pub fn push(&mut self, msg: impl Into<T>) {
         let mut queue = self.0.lock().unwrap();
         if self.1.send(()).is_ok() {

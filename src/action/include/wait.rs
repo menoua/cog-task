@@ -1,6 +1,4 @@
-use crate::action::{
-    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, DEFAULT, INFINITE,
-};
+use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error;
@@ -11,8 +9,6 @@ use crate::signal::QWriter;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::sync::mpsc::{self, Sender};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -32,36 +28,34 @@ impl Wait {
 impl Action for Wait {
     fn stateful(
         &self,
-        io: &IO,
-        res: &ResourceMap,
-        config: &Config,
-        sync_writer: &QWriter<SyncSignal>,
-        async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<StatefulActionEnum, error::Error> {
-        Ok(StatefulWait {
-            id: 0,
+        _io: &IO,
+        _res: &ResourceMap,
+        _config: &Config,
+        _sync_writer: &QWriter<SyncSignal>,
+        _async_writer: &QWriter<AsyncSignal>,
+    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+        Ok(Box::new(StatefulWait {
             done: Arc::new(Mutex::new(Ok(false))),
             duration: Duration::from_secs_f32(self.0),
-        }
-        .into())
+        }))
     }
 }
 
 impl StatefulAction for StatefulWait {
     impl_stateful!();
 
-    #[inline(always)]
+    #[inline]
     fn props(&self) -> Props {
         DEFAULT.into()
     }
 
-    #[inline(always)]
+    #[inline]
     fn start(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        let mut done = self.done.clone();
+        let done = self.done.clone();
         let duration = self.duration;
         let mut sync_writer = sync_writer.clone();
         thread::spawn(move || {
@@ -74,27 +68,27 @@ impl StatefulAction for StatefulWait {
 
     fn update(
         &mut self,
-        signal: &ActionSignal,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _signal: &ActionSignal,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
 
     fn show(
         &mut self,
-        ui: &mut Ui,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _ui: &mut Ui,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
 
-    #[inline(always)]
+    #[inline]
     fn stop(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         *self.done.lock().unwrap() = Ok(true);
         Ok(())

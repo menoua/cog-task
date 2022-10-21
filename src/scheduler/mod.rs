@@ -1,37 +1,26 @@
-use crate::action::audio::Audio;
-use crate::action::counter::Counter;
-use crate::action::{Action, ActionEnum, ActionSignal, StatefulActionEnum};
+use crate::action::StatefulAction;
 #[cfg(feature = "benchmark")]
 use crate::benchmark::Profiler;
-use crate::config::{Config, LogCondition};
+use crate::config::Config;
 use crate::error;
-use crate::error::Error;
-use crate::error::Error::{FlowError, InternalError, LoggerError};
 use crate::io::IO;
-use crate::logger::{Logger, LoggerSignal};
+use crate::logger::LoggerSignal;
 use crate::scheduler::info::Info;
-use crate::scheduler::monitor::{Event, Monitor};
-use crate::scheduler::processor::{AsyncProcessor, AsyncSignal, Atomic, SyncProcessor, SyncSignal};
+use crate::scheduler::processor::{AsyncProcessor, AsyncSignal, SyncProcessor, SyncSignal};
 use crate::server::{Server, ServerSignal};
-use crate::signal::{QReader, QWriter};
-use chrono::{DateTime, Local};
+use crate::signal::QWriter;
 use eframe::egui;
-use eframe::egui::{CentralPanel, Color32, CursorIcon, RichText};
-use itertools::Itertools;
-use num_traits::Zero;
+use eframe::egui::CursorIcon;
 use serde_json::Value;
-use std::collections::HashSet;
-use std::ops::Add;
 use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, Instant, SystemTime};
+use std::time::{Duration, SystemTime};
 
 pub mod info;
 pub mod monitor;
 pub mod processor;
 
 pub struct Scheduler {
-    tree: Arc<Mutex<StatefulActionEnum>>,
+    tree: Arc<Mutex<Box<dyn StatefulAction>>>,
     info: Info,
     last_esc: Option<SystemTime>,
     config: Config,
@@ -95,12 +84,12 @@ impl Scheduler {
         })
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn info(&self) -> &Info {
         &self.info
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn config(&self) -> &Config {
         &self.config
     }
@@ -148,10 +137,8 @@ impl Scheduler {
         self.profiler.tic(2);
         {
             let mut tree = self.tree.lock().unwrap();
-            if tree.inner().props().visual() {
-                let result =
-                    tree.inner_mut()
-                        .show(ui, &mut self.sync_writer, &mut self.async_writer);
+            if tree.props().visual() {
+                let result = tree.show(ui, &mut self.sync_writer, &mut self.async_writer);
 
                 if let Err(e) = &result {
                     self.async_writer.push(LoggerSignal::Append(

@@ -1,8 +1,8 @@
 use heck::ToUpperCamelCase;
 use itertools::Itertools;
 use std::ffi::OsStr;
+use std::fs;
 use std::path::Path;
-use std::{fs, io};
 
 fn main() {
     println!("cargo:rerun-if-changed=src/action/include.rs");

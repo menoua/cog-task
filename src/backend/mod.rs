@@ -19,11 +19,11 @@ where
         tex_manager: Arc<RwLock<TextureManager>>,
         path: &Path,
         config: &Config,
-        media_mode: MediaMode,
     ) -> Result<Self, error::Error>;
     fn cloned(
         &self,
         frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
+        media_mode: MediaMode,
         volume: Option<f32>,
     ) -> Result<Self, error::Error>;
 

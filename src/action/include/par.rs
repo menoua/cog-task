@@ -1,7 +1,4 @@
-use crate::action::{
-    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, CAP_KEYS, DEFAULT,
-    INFINITE, VISUAL,
-};
+use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
@@ -11,19 +8,19 @@ use crate::signal::QWriter;
 use eframe::egui;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Par(Vec<ActionEnum>, #[serde(default)] Vec<ActionEnum>);
+pub struct Par(Vec<Box<dyn Action>>, #[serde(default)] Vec<Box<dyn Action>>);
 
 stateful!(Par {
-    children: Vec<StatefulActionEnum>,
-    children_opt: Vec<StatefulActionEnum>,
+    primary: Vec<Box<dyn StatefulAction>>,
+    secondary: Vec<Box<dyn StatefulAction>>,
 });
 
 impl Par {
-    pub fn new(children: Vec<ActionEnum>, children_opt: Vec<ActionEnum>) -> Self {
-        Self(children, children_opt)
+    pub fn new(primary: Vec<Box<dyn Action>>, secondary: Vec<Box<dyn Action>>) -> Self {
+        Self(primary, secondary)
     }
 }
 
@@ -33,18 +30,25 @@ impl Action for Par {
         self.0
             .iter()
             .chain(self.1.iter())
-            .flat_map(|c| c.inner().resources(config))
+            .flat_map(|c| c.resources(config))
             .unique()
             .collect()
     }
 
-    fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
-        let children = self.0.iter_mut().chain(self.1.iter_mut());
-        for c in children {
-            c.inner_mut().init(root_dir, config)?;
-        }
-        Ok(())
-    }
+    // fn init(self) -> Result<Box<dyn Action>, error::Error> {
+    //     if self.0.iter().filter(|&c| c.props().visual()).count() > 1 {
+    //         Err(TaskDefinitionError(
+    //             "There can be at most one visual action in primary action set of a Par".to_owned(),
+    //         ))
+    //     } else if self.1.iter().filter(|&c| c.props().visual()).count() > 1 {
+    //         Err(TaskDefinitionError(
+    //             "There can be at most one visual action in secondary action set of a Par"
+    //                 .to_owned(),
+    //         ))
+    //     } else {
+    //         Ok(Box::new(self))
+    //     }
+    // }
 
     fn stateful(
         &self,
@@ -53,106 +57,99 @@ impl Action for Par {
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<StatefulActionEnum, error::Error> {
-        Ok(StatefulPar {
-            id: 0,
+    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+        Ok(Box::new(StatefulPar {
             done: false,
-            children: self
+            primary: self
                 .0
                 .iter()
                 .map(|a| {
-                    a.inner()
-                        .stateful(io, res, config, sync_writer, async_writer)
+                    a.stateful(io, res, config, sync_writer, async_writer)
                         .unwrap()
                 })
                 .collect(),
-            children_opt: self
+            secondary: self
                 .1
                 .iter()
                 .map(|a| {
-                    a.inner()
-                        .stateful(io, res, config, sync_writer, async_writer)
+                    a.stateful(io, res, config, sync_writer, async_writer)
                         .unwrap()
                 })
                 .collect(),
-        }
-        .into())
+        }))
     }
 }
 
 impl StatefulPar {
-    pub fn push(&mut self, child: impl Into<StatefulActionEnum>) {
-        self.children.push(child.into());
+    pub fn push_primary(&mut self, child: impl Into<Box<dyn StatefulAction>>) {
+        self.primary.push(child.into());
     }
 
-    pub fn push_opt(&mut self, child: impl Into<StatefulActionEnum>) {
-        self.children_opt.push(child.into());
+    pub fn push_secondary(&mut self, child: impl Into<Box<dyn StatefulAction>>) {
+        self.secondary.push(child.into());
     }
 }
 
 impl StatefulAction for StatefulPar {
     impl_stateful!();
 
-    #[inline(always)]
+    #[inline]
     fn props(&self) -> Props {
-        let children = self.children.iter().chain(self.children_opt.iter());
+        let children = self.primary.iter().chain(self.secondary.iter());
         children
             .fold(DEFAULT, |mut state, c| {
-                let c = c.inner().props();
+                let c = c.props();
                 if c.visual() {
                     state |= VISUAL;
                 }
                 if c.infinite() {
                     state |= INFINITE;
                 }
-                if c.captures_keys() {
-                    state |= CAP_KEYS;
-                }
                 state
             })
             .into()
     }
 
-    #[inline(always)]
+    #[inline]
     fn start(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        let children = self.children.iter_mut().chain(self.children_opt.iter_mut());
+        let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
         for c in children {
-            c.inner_mut().start(sync_writer, async_writer)?;
+            c.start(sync_writer, async_writer)?;
         }
 
-        if self.children.is_empty() {
+        if self.primary.is_empty() {
             self.done = true;
         }
         Ok(())
     }
 
-    #[inline(always)]
+    #[inline]
     fn update(
         &mut self,
         signal: &ActionSignal,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        let children = self.children.iter_mut().chain(self.children_opt.iter_mut());
+        let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
         for c in children {
-            c.inner_mut().update(signal, sync_writer, async_writer)?;
+            c.update(signal, sync_writer, async_writer)?;
         }
 
         if matches!(signal, ActionSignal::UpdateGraph) {
-            let children = self.children.iter_mut().chain(self.children_opt.iter_mut());
+            let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
             for c in children {
-                if c.inner().is_over()? {
-                    c.inner_mut().stop(sync_writer, async_writer)?;
+                if c.is_over()? {
+                    c.stop(sync_writer, async_writer)?;
                 }
             }
-            
-            self.children.retain(|c| !c.inner().is_over().unwrap());
-            self.children_opt.retain(|c| !c.inner().is_over().unwrap());
-            if self.children.is_empty() {
+
+            self.primary.retain(|c| !c.is_over().unwrap());
+            self.secondary.retain(|c| !c.is_over().unwrap());
+            if self.primary.is_empty() {
                 self.done = true;
                 sync_writer.push(SyncSignal::UpdateGraph);
             }
@@ -167,23 +164,34 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        let children = self.children.iter_mut().chain(self.children_opt.iter_mut());
-        if let Some(c) = children.filter(|c| c.inner().props().visual()).next() {
-            c.inner_mut().show(ui, sync_writer, async_writer)
+        if let Some(c) = self
+            .primary
+            .iter_mut()
+            .filter(|c| c.props().visual())
+            .next()
+        {
+            c.show(ui, sync_writer, async_writer)
+        } else if let Some(c) = self
+            .secondary
+            .iter_mut()
+            .filter(|c| c.props().visual())
+            .next()
+        {
+            c.show(ui, sync_writer, async_writer)
         } else {
             Ok(())
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn stop(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        let children = self.children.iter_mut().chain(self.children_opt.iter_mut());
+        let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
         for c in children {
-            c.inner_mut().stop(sync_writer, async_writer)?;
+            c.stop(sync_writer, async_writer)?;
         }
         self.done = true;
         Ok(())

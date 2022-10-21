@@ -1,32 +1,26 @@
-use crate::action::{
-    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, VISUAL,
-};
+use crate::action::{Action, ActionSignal, Props, StatefulAction, VISUAL};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error;
-use crate::error::Error::{InternalError, InvalidNameError};
+use crate::error::Error::InvalidNameError;
 use crate::io::IO;
 use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
-use crate::style;
 use crate::style::text::{body, button1, inactive};
-use crate::style::{style_ui, Style, CUSTOM_BLUE, TEXT_SIZE_BODY};
+use crate::style::{style_ui, Style, TEXT_SIZE_BODY};
 use crate::template::{center_x, header_body_controls};
-use crate::util::{f32_with_precision, f64_with_precision, str_with_precision};
+use crate::util::{f32_with_precision, f64_with_precision};
 use eframe::egui;
 use eframe::egui::{
-    CentralPanel, Checkbox, Color32, RadioButton, ScrollArea, Slider, Stroke, TextEdit, Vec2,
-    Widget,
+    Checkbox, Color32, RadioButton, ScrollArea, Slider, Stroke, TextEdit, Vec2, Widget,
 };
-use egui_extras::{Size, StripBuilder};
+use egui_extras::StripBuilder;
 use serde::{Deserialize, Serialize};
 use serde_json::{Number, Value};
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-
-const SHIFT: usize = 0x1000;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -34,8 +28,6 @@ pub struct Question {
     #[serde(default = "defaults::group")]
     group: String,
     list: Vec<QItem>,
-    #[serde(default)]
-    style: String,
 }
 
 stateful!(Question {
@@ -44,79 +36,76 @@ stateful!(Question {
 });
 
 mod defaults {
-    #[inline(always)]
+    #[inline]
     pub fn group() -> String {
         "questions".to_owned()
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn lines() -> usize {
         3
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn columns() -> usize {
         10
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn precision() -> u8 {
         3
     }
 }
 
 impl Action for Question {
-    #[inline(always)]
+    #[inline]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![]
     }
 
     fn stateful(
         &self,
-        io: &IO,
-        res: &ResourceMap,
-        config: &Config,
-        sync_writer: &QWriter<SyncSignal>,
-        async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<StatefulActionEnum, error::Error> {
+        _io: &IO,
+        _res: &ResourceMap,
+        _config: &Config,
+        _sync_writer: &QWriter<SyncSignal>,
+        _async_writer: &QWriter<AsyncSignal>,
+    ) -> Result<Box<dyn StatefulAction>, error::Error> {
         if self.group.is_empty() {
-            Err(InvalidNameError(
+            return Err(InvalidNameError(
                 "Question `group` cannot be an empty string".to_owned(),
-            ))
-        } else {
-            Ok(StatefulQuestion {
-                id: 0,
-                done: false,
-                group: self.group.clone(),
-                // _style: Style::new("action-question", &self.style),
-                list: self.list.iter().map(|q| q.stateful()).collect(),
-            }
-            .into())
+            ));
         }
+
+        Ok(Box::new(StatefulQuestion {
+            done: false,
+            group: self.group.clone(),
+            list: self.list.iter().map(|q| q.stateful()).collect(),
+        }))
     }
 }
 
 impl StatefulAction for StatefulQuestion {
     impl_stateful!();
 
-    #[inline(always)]
+    #[inline]
     fn props(&self) -> Props {
         VISUAL.into()
     }
 
     fn start(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
 
     fn update(
         &mut self,
-        signal: &ActionSignal,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _signal: &ActionSignal,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -127,7 +116,7 @@ impl StatefulAction for StatefulQuestion {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        header_body_controls(ui, |mut strip| {
+        header_body_controls(ui, |strip| {
             strip.empty();
             strip.empty();
             strip.strip(|builder| {
@@ -142,11 +131,11 @@ impl StatefulAction for StatefulQuestion {
         Ok(())
     }
 
-    #[inline(always)]
+    #[inline]
     fn stop(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         self.done = true;
         Ok(())

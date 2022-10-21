@@ -8,8 +8,6 @@ mod startup;
 use crate::benchmark::Profiler;
 use crate::config::Config;
 use crate::env::Env;
-use crate::error::Error;
-use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
 use crate::scheduler::Scheduler;
 use crate::signal::{QReader, QWriter};
@@ -18,14 +16,10 @@ use crate::task::block::Block;
 use crate::task::Task;
 use crate::{error, style};
 use eframe::egui;
-use eframe::egui::{CentralPanel, Rect, Sense};
+use eframe::egui::CentralPanel;
 use eframe::glow::HasContext;
-use egui_extras::{Size, StripBuilder};
-use serde_json::Value;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Page {
@@ -147,32 +141,32 @@ impl Server {
         );
     }
 
-    #[inline(always)]
+    #[inline]
     fn title(&self) -> String {
         format!("CogTask Server -- {}", self.task.title())
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn env(&self) -> &Env {
         &self.env
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn subject(&self) -> &String {
         &self.subject
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn active_block(&self) -> &Block {
         self.task.block(self.active_block.unwrap())
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn resources(&self) -> &ResourceMap {
         &self.resources
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn config(&self) -> &Config {
         self.task.config()
     }
@@ -190,7 +184,7 @@ impl Server {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn task(&self) -> &Task {
         &self.task
     }
@@ -238,12 +232,7 @@ impl Server {
         };
     }
 
-    #[inline(always)]
-    fn scale_factor(&self) -> f64 {
-        self.scale_factor as f64
-    }
-
-    #[inline(always)]
+    #[inline]
     pub(crate) fn callback_channel(&self) -> QWriter<ServerSignal> {
         self.sync_reader.writer()
     }
@@ -285,7 +274,7 @@ pub enum ServerSignal {
 }
 
 impl eframe::App for Server {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(feature = "benchmark")]
         self.profiler.step();
 

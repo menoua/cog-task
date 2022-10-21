@@ -1,7 +1,4 @@
-use crate::action::{
-    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, CAP_KEYS, DEFAULT,
-    VISUAL,
-};
+use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
@@ -12,17 +9,17 @@ use eframe::egui;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Seq(Vec<ActionEnum>);
+pub struct Seq(Vec<Box<dyn Action>>);
 
 stateful!(Seq {
-    children: VecDeque<StatefulActionEnum>,
+    children: VecDeque<Box<dyn StatefulAction>>,
 });
 
 impl Seq {
-    pub fn new(children: Vec<ActionEnum>) -> Self {
+    pub fn new(children: Vec<Box<dyn Action>>) -> Self {
         Self(children)
     }
 }
@@ -32,16 +29,9 @@ impl Action for Seq {
     fn resources(&self, config: &Config) -> Vec<PathBuf> {
         self.0
             .iter()
-            .flat_map(|c| c.inner().resources(config))
+            .flat_map(|c| c.resources(config))
             .unique()
             .collect()
-    }
-
-    fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
-        for c in self.0.iter_mut() {
-            c.inner_mut().init(root_dir, config)?;
-        }
-        Ok(())
     }
 
     fn stateful(
@@ -51,26 +41,23 @@ impl Action for Seq {
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<StatefulActionEnum, error::Error> {
-        Ok(StatefulSeq {
-            id: 0,
+    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+        Ok(Box::new(StatefulSeq {
             done: false,
             children: self
                 .0
                 .iter()
                 .map(|a| {
-                    a.inner()
-                        .stateful(io, res, config, sync_writer, async_writer)
+                    a.stateful(io, res, config, sync_writer, async_writer)
                         .unwrap()
                 })
                 .collect(),
-        }
-        .into())
+        }))
     }
 }
 
 impl StatefulSeq {
-    pub fn push(&mut self, child: impl Into<StatefulActionEnum>) {
+    pub fn push(&mut self, child: impl Into<Box<dyn StatefulAction>>) {
         self.children.push_back(child.into());
     }
 }
@@ -78,30 +65,30 @@ impl StatefulSeq {
 impl StatefulAction for StatefulSeq {
     impl_stateful!();
 
-    #[inline(always)]
+    #[inline]
     fn props(&self) -> Props {
         if let Some(c) = self.children.get(0) {
-            c.inner().props()
+            c.props()
         } else {
             DEFAULT.into()
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn start(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         if let Some(c) = self.children.get_mut(0) {
-            c.inner_mut().start(sync_writer, async_writer)
+            c.start(sync_writer, async_writer)
         } else {
             self.done = true;
             Ok(())
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn update(
         &mut self,
         signal: &ActionSignal,
@@ -109,19 +96,18 @@ impl StatefulAction for StatefulSeq {
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         if let Some(c) = self.children.get_mut(0) {
-            c.inner_mut().update(signal, sync_writer, async_writer)?;
+            c.update(signal, sync_writer, async_writer)?;
         }
 
         if matches!(signal, ActionSignal::UpdateGraph) {
-            while let Some(true) = self.children.get(0).map(|c| c.inner().is_over().unwrap()) {
+            while let Some(true) = self.children.get(0).map(|c| c.is_over().unwrap()) {
                 self.children
                     .pop_front()
                     .unwrap()
-                    .inner_mut()
                     .stop(sync_writer, async_writer)?;
 
                 if let Some(c) = self.children.get_mut(0) {
-                    c.inner_mut().start(sync_writer, async_writer)?;
+                    c.start(sync_writer, async_writer)?;
                 } else {
                     self.done = true;
                     sync_writer.push(SyncSignal::UpdateGraph);
@@ -139,20 +125,20 @@ impl StatefulAction for StatefulSeq {
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         if let Some(c) = self.children.get_mut(0) {
-            c.inner_mut().show(ui, sync_writer, async_writer)
+            c.show(ui, sync_writer, async_writer)
         } else {
             Ok(())
         }
     }
 
-    #[inline(always)]
+    #[inline]
     fn stop(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        for c in self.children.iter_mut() {
-            c.inner_mut().stop(sync_writer, async_writer)?;
+        if let Some(c) = self.children.get_mut(0) {
+            c.stop(sync_writer, async_writer)?;
         }
         self.done = true;
         Ok(())

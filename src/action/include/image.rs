@@ -1,19 +1,16 @@
-use crate::action::{
-    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, INFINITE, VISUAL,
-};
+use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error;
-use crate::error::Error::{InternalError, InvalidResourceError};
+use crate::error::Error::InvalidResourceError;
 use crate::io::IO;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use eframe::egui;
-use eframe::egui::{CentralPanel, CursorIcon, TextureId, Vec2};
+use eframe::egui::{CursorIcon, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
+use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -21,8 +18,6 @@ pub struct Image {
     src: PathBuf,
     #[serde(default)]
     width: Option<f32>,
-    #[serde(default)]
-    style: String,
 }
 
 stateful!(Image {
@@ -32,63 +27,66 @@ stateful!(Image {
 });
 
 impl Image {
-    pub fn new(src: PathBuf, width: Option<f32>, style: String) -> Self {
-        Self { src, width, style }
+    pub fn new(src: PathBuf, width: Option<f32>) -> Self {
+        Self { src, width }
     }
 }
 
 impl Action for Image {
-    #[inline(always)]
+    #[inline]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![self.src.to_owned()]
     }
 
     fn stateful(
         &self,
-        io: &IO,
+        _io: &IO,
         res: &ResourceMap,
-        config: &Config,
-        sync_writer: &QWriter<SyncSignal>,
-        async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<StatefulActionEnum, error::Error> {
-        match res.fetch(&self.src)? {
-            ResourceValue::Image(texture, size) => Ok(StatefulImage {
-                id: 0,
-                done: false,
-                handle: texture,
-                size,
-                width: self.width,
+        _config: &Config,
+        _sync_writer: &QWriter<SyncSignal>,
+        _async_writer: &QWriter<AsyncSignal>,
+    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+        let (texture, size) = {
+            if let ResourceValue::Image(texture, size) = res.fetch(&self.src)? {
+                (texture, size)
+            } else {
+                return Err(InvalidResourceError(format!(
+                    "Image action supplied non-image resource: `{:?}`",
+                    self.src
+                )));
             }
-            .into()),
-            _ => Err(InvalidResourceError(format!(
-                "Image action supplied non-image resource: `{:?}`",
-                self.src
-            ))),
-        }
+        };
+
+        Ok(Box::new(StatefulImage {
+            done: false,
+            handle: texture,
+            size,
+            width: self.width,
+        }))
     }
 }
 
 impl StatefulAction for StatefulImage {
     impl_stateful!();
 
-    #[inline(always)]
+    #[inline]
     fn props(&self) -> Props {
         (INFINITE | VISUAL).into()
     }
 
     fn start(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
 
     fn update(
         &mut self,
-        signal: &ActionSignal,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _signal: &ActionSignal,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -113,11 +111,11 @@ impl StatefulAction for StatefulImage {
         Ok(())
     }
 
-    #[inline(always)]
+    #[inline]
     fn stop(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         self.done = true;
         Ok(())

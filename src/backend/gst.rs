@@ -32,7 +32,6 @@ pub struct Stream {
     source: gst::Bin,
     playbin: gst::Bin,
     bus: gst::Bus,
-    media_mode: MediaMode,
     frame_size: [u32; 2],
     frame_rate: f64,
     audio_chan: u16,
@@ -49,7 +48,6 @@ impl MediaStream for Stream {
         tex_manager: Arc<RwLock<TextureManager>>,
         path: &Path,
         _config: &Config,
-        media_mode: MediaMode,
     ) -> Result<Self, error::Error> {
         init()?;
 
@@ -83,28 +81,11 @@ impl MediaStream for Stream {
             ))
         })?;
 
-        let (media_mode, audio_chan) = match (media_mode, audio_chan) {
-            (MediaMode::SansIntTrigger, 0) => Err(InvalidConfigError(format!(
-                "Cannot assume integrated trigger due to missing audio stream: {path:?}"
-            ))),
-            (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
-            (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
-            (MediaMode::SansIntTrigger, _) => Err(InvalidConfigError(format!(
-                "Cannot use integrated trigger with multichannel (n = {audio_chan} > 2) audio: {path:?}"
-            ))),
-            (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
-            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
-                "Cannot add trigger stream to non-mono (n = {audio_chan}) audio stream: {path:?}"
-            ))),
-            (mode, c) => Ok((mode, c)),
-        }?;
-
         Ok(Stream {
             path: path.to_owned(),
             source,
             playbin,
             bus,
-            media_mode,
             frame_size: [width as u32, height as u32],
             frame_rate,
             audio_chan,
@@ -119,9 +100,29 @@ impl MediaStream for Stream {
     fn cloned(
         &self,
         frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
+        media_mode: MediaMode,
         volume: Option<f32>,
     ) -> Result<Self, error::Error> {
-        let (source, playbin) = launch(&self.path, &self.media_mode, volume)?;
+        let (media_mode, audio_chan) = match (media_mode, self.audio_chan) {
+            (MediaMode::SansIntTrigger, 0) => Err(InvalidConfigError(format!(
+                "Cannot assume integrated trigger due to missing audio stream: {:?}",
+                self.path
+            ))),
+            (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
+            (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
+            (MediaMode::SansIntTrigger, _) => Err(InvalidConfigError(format!(
+                "Cannot use integrated trigger with multichannel (n = {} > 2) audio: {:?}",
+                self.audio_chan, self.path,
+            ))),
+            (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
+            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
+                "Cannot add trigger stream to non-mono (n = {}) audio stream: {:?}",
+                self.audio_chan, self.path
+            ))),
+            (mode, c) => Ok((mode, c)),
+        }?;
+
+        let (source, playbin) = launch(&self.path, &media_mode, volume)?;
         let bus = source.bus().unwrap();
 
         let video_sink = get_video_sink(&playbin, true);
@@ -163,10 +164,9 @@ impl MediaStream for Stream {
             source,
             playbin,
             bus,
-            media_mode: self.media_mode.clone(),
             frame_size: self.frame_size,
             frame_rate: self.frame_rate,
-            audio_chan: self.audio_chan,
+            audio_chan,
             audio_rate: self.audio_rate,
             duration: self.duration,
             is_eos: self.is_eos,
@@ -176,43 +176,43 @@ impl MediaStream for Stream {
     }
 
     /// Get if the stream ended or not.
-    #[inline(always)]
+    #[inline]
     fn eos(&self) -> bool {
         self.is_eos
     }
 
     /// Get the size/resolution of the video as `[width, height]`.
-    #[inline(always)]
+    #[inline]
     fn size(&self) -> [u32; 2] {
         self.frame_size
     }
 
     /// Get the framerate of the video as frames per second.
-    #[inline(always)]
+    #[inline]
     fn framerate(&self) -> f64 {
         self.frame_rate
     }
 
     /// Get the number of audio channels.
-    #[inline(always)]
+    #[inline]
     fn channels(&self) -> u16 {
         self.audio_chan
     }
 
     /// Get the media duration.
-    #[inline(always)]
+    #[inline]
     fn duration(&self) -> Duration {
         self.duration
     }
 
     /// Check if stream has a video channel.
-    #[inline(always)]
+    #[inline]
     fn has_video(&self) -> bool {
         self.frame_size.iter().sum::<u32>() > 0
     }
 
     /// Check if stream has an audio channel.
-    #[inline(always)]
+    #[inline]
     fn has_audio(&self) -> bool {
         self.audio_chan > 0
     }
@@ -335,7 +335,7 @@ impl Stream {
     }
 
     /// Get if the stream is paused.
-    #[inline(always)]
+    #[inline]
     pub fn paused(&self) -> bool {
         self.paused
     }

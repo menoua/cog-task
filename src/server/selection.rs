@@ -1,20 +1,12 @@
-use crate::error::Error;
-use crate::scheduler::Scheduler;
 use crate::server::{Page, Progress, Server, ServerSignal};
-use crate::style;
-use crate::style::text::{body, button1, heading, tooltip};
+use crate::style::text::{body, button1, tooltip};
 use crate::style::{
-    style_ui, Style, ACTIVE_BLUE, CUSTOM_BLUE, CUSTOM_ORANGE, CUSTOM_RED, FOREST_GREEN,
-    TEXT_SIZE_DIALOGUE_BODY, TEXT_SIZE_DIALOGUE_TITLE,
+    style_ui, Style, CUSTOM_BLUE, CUSTOM_ORANGE, CUSTOM_RED, FOREST_GREEN, TEXT_SIZE_DIALOGUE_BODY,
+    TEXT_SIZE_DIALOGUE_TITLE,
 };
-use crate::task::block::Block;
 use crate::template::{center_x, header_body_controls};
 use eframe::egui;
-use eframe::egui::style::Margin;
-use eframe::egui::{
-    Align, Color32, Direction, Frame, Label, Layout, Pos2, RichText, ScrollArea, Vec2, Window,
-};
-use egui::CentralPanel;
+use eframe::egui::{Direction, Label, Layout, Pos2, RichText, ScrollArea, Vec2, Window};
 use egui_extras::{Size, StripBuilder};
 use std::thread;
 
@@ -171,7 +163,7 @@ impl Server {
                     let resources = block.resources(&config);
                     let mut sync_writer = self.sync_reader.writer();
                     let mut resource_map = self.resources().clone();
-                    let mut tex_manager = ui.ctx().tex_manager();
+                    let tex_manager = ui.ctx().tex_manager();
                     thread::spawn(move || {
                         match resource_map.preload_block(resources, tex_manager, &config, &env) {
                             Ok(()) => sync_writer.push(ServerSignal::LoadComplete),

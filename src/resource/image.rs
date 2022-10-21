@@ -4,7 +4,7 @@ use eframe::egui::mutex::RwLock;
 use eframe::egui::{ColorImage, ImageData, TextureFilter, Vec2};
 use eframe::{egui, epaint};
 use egui::TextureId;
-use epaint::TextureManager;
+use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -12,13 +12,13 @@ pub fn image_from_file(
     tex_manager: Arc<RwLock<epaint::TextureManager>>,
     path: &Path,
 ) -> Result<(TextureId, Vec2), error::Error> {
-    let bytes = std::fs::read(&path).map_err(|e| {
+    let bytes = fs::read(&path).map_err(|e| {
         ResourceLoadError(format!("Failed to read image file: `{path:?}`:\n{e:#?}"))
     })?;
     image_from_bytes(tex_manager, &bytes, path)
 }
 
-#[inline(always)]
+#[inline]
 pub fn image_from_bytes(
     tex_manager: Arc<RwLock<epaint::TextureManager>>,
     bytes: &[u8],
@@ -45,13 +45,13 @@ pub fn svg_from_file(
     tex_manager: Arc<RwLock<epaint::TextureManager>>,
     path: &Path,
 ) -> Result<(TextureId, Vec2), error::Error> {
-    let bytes = std::fs::read(&path).map_err(|e| {
+    let bytes = fs::read(&path).map_err(|e| {
         ResourceLoadError(format!("Failed to read image file: `{path:?}`:\n{e:#?}"))
     })?;
     svg_from_bytes(tex_manager, &bytes, path)
 }
 
-#[inline(always)]
+#[inline]
 pub fn svg_from_bytes(
     tex_manager: Arc<RwLock<epaint::TextureManager>>,
     bytes: &[u8],
@@ -65,7 +65,7 @@ pub fn svg_from_bytes(
     let orig_size = rtree.svg_node().size;
 
     let [width, height] = [1920, 1080];
-    let scale = (width as f64 / orig_size.width()).min((height as f64 / orig_size.height()));
+    let scale = (width as f64 / orig_size.width()).min(height as f64 / orig_size.height());
     let [width, height] = [
         (scale * orig_size.width() as f64).round() as _,
         (scale * orig_size.height() as f64).round() as _,

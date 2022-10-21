@@ -9,26 +9,20 @@ use audio::audio_from_file;
 use text::text_or_file;
 use video::video_from_file;
 
-use crate::action::ActionEnum;
 use crate::assets::{IMAGE_FIXATION, IMAGE_RUSTACEAN};
 use crate::config::Config;
 use crate::env::Env;
 use crate::error;
-use crate::error::Error::{ResourceLoadError, TaskDefinitionError};
+use crate::error::Error::ResourceLoadError;
 use crate::resource::stream::{stream_from_file, Stream};
-use crate::task::block::Block;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{TextureId, Vec2};
-use eframe::{egui, epaint};
-use egui::TextureHandle;
+use eframe::epaint;
 use rodio::buffer::SamplesBuffer;
 use rodio::source::Buffered;
-use rodio::{Decoder, Source};
+use rodio::Source;
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
-use std::fs;
-use std::fs::File;
-use std::io::BufReader;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -81,7 +75,7 @@ impl Debug for ResourceValue {
 pub struct ResourceMap(Arc<Mutex<HashMap<PathBuf, ResourceValue>>>);
 
 impl ResourceMap {
-    #[inline(always)]
+    #[inline]
     pub fn new() -> Self {
         Self::default()
     }

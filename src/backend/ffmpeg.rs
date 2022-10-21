@@ -4,7 +4,6 @@ use crate::error;
 use crate::error::Error::{BackendError, InternalError, InvalidConfigError, StreamDecodingError};
 use crate::resource::FrameBuffer;
 use crate::util::spin_sleeper;
-use eframe::egui;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{ColorImage, ImageData, TextureFilter, TextureId, Vec2};
 use eframe::epaint::TextureManager;
@@ -15,7 +14,7 @@ use ffmpeg::util::frame::video::Video;
 use ffmpeg_next as ffmpeg;
 use once_cell::sync::OnceCell;
 use std::path::{Path, PathBuf};
-use std::sync::mpsc::{RecvError, Sender};
+use std::sync::mpsc::Sender;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -28,7 +27,6 @@ pub struct Stream {
     _context: Option<Arc<Mutex<Input>>>,
     video_index: Option<usize>,
     audio_index: Option<usize>,
-    media_mode: MediaMode,
     frame_size: [u32; 2],
     frame_rate: f64,
     audio_chan: u16,
@@ -45,7 +43,6 @@ impl MediaStream for Stream {
         tex_manager: Arc<RwLock<TextureManager>>,
         path: &Path,
         _config: &Config,
-        media_mode: MediaMode,
     ) -> Result<Self, error::Error> {
         init()?;
 
@@ -81,28 +78,11 @@ impl MediaStream for Stream {
             context.duration() as f64 / f64::from(ffmpeg::ffi::AV_TIME_BASE),
         );
 
-        let (media_mode, audio_chan) = match (media_mode, audio_chan) {
-            (MediaMode::SansIntTrigger, 0) => Err(InvalidConfigError(format!(
-                "Cannot assume integrated trigger due to missing audio stream: {path:?}"
-            ))),
-            (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
-            (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
-            (MediaMode::SansIntTrigger, _) => Err(InvalidConfigError(format!(
-                "Cannot use integrated trigger with multichannel (n = {audio_chan} > 2) audio: {path:?}"
-            ))),
-            (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
-            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
-                "Cannot add trigger stream to non-mono (n = {audio_chan}) audio stream: {path:?}"
-            ))),
-            (mode, c) => Ok((mode, c)),
-        }?;
-
         Ok(Stream {
             path: path.to_owned(),
             _context: None,
             video_index,
             audio_index,
-            media_mode,
             frame_size: [width, height],
             frame_rate,
             audio_chan,
@@ -118,8 +98,28 @@ impl MediaStream for Stream {
     fn cloned(
         &self,
         frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
+        media_mode: MediaMode,
         _volume: Option<f32>,
     ) -> Result<Self, error::Error> {
+        let (_media_mode, audio_chan) = match (media_mode, self.audio_chan) {
+            (MediaMode::SansIntTrigger, 0) => Err(InvalidConfigError(format!(
+                "Cannot assume integrated trigger due to missing audio stream: {:?}",
+                self.path
+            ))),
+            (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
+            (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
+            (MediaMode::SansIntTrigger, _) => Err(InvalidConfigError(format!(
+                "Cannot use integrated trigger with multichannel (n = {} > 2) audio: {:?}",
+                self.audio_chan, self.path
+            ))),
+            (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
+            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
+                "Cannot add trigger stream to non-mono (n = {}) audio stream: {:?}",
+                self.audio_chan, self.path
+            ))),
+            (mode, c) => Ok((mode, c)),
+        }?;
+
         let context = input(&self.path)?;
         // context
         //     .pause()
@@ -246,10 +246,9 @@ impl MediaStream for Stream {
             _context: Some(context),
             video_index: self.video_index,
             audio_index: self.audio_index,
-            media_mode: self.media_mode.clone(),
             frame_size: self.frame_size,
             frame_rate: self.frame_rate,
-            audio_chan: self.audio_chan,
+            audio_chan,
             audio_rate: self.audio_rate,
             duration: self.duration,
             is_eos,
@@ -303,7 +302,7 @@ impl MediaStream for Stream {
         self.paused = false;
         if let Some(link) = self.starter.take() {
             link.send(())
-                .map_err(|e| InternalError("Failed to start ffmpeg parallel thread".to_owned()))
+                .map_err(|_| InternalError("Failed to start ffmpeg parallel thread".to_owned()))
         } else {
             Err(InternalError(
                 "Tried to start ffmpeg parallel thread twice".to_owned(),

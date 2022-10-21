@@ -1,22 +1,13 @@
-use crate::action::{
-    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, DEFAULT,
-};
+use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error;
-use crate::error::Error::{ActionEvolveError, InternalError, TaskDefinitionError};
 use crate::io::IO;
 use crate::resource::ResourceMap;
-use crate::resource::ResourceValue::Text;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::fs;
-use std::fs::File;
-use std::io::BufReader;
-use std::path::{Path, PathBuf};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Nil;
@@ -24,16 +15,16 @@ pub struct Nil;
 stateful!(Nil {});
 
 impl Action for Nil {
-    #[inline(always)]
+    #[inline]
     fn stateful(
         &self,
-        io: &IO,
-        res: &ResourceMap,
-        config: &Config,
-        sync_writer: &QWriter<SyncSignal>,
-        async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<StatefulActionEnum, error::Error> {
-        Ok(StatefulNil { id: 0, done: true }.into())
+        _io: &IO,
+        _res: &ResourceMap,
+        _config: &Config,
+        _sync_writer: &QWriter<SyncSignal>,
+        _async_writer: &QWriter<AsyncSignal>,
+    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+        Ok(Box::new(StatefulNil { done: true }))
     }
 }
 
@@ -52,34 +43,34 @@ impl StatefulAction for StatefulNil {
 
     fn start(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
 
     fn update(
         &mut self,
-        signal: &ActionSignal,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _signal: &ActionSignal,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
 
     fn show(
         &mut self,
-        ui: &mut Ui,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _ui: &mut Ui,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
 
     fn stop(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -87,9 +78,6 @@ impl StatefulAction for StatefulNil {
 
 impl StatefulNil {
     pub fn new() -> Self {
-        Self {
-            id: 0,
-            done: true,
-        }
+        Self { done: true }
     }
 }

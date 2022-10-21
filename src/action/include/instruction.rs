@@ -1,12 +1,8 @@
-use crate::action::{
-    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, INFINITE, VISUAL,
-};
+use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error;
-use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
-use crate::resource::text::Justification;
 use crate::resource::{text::text_or_file, ResourceMap};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
@@ -14,10 +10,11 @@ use crate::style::text::{body, button1};
 use crate::style::{style_ui, Style};
 use crate::template::{center_x, header_body_controls};
 use eframe::egui;
-use eframe::egui::{CursorIcon, RichText, ScrollArea};
+use eframe::egui::{CursorIcon, ScrollArea};
 use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
-use std::path::{Path, PathBuf};
+use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -25,29 +22,22 @@ pub struct Instruction {
     text: String,
     #[serde(default)]
     header: String,
-    #[serde(default = "defaults::justification")]
-    justify: String,
+    #[serde(default)]
+    params: HashMap<String, String>,
     #[serde(default = "defaults::persistent")]
     #[serde(rename = "static")]
     persistent: bool,
-    #[serde(default)]
-    style: String,
 }
 
 stateful!(Instruction {
     text: String,
     header: String,
-    justify: Justification,
+    params: HashMap<String, String>,
     persistent: bool,
 });
 
 mod defaults {
-    #[inline(always)]
-    pub fn justification() -> String {
-        "Left".to_owned()
-    }
-
-    #[inline(always)]
+    #[inline]
     pub fn persistent() -> bool {
         false
     }
@@ -58,15 +48,14 @@ impl From<&str> for Instruction {
         Self {
             text: text.to_owned(),
             header: "".to_owned(),
-            justify: defaults::justification(),
+            params: HashMap::new(),
             persistent: defaults::persistent(),
-            style: "".to_owned(),
         }
     }
 }
 
 impl Action for Instruction {
-    #[inline(always)]
+    #[inline]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         if let Some(path) = text_or_file(&self.text) {
             vec![path]
@@ -75,52 +64,28 @@ impl Action for Instruction {
         }
     }
 
-    #[inline(always)]
-    fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
-        match self.justify.to_lowercase().as_str() {
-            "left" | "center" | "right" => Ok(()),
-            j => Err(TaskDefinitionError(format!(
-                "Unknown justification value '{j}' (should be 'left', 'center', or 'right')"
-            )))?,
-        }
-    }
-
     fn stateful(
         &self,
-        io: &IO,
+        _io: &IO,
         res: &ResourceMap,
-        config: &Config,
-        sync_writer: &QWriter<SyncSignal>,
-        async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<StatefulActionEnum, error::Error> {
-        let text = res.fetch_text(&self.text)?;
-        let header = self.header.clone();
-        let justify = match self.justify.to_lowercase().as_str() {
-            "left" => Justification::Left,
-            "center" => Justification::Center,
-            "right" => Justification::Right,
-            j => Err(TaskDefinitionError(format!(
-                "Unknown justification value '{j}' (should be 'left', 'center', or 'right')"
-            )))?,
-        };
-
-        Ok(StatefulInstruction {
-            id: 0,
+        _config: &Config,
+        _sync_writer: &QWriter<SyncSignal>,
+        _async_writer: &QWriter<AsyncSignal>,
+    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+        Ok(Box::new(StatefulInstruction {
             done: false,
-            text,
-            header,
-            justify,
+            text: res.fetch_text(&self.text)?,
+            header: self.header.clone(),
+            params: self.params.clone(),
             persistent: self.persistent,
-            // style: Style::new("action-instruction", &self.style),
-        }
-        .into())
+        }))
     }
 }
 
 impl StatefulAction for StatefulInstruction {
     impl_stateful!();
 
-    #[inline(always)]
+    #[inline]
     fn props(&self) -> Props {
         if self.persistent {
             INFINITE | VISUAL
@@ -132,17 +97,17 @@ impl StatefulAction for StatefulInstruction {
 
     fn start(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
 
     fn update(
         &mut self,
-        signal: &ActionSignal,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _signal: &ActionSignal,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -153,7 +118,13 @@ impl StatefulAction for StatefulInstruction {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        header_body_controls(ui, |mut strip| {
+        let mut text = self.text.clone();
+        for (k, v) in self.params.iter() {
+            let re = regex::Regex::new(&format!(r"\$\{{{k}\}}")).unwrap();
+            text = re.replace_all(&text, v).to_string();
+        }
+
+        header_body_controls(ui, |strip| {
             strip.cell(|ui| {
                 ui.centered_and_justified(|ui| ui.heading(&self.header));
             });
@@ -168,7 +139,7 @@ impl StatefulAction for StatefulInstruction {
                         strip.cell(|ui| {
                             ScrollArea::vertical().show(ui, |ui| {
                                 ui.centered_and_justified(|ui| {
-                                    ui.label(body(&self.text));
+                                    ui.label(body(&text));
                                 });
                             });
                         });
@@ -190,11 +161,11 @@ impl StatefulAction for StatefulInstruction {
         Ok(())
     }
 
-    #[inline(always)]
+    #[inline]
     fn stop(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         self.done = true;
         Ok(())
@@ -228,6 +199,7 @@ impl StatefulInstruction {
         }
     }
 
+    #[allow(dead_code)]
     fn debug(&self) -> Vec<(&str, String)> {
         <dyn StatefulAction>::debug(self)
             .into_iter()

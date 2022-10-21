@@ -10,6 +10,7 @@ use serde_json::Value;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::{create_dir_all, File};
+use std::io::Write;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
@@ -32,7 +33,7 @@ pub enum LoggerSignal {
 }
 
 impl LoggerSignal {
-    #[inline(always)]
+    #[inline]
     fn requires_flush(&self) -> bool {
         matches!(
             self,
@@ -100,7 +101,7 @@ impl Logger {
         for (group, (vec, flush)) in self.content.iter_mut().filter(|(_, (_, flush))| *flush) {
             let name = format!("{}.log", normalized_name(group));
             let path = self.out_dir.join(name);
-            let file = File::create(&path).map_err(|e| {
+            let mut file = File::create(&path).map_err(|e| {
                 LoggerError(format!(
                     "Failed to create log file for group `{group}`:\n{e:#?}"
                 ))
@@ -113,6 +114,17 @@ impl Logger {
                 LogFormat::YAML => serde_yaml::to_writer(file, vec).map_err(|e| {
                     LoggerError(format!("Failed to log YAML to file: {path:?}\n{e:#?}"))
                 })?,
+                LogFormat::RON => file
+                    .write_all(
+                        ron::to_string(vec)
+                            .map_err(|e| {
+                                LoggerError(format!("Failed to serialize log to RON:\n{e:#?}"))
+                            })?
+                            .as_bytes(),
+                    )
+                    .map_err(|e| {
+                        LoggerError(format!("Failed to log RON to file: {path:?}\n{e:#?}"))
+                    })?,
             }
             *flush = false;
 

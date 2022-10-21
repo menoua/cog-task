@@ -1,13 +1,12 @@
-use crate::config::{Config, TriggerType};
+use crate::config::Config;
 use crate::error;
 use crate::error::Error::{AudioDecodingError, ResourceLoadError, TriggerConfigError};
 use crate::resource::AudioBuffer;
 use rodio::buffer::SamplesBuffer;
-use rodio::source::Buffered;
 use rodio::{Decoder, Source};
 use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::{BufReader, Read, Seek};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 pub fn audio_from_file(path: &Path, _config: &Config) -> Result<AudioBuffer, error::Error> {

@@ -1,6 +1,4 @@
-use crate::action::{
-    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, DEFAULT, INFINITE,
-};
+use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::config::{Config, TimePrecision};
 use crate::error;
 use crate::error::Error;
@@ -41,7 +39,7 @@ stateful_arc!(Audio {
 });
 
 impl Action for Audio {
-    #[inline(always)]
+    #[inline]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         if let Trigger::Ext(trig) = &self.trigger {
             vec![self.src.to_owned(), trig.clone()]
@@ -55,9 +53,9 @@ impl Action for Audio {
         io: &IO,
         res: &ResourceMap,
         config: &Config,
-        sync_writer: &QWriter<SyncSignal>,
-        async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<StatefulActionEnum, error::Error> {
+        _sync_writer: &QWriter<SyncSignal>,
+        _async_writer: &QWriter<AsyncSignal>,
+    ) -> Result<Box<dyn StatefulAction>, error::Error> {
         let src = if let ResourceValue::Audio(src) = res.fetch(&self.src)? {
             src
         } else {
@@ -164,22 +162,20 @@ impl Action for Audio {
             });
         }
 
-        Ok(StatefulAudio {
-            id: 0,
+        Ok(Box::new(StatefulAudio {
             done,
             duration,
             looping: self.looping,
             sink,
             link: Some((tx_start, rx_stop)),
-        }
-        .into())
+        }))
     }
 }
 
 impl StatefulAction for StatefulAudio {
     impl_stateful!();
 
-    #[inline(always)]
+    #[inline]
     fn props(&self) -> Props {
         if self.looping { INFINITE } else { DEFAULT }.into()
     }
@@ -191,8 +187,7 @@ impl StatefulAction for StatefulAudio {
     ) -> Result<(), error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
-                "Link to audio thread could not be acquired for action `{}`",
-                self.id
+                "Link to audio thread could not be acquired for action",
             ))
         })?;
 
@@ -216,27 +211,27 @@ impl StatefulAction for StatefulAudio {
 
     fn update(
         &mut self,
-        signal: &ActionSignal,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _signal: &ActionSignal,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
 
     fn show(
         &mut self,
-        ui: &mut Ui,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _ui: &mut Ui,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
 
-    #[inline(always)]
+    #[inline]
     fn stop(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         if let Some(sink) = self.sink.lock().unwrap().take() {
             sink.stop();

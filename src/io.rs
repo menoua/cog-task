@@ -25,7 +25,7 @@ impl IO {
         })
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn audio(&self) -> Result<Sink, error::Error> {
         Sink::try_new(&self.audio_stream_handle)
             .map_err(|e| IoAccessError(format!("Failed to create audio sink:\n{e:#?}")))

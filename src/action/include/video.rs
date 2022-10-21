@@ -1,7 +1,4 @@
-use crate::action::{
-    Action, ActionEnum, ActionSignal, Props, StatefulAction, StatefulActionEnum, DEFAULT, INFINITE,
-    VISUAL,
-};
+use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error;
@@ -12,7 +9,7 @@ use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use crate::util::spin_sleeper;
 use eframe::egui;
-use eframe::egui::{CentralPanel, CursorIcon, TextureId, Vec2};
+use eframe::egui::{CursorIcon, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -28,8 +25,6 @@ pub struct Video {
     width: Option<u16>,
     #[serde(default)]
     looping: bool,
-    #[serde(default)]
-    style: String,
 }
 
 stateful_arc!(Video {
@@ -43,26 +38,26 @@ stateful_arc!(Video {
 });
 
 impl Video {
-    #[inline(always)]
+    #[inline]
     fn src(&self) -> PathBuf {
         PathBuf::from(self.src.to_str().unwrap())
     }
 }
 
 impl Action for Video {
-    #[inline(always)]
+    #[inline]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![self.src()]
     }
 
     fn stateful(
         &self,
-        io: &IO,
+        _io: &IO,
         res: &ResourceMap,
-        config: &Config,
-        sync_writer: &QWriter<SyncSignal>,
-        async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<StatefulActionEnum, error::Error> {
+        _config: &Config,
+        _sync_writer: &QWriter<SyncSignal>,
+        _async_writer: &QWriter<AsyncSignal>,
+    ) -> Result<Box<dyn StatefulAction>, error::Error> {
         match res.fetch(&self.src())? {
             ResourceValue::Video(frames, framerate) => {
                 let done = Arc::new(Mutex::new(Ok(frames.is_empty())));
@@ -107,8 +102,7 @@ impl Action for Video {
                     });
                 }
 
-                Ok(StatefulVideo {
-                    id: 0,
+                Ok(Box::new(StatefulVideo {
                     done,
                     frames,
                     framerate,
@@ -117,8 +111,7 @@ impl Action for Video {
                     width: self.width,
                     looping: self.looping,
                     link: Some((tx_start, rx_stop)),
-                }
-                .into())
+                }))
             }
             _ => Err(InvalidResourceError(format!(
                 "Video action supplied non-video resource: `{:?}`",
@@ -131,7 +124,7 @@ impl Action for Video {
 impl StatefulAction for StatefulVideo {
     impl_stateful!();
 
-    #[inline(always)]
+    #[inline]
     fn props(&self) -> Props {
         if self.looping {
             INFINITE | VISUAL
@@ -141,7 +134,7 @@ impl StatefulAction for StatefulVideo {
         .into()
     }
 
-    #[inline(always)]
+    #[inline]
     fn start(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
@@ -149,8 +142,7 @@ impl StatefulAction for StatefulVideo {
     ) -> Result<(), error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
-                "Link to video thread could not be acquired for action `{}`",
-                self.id
+                "Link to video thread could not be acquired for action",
             ))
         })?;
 
@@ -174,9 +166,9 @@ impl StatefulAction for StatefulVideo {
 
     fn update(
         &mut self,
-        signal: &ActionSignal,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _signal: &ActionSignal,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -204,11 +196,11 @@ impl StatefulAction for StatefulVideo {
         Ok(())
     }
 
-    #[inline(always)]
+    #[inline]
     fn stop(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         *self.done.lock().unwrap() = Ok(true);
         Ok(())

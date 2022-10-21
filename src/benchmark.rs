@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use std::fmt::{Debug, Formatter};
 use std::time::{Duration, Instant};
 

@@ -1,18 +1,16 @@
-use crate::config::{Config, LogCondition};
+use crate::config::Config;
 use crate::error;
-use crate::error::Error::{ActionViewError, InvalidNameError};
 use crate::io::IO;
 use crate::resource::ResourceMap;
-use crate::scheduler::monitor::{Event, Monitor};
 use eframe::egui;
 use itertools::Itertools;
-use std::any::Any;
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[macro_use]
 mod macros;
+pub mod de;
 pub mod include;
 pub mod props;
 
@@ -22,14 +20,17 @@ pub use include::*;
 pub use props::*;
 
 pub trait Action: Debug {
-    #[inline(always)]
+    #[inline]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![]
     }
 
-    #[inline(always)]
-    fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
-        Ok(())
+    #[inline]
+    fn init(self) -> Result<Box<dyn Action>, error::Error>
+    where
+        Self: 'static + Sized,
+    {
+        Ok(Box::new(self))
     }
 
     fn stateful(
@@ -39,26 +40,22 @@ pub trait Action: Debug {
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<StatefulActionEnum, error::Error>;
+    ) -> Result<Box<dyn StatefulAction>, error::Error>;
 }
 
 pub trait StatefulAction: Send {
-    fn id(&self) -> usize;
-
     fn is_over(&self) -> Result<bool, error::Error>;
 
     fn type_str(&self) -> String;
 
     fn props(&self) -> Props;
 
-    #[inline(always)]
     fn start(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error>;
 
-    #[inline(always)]
     fn update(
         &mut self,
         signal: &ActionSignal,
@@ -66,7 +63,6 @@ pub trait StatefulAction: Send {
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error>;
 
-    #[inline(always)]
     fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -82,12 +78,10 @@ pub trait StatefulAction: Send {
 
     fn debug(&self) -> Vec<(&str, String)> {
         vec![
-            ("id", format!("{:?}", self.id())),
-            ("over", format!("{:?}", self.is_over())),
+            ("type", format!("{:?}", self.type_str())),
+            ("done", format!("{:?}", self.is_over())),
             ("viz", format!("{:?}", self.props().visual())),
             ("inf", format!("{:?}", self.props().infinite())),
-            ("keys", format!("{:?}", self.props().captures_keys())),
-            ("type", format!("{:?}", self.type_str())),
         ]
     }
 }

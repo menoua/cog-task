@@ -55,17 +55,17 @@ impl Info {
         }
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn subject(&self) -> &String {
         &self.server.subject
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn block(&self) -> &String {
         &self.block.name
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn output(&self) -> &PathBuf {
         &self.server.output
     }

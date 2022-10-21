@@ -18,26 +18,6 @@ pub const TEXT_SIZE_ICON: f32 = 32.0;
 pub const TEXT_SIZE_DIALOGUE_TITLE: f32 = 30.0;
 pub const TEXT_SIZE_DIALOGUE_BODY: f32 = 26.0;
 
-// pub struct Radio;
-// impl radio::StyleSheet for Radio {
-//     fn active(&self) -> radio::Style {
-//         radio::Style {
-//             background: Background::Color(Color::WHITE),
-//             dot_color: ACTIVE_BLUE_OLD,
-//             border_width: 3.0,
-//             border_color: LIGHT_GRAY_OLD,
-//             text_color: Some(Color::BLACK),
-//         }
-//     }
-//
-//     fn hovered(&self) -> radio::Style {
-//         radio::Style {
-//             border_color: ACTIVE_BLUE_OLD,
-//             ..self.active()
-//         }
-//     }
-// }
-
 pub const HOVERED: Rgba = Rgba::from_rgb(
     0x67 as f32 / 255.0,
     0x7B as f32 / 255.0,
@@ -336,39 +316,39 @@ pub mod text {
     use super::*;
     use eframe::egui::{Color32, RichText};
 
-    #[inline(always)]
+    #[inline]
     pub fn heading(text: impl Into<String>) -> RichText {
         RichText::new(text).heading()
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn body(text: impl Into<String>) -> RichText {
         RichText::new(text).size(TEXT_SIZE_BODY)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn inactive(text: impl Into<String>) -> RichText {
         RichText::new(text)
             .size(TEXT_SIZE_BODY)
             .color(Color32::LIGHT_GRAY)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn button1(text: impl Into<String>) -> RichText {
         RichText::new(text).size(TEXT_SIZE_BUTTON1)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn button2(text: impl Into<String>) -> RichText {
         RichText::new(text).size(TEXT_SIZE_BUTTON2)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn tooltip(text: impl Into<String>) -> RichText {
         RichText::new(text).size(TEXT_SIZE_TOOLTIP)
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn icon(text: impl Into<String>) -> RichText {
         RichText::new(text).size(TEXT_SIZE_ICON)
     }

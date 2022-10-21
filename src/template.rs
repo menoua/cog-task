@@ -1,7 +1,4 @@
-use crate::server::Server;
-use crate::style::text::{body, heading};
 use eframe::egui;
-use eframe::egui::{RichText, ScrollArea};
 use egui_extras::{Size, Strip, StripBuilder};
 
 pub fn header_body_controls(ui: &mut egui::Ui, content: impl FnOnce(&mut Strip)) {

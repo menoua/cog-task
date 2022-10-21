@@ -2,7 +2,6 @@ use super::Server;
 use crate::error::Error::InternalError;
 use crate::server::ServerSignal;
 use eframe::egui;
-use eframe::egui::{CentralPanel, Color32, RichText};
 
 impl Server {
     pub(crate) fn show_activity(&mut self, ui: &mut egui::Ui) {

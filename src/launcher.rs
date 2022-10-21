@@ -2,13 +2,10 @@ use crate::assets::{Icon, VERSION};
 use crate::signal::QReader;
 use crate::style;
 use crate::style::text::{button1, tooltip};
-use crate::style::{
-    style_ui, Style, TEXT_SIZE_BUTTON2, TEXT_SIZE_DIALOGUE_BODY, TEXT_SIZE_DIALOGUE_TITLE,
-    TEXT_SIZE_ICON, TEXT_SIZE_TOOLTIP,
-};
+use crate::style::{style_ui, Style, TEXT_SIZE_DIALOGUE_BODY, TEXT_SIZE_DIALOGUE_TITLE};
 use crate::system::SystemInfo;
 use eframe::egui;
-use eframe::egui::{Color32, CursorIcon, Direction, Layout, Vec2, Window};
+use eframe::egui::{CursorIcon, Direction, Layout, Vec2, Window};
 use eframe::glow::HasContext;
 use egui::widget_text::RichText;
 use egui_extras::{Size, StripBuilder};
@@ -150,7 +147,7 @@ impl Launcher {
         });
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn title() -> &'static str {
         "CogTask Launcher"
     }

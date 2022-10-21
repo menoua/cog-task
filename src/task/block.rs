@@ -1,27 +1,22 @@
-use crate::action::{Action, ActionEnum};
+use crate::action::Action;
 use crate::config::{Config, OptionalConfig};
 use crate::error;
 use crate::error::Error::TaskDefinitionError;
 use crate::util::Hash;
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
-use std::slice::Iter;
+use std::path::PathBuf;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Block {
     name: String,
-    tree: ActionEnum,
+    tree: Box<dyn Action>,
     #[serde(default)]
     config: OptionalConfig,
 }
 
 impl Block {
-    pub fn init(&mut self, root_dir: &Path, config: &Config) -> Result<(), error::Error> {
-        let config = self.config(config);
+    pub fn init(&mut self) -> Result<(), error::Error> {
         self.verify_name()?;
-        self.tree.init(root_dir, &config)?;
         Ok(())
     }
 
@@ -45,15 +40,15 @@ impl Block {
     }
 
     pub fn resources(&self, config: &Config) -> Vec<PathBuf> {
-        self.tree.inner().resources(config)
+        self.tree.resources(config)
     }
 
-    #[inline(always)]
-    pub fn action_tree(&self) -> &ActionEnum {
-        &self.tree
+    #[inline]
+    pub fn action_tree(&self) -> &dyn Action {
+        &*self.tree
     }
 
-    #[inline(always)]
+    #[inline]
     pub fn label(&self) -> &str {
         &self.name
     }
