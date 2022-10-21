@@ -1,5 +1,6 @@
 use crate::error;
 use crate::error::Error::ChecksumError;
+use crate::resource::color::Color;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
@@ -11,7 +12,7 @@ pub enum LogFormat {
 }
 
 impl Default for LogFormat {
-    #[inline]
+    #[inline(always)]
     fn default() -> Self {
         LogFormat::JSON
     }
@@ -25,7 +26,7 @@ pub enum TimePrecision {
 }
 
 impl Default for TimePrecision {
-    #[inline]
+    #[inline(always)]
     fn default() -> Self {
         TimePrecision::RespectBoundaries
     }
@@ -40,7 +41,7 @@ pub enum MediaBackend {
 }
 
 impl Default for MediaBackend {
-    #[inline]
+    #[inline(always)]
     fn default() -> Self {
         MediaBackend::None
     }
@@ -64,32 +65,33 @@ pub struct Config {
     time_precision: TimePrecision,
     #[serde(default)]
     media_backend: MediaBackend,
+    #[serde(default)]
+    background: Color,
 }
 
 mod defaults {
-    #[inline]
+    #[inline(always)]
     pub fn use_trigger() -> bool {
         true
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn verify_sha2() -> Option<String> {
         None
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn blocks_per_row() -> i32 {
         3
     }
 }
 
 impl Config {
-    #[inline]
+    #[inline(always)]
     pub fn use_trigger(&self) -> bool {
         self.use_trigger
     }
 
-    #[inline]
     pub fn verify_checksum(&self, task: String) -> Result<(), error::Error> {
         if let Some(checksum) = self.verify_sha2.as_ref() {
             if checksum != &task {
@@ -103,29 +105,34 @@ impl Config {
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn blocks_per_row(&self) -> i32 {
         self.blocks_per_row
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn base_volume(&self) -> Option<f32> {
         self.base_volume
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn log_format(&self) -> LogFormat {
         self.log_format
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn time_precision(&self) -> TimePrecision {
         self.time_precision
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn media_backend(&self) -> MediaBackend {
         self.media_backend
+    }
+
+    #[inline(always)]
+    pub fn background(&self) -> Color {
+        self.background
     }
 
     pub fn volume(&self, vol: Option<f32>) -> Option<f32> {
@@ -151,6 +158,8 @@ pub struct OptionalConfig {
     time_precision: Option<TimePrecision>,
     #[serde(default)]
     media_backend: Option<MediaBackend>,
+    #[serde(default)]
+    background: Option<Color>,
 }
 
 impl OptionalConfig {
@@ -170,6 +179,9 @@ impl OptionalConfig {
         }
         if let Some(v) = self.media_backend {
             config.media_backend = v;
+        }
+        if let Some(v) = self.background {
+            config.background = v;
         }
         config
     }

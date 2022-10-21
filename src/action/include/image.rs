@@ -4,11 +4,12 @@ use crate::error;
 use crate::error::Error;
 use crate::error::Error::InvalidResourceError;
 use crate::io::IO;
+use crate::resource::color::Color;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use eframe::egui;
-use eframe::egui::{CursorIcon, TextureId, Vec2};
+use eframe::egui::{CentralPanel, CursorIcon, Frame, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -18,22 +19,30 @@ pub struct Image {
     src: PathBuf,
     #[serde(default)]
     width: Option<f32>,
+    #[serde(default)]
+    background: Color,
 }
 
 stateful!(Image {
     handle: TextureId,
     size: Vec2,
     width: Option<f32>,
+    background: Color,
 });
 
 impl Image {
-    pub fn new(src: PathBuf, width: Option<f32>) -> Self {
-        Self { src, width }
+    #[inline(always)]
+    pub fn new(src: PathBuf, width: Option<f32>, background: Color) -> Self {
+        Self {
+            src,
+            width,
+            background,
+        }
     }
 }
 
 impl Action for Image {
-    #[inline]
+    #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![self.src.to_owned()]
     }
@@ -62,6 +71,7 @@ impl Action for Image {
             handle: texture,
             size,
             width: self.width,
+            background: self.background,
         }))
     }
 }
@@ -76,9 +86,10 @@ impl StatefulAction for StatefulImage {
 
     fn start(
         &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
+        sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
 
@@ -99,25 +110,30 @@ impl StatefulAction for StatefulImage {
     ) -> Result<(), error::Error> {
         ui.output().cursor_icon = CursorIcon::None;
 
-        ui.centered_and_justified(|ui| {
-            if let Some(width) = self.width {
-                let scale = width / self.size.x;
-                ui.image(self.handle, self.size * scale);
-            } else {
-                ui.image(self.handle, self.size);
-            }
-        });
+        CentralPanel::default()
+            .frame(Frame::default().fill(self.background.into()))
+            .show_inside(ui, |ui| {
+                ui.centered_and_justified(|ui| {
+                    if let Some(width) = self.width {
+                        let scale = width / self.size.x;
+                        ui.image(self.handle, self.size * scale);
+                    } else {
+                        ui.image(self.handle, self.size);
+                    }
+                });
+            });
 
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     fn stop(
         &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         self.done = true;
+        sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
 

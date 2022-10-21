@@ -17,7 +17,7 @@ pub struct Event(String);
 stateful!(Event { name: String });
 
 impl Action for Event {
-    #[inline]
+    #[inline(always)]
     fn stateful(
         &self,
         _io: &IO,

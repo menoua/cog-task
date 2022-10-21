@@ -44,7 +44,7 @@ impl Action for Wait {
 impl StatefulAction for StatefulWait {
     impl_stateful!();
 
-    #[inline]
+    #[inline(always)]
     fn props(&self) -> Props {
         DEFAULT.into()
     }
@@ -84,7 +84,7 @@ impl StatefulAction for StatefulWait {
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     fn stop(
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,

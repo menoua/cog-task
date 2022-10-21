@@ -147,7 +147,7 @@ impl Launcher {
         });
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn title() -> &'static str {
         "CogTask Launcher"
     }
@@ -209,7 +209,7 @@ impl Launcher {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum LauncherSignal {
     TaskCrashed(String),
     TaskClosed,

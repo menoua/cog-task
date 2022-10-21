@@ -99,6 +99,7 @@ pub enum Trigger {
 }
 
 impl Default for Trigger {
+    #[inline(always)]
     fn default() -> Self {
         Trigger::None
     }

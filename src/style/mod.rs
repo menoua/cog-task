@@ -298,7 +298,7 @@ pub fn set_fullscreen_scale(ctx: &egui::Context, scale: f32) {
                     println!("Rescaling UI {curr}*{scale}={}", curr * scale);
                     RESCALE_TIMER = Some(now);
                 }
-                Some(timer) if timer.elapsed() > Duration::from_millis(200) => {
+                Some(timer) if timer.elapsed() > Duration::from_millis(500) => {
                     println!("Rescaling UI {curr}*{scale}={}", curr * scale);
                     RESCALE_TIMER = Some(now);
                 }
@@ -316,39 +316,39 @@ pub mod text {
     use super::*;
     use eframe::egui::{Color32, RichText};
 
-    #[inline]
+    #[inline(always)]
     pub fn heading(text: impl Into<String>) -> RichText {
         RichText::new(text).heading()
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn body(text: impl Into<String>) -> RichText {
         RichText::new(text).size(TEXT_SIZE_BODY)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn inactive(text: impl Into<String>) -> RichText {
         RichText::new(text)
             .size(TEXT_SIZE_BODY)
             .color(Color32::LIGHT_GRAY)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn button1(text: impl Into<String>) -> RichText {
         RichText::new(text).size(TEXT_SIZE_BUTTON1)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn button2(text: impl Into<String>) -> RichText {
         RichText::new(text).size(TEXT_SIZE_BUTTON2)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn tooltip(text: impl Into<String>) -> RichText {
         RichText::new(text).size(TEXT_SIZE_TOOLTIP)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn icon(text: impl Into<String>) -> RichText {
         RichText::new(text).size(TEXT_SIZE_ICON)
     }

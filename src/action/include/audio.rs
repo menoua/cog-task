@@ -39,7 +39,7 @@ stateful_arc!(Audio {
 });
 
 impl Action for Audio {
-    #[inline]
+    #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         if let Trigger::Ext(trig) = &self.trigger {
             vec![self.src.to_owned(), trig.clone()]
@@ -175,7 +175,7 @@ impl Action for Audio {
 impl StatefulAction for StatefulAudio {
     impl_stateful!();
 
-    #[inline]
+    #[inline(always)]
     fn props(&self) -> Props {
         if self.looping { INFINITE } else { DEFAULT }.into()
     }
@@ -197,14 +197,18 @@ impl StatefulAction for StatefulAudio {
             ))
         })?;
 
-        let done = self.done.clone();
-        let mut sync_writer = sync_writer.clone();
-        thread::spawn(move || {
-            let link = link;
-            let _ = link.1.recv();
-            *done.lock().unwrap() = Ok(true);
+        if let Ok(true) = *self.done.lock().unwrap() {
             sync_writer.push(SyncSignal::UpdateGraph);
-        });
+        } else {
+            let done = self.done.clone();
+            let mut sync_writer = sync_writer.clone();
+            thread::spawn(move || {
+                let link = link;
+                let _ = link.1.recv();
+                *done.lock().unwrap() = Ok(true);
+                sync_writer.push(SyncSignal::UpdateGraph);
+            });
+        }
 
         Ok(())
     }
@@ -227,7 +231,7 @@ impl StatefulAction for StatefulAudio {
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     fn stop(
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,

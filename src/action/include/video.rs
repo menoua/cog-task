@@ -4,12 +4,13 @@ use crate::error;
 use crate::error::Error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
+use crate::resource::color::Color;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use crate::util::spin_sleeper;
 use eframe::egui;
-use eframe::egui::{CursorIcon, TextureId, Vec2};
+use eframe::egui::{CentralPanel, CursorIcon, Frame, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -25,6 +26,8 @@ pub struct Video {
     width: Option<u16>,
     #[serde(default)]
     looping: bool,
+    #[serde(default)]
+    background: Color,
 }
 
 stateful_arc!(Video {
@@ -35,17 +38,18 @@ stateful_arc!(Video {
     width: Option<u16>,
     looping: bool,
     link: Option<(Sender<()>, Receiver<()>)>,
+    background: Color,
 });
 
 impl Video {
-    #[inline]
+    #[inline(always)]
     fn src(&self) -> PathBuf {
         PathBuf::from(self.src.to_str().unwrap())
     }
 }
 
 impl Action for Video {
-    #[inline]
+    #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![self.src()]
     }
@@ -111,6 +115,7 @@ impl Action for Video {
                     width: self.width,
                     looping: self.looping,
                     link: Some((tx_start, rx_stop)),
+                    background: self.background,
                 }))
             }
             _ => Err(InvalidResourceError(format!(
@@ -124,7 +129,7 @@ impl Action for Video {
 impl StatefulAction for StatefulVideo {
     impl_stateful!();
 
-    #[inline]
+    #[inline(always)]
     fn props(&self) -> Props {
         if self.looping {
             INFINITE | VISUAL
@@ -152,15 +157,24 @@ impl StatefulAction for StatefulVideo {
             ))
         })?;
 
-        let done = self.done.clone();
-        let mut sync_writer = sync_writer.clone();
-        thread::spawn(move || {
-            let link = link;
-            let _ = link.1.recv();
-            *done.lock().unwrap() = Ok(true);
+        if let Ok(true) = *self.done.lock().unwrap() {
             sync_writer.push(SyncSignal::UpdateGraph);
-        });
+            return Ok(());
+        }
 
+        {
+            let done = self.done.clone();
+            let mut sync_writer = sync_writer.clone();
+
+            thread::spawn(move || {
+                let link = link;
+                let _ = link.1.recv();
+                *done.lock().unwrap() = Ok(true);
+                sync_writer.push(SyncSignal::UpdateGraph);
+            });
+        }
+
+        sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
 
@@ -183,26 +197,31 @@ impl StatefulAction for StatefulVideo {
 
         ui.output().cursor_icon = CursorIcon::None;
 
-        ui.centered_and_justified(|ui| {
-            if let Some(width) = self.width {
-                let scale = width as f32 / size.x;
-                ui.image(texture, size * scale);
-            } else {
-                ui.image(texture, size);
-            }
-        });
+        CentralPanel::default()
+            .frame(Frame::default().fill(self.background.into()))
+            .show_inside(ui, |ui| {
+                ui.centered_and_justified(|ui| {
+                    if let Some(width) = self.width {
+                        let scale = width as f32 / size.x;
+                        ui.image(texture, size * scale);
+                    } else {
+                        ui.image(texture, size);
+                    }
+                });
+            });
 
         ui.ctx().request_repaint();
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     fn stop(
         &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         *self.done.lock().unwrap() = Ok(true);
+        sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
 

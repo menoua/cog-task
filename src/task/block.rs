@@ -43,12 +43,12 @@ impl Block {
         self.tree.resources(config)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn action_tree(&self) -> &dyn Action {
         &*self.tree
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn label(&self) -> &str {
         &self.name
     }

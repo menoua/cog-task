@@ -36,22 +36,22 @@ impl Env {
         })
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn root(&self) -> &PathBuf {
         &self.root_dir
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn task(&self) -> &PathBuf {
         &self.task_dir
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn output(&self) -> &PathBuf {
         &self.output_dir
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn resource(&self) -> &PathBuf {
         &self.resource_dir
     }

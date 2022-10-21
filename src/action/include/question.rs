@@ -36,29 +36,29 @@ stateful!(Question {
 });
 
 mod defaults {
-    #[inline]
+    #[inline(always)]
     pub fn group() -> String {
         "questions".to_owned()
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn lines() -> usize {
         3
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn columns() -> usize {
         10
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn precision() -> u8 {
         3
     }
 }
 
 impl Action for Question {
-    #[inline]
+    #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![]
     }
@@ -88,16 +88,17 @@ impl Action for Question {
 impl StatefulAction for StatefulQuestion {
     impl_stateful!();
 
-    #[inline]
+    #[inline(always)]
     fn props(&self) -> Props {
         VISUAL.into()
     }
 
     fn start(
         &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
+        sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
 
@@ -131,13 +132,14 @@ impl StatefulAction for StatefulQuestion {
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     fn stop(
         &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         self.done = true;
+        sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
 }

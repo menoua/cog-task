@@ -27,7 +27,7 @@ pub enum Stream {
 }
 
 impl Debug for Stream {
-    #[inline]
+    #[inline(always)]
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "[video::Handle]")
     }
@@ -59,7 +59,7 @@ impl Stream {
     }
 
     /// Check if stream has reached its end.
-    #[inline]
+    #[inline(always)]
     pub fn eos(&self) -> bool {
         match self {
             Stream::Gst(stream) => stream.eos(),
@@ -68,7 +68,7 @@ impl Stream {
     }
 
     /// Get the size/resolution of the video as `[width, height]`.
-    #[inline]
+    #[inline(always)]
     pub fn size(&self) -> [u32; 2] {
         match self {
             Stream::Gst(stream) => stream.size(),
@@ -77,7 +77,7 @@ impl Stream {
     }
 
     /// Get the framerate of the video as frames per second.
-    #[inline]
+    #[inline(always)]
     pub fn framerate(&self) -> f64 {
         match self {
             Stream::Gst(stream) => stream.framerate(),
@@ -86,7 +86,7 @@ impl Stream {
     }
 
     /// Get the number of audio channels.
-    #[inline]
+    #[inline(always)]
     pub fn channels(&self) -> u16 {
         match self {
             Stream::Gst(stream) => stream.channels(),
@@ -95,7 +95,7 @@ impl Stream {
     }
 
     /// Get the media duration.
-    #[inline]
+    #[inline(always)]
     pub fn duration(&self) -> Duration {
         match self {
             Stream::Gst(stream) => stream.duration(),
@@ -104,7 +104,7 @@ impl Stream {
     }
 
     /// Check if stream has a video channel.
-    #[inline]
+    #[inline(always)]
     pub fn has_video(&self) -> bool {
         match self {
             Stream::Gst(stream) => stream.has_video(),
@@ -113,7 +113,7 @@ impl Stream {
     }
 
     /// Check if stream has an audio channel.
-    #[inline]
+    #[inline(always)]
     pub fn has_audio(&self) -> bool {
         match self {
             Stream::Gst(stream) => stream.has_audio(),

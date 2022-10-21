@@ -141,32 +141,32 @@ impl Server {
         );
     }
 
-    #[inline]
+    #[inline(always)]
     fn title(&self) -> String {
         format!("CogTask Server -- {}", self.task.title())
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn env(&self) -> &Env {
         &self.env
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn subject(&self) -> &String {
         &self.subject
     }
 
-    #[inline]
-    pub fn active_block(&self) -> &Block {
-        self.task.block(self.active_block.unwrap())
+    #[inline(always)]
+    pub fn active_block(&self) -> Option<&Block> {
+        self.active_block.map(|i| self.task.block(i))
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn resources(&self) -> &ResourceMap {
         &self.resources
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn config(&self) -> &Config {
         self.task.config()
     }
@@ -184,7 +184,7 @@ impl Server {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn task(&self) -> &Task {
         &self.task
     }
@@ -232,7 +232,7 @@ impl Server {
         };
     }
 
-    #[inline]
+    #[inline(always)]
     pub(crate) fn callback_channel(&self) -> QWriter<ServerSignal> {
         self.sync_reader.writer()
     }
@@ -245,6 +245,7 @@ impl Server {
                 .all(|c| c.is_alphabetic() || c.is_alphanumeric() | "-_".contains(c))
     }
 
+    #[inline(always)]
     pub fn hash(&self) -> String {
         self.bin_hash.clone()
     }
@@ -313,6 +314,8 @@ impl eframe::App for Server {
         if !self.hold_on_rescale {
             style::set_fullscreen_scale(ctx, self.scale_factor);
         }
-        ctx.request_repaint_after(Duration::from_millis(250));
+        if !matches!(self.page, Page::Activity) {
+            ctx.request_repaint_after(Duration::from_millis(250));
+        }
     }
 }

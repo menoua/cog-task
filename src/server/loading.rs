@@ -3,6 +3,7 @@ use eframe::egui;
 use eframe::egui::CursorIcon;
 
 impl Server {
+    #[inline]
     pub(crate) fn show_loading(&mut self, ui: &mut egui::Ui) {
         ui.output().cursor_icon = CursorIcon::None;
 

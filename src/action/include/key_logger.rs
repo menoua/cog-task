@@ -20,14 +20,14 @@ pub struct KeyLogger(#[serde(default = "defaults::group")] String);
 stateful!(KeyLogger { group: String });
 
 mod defaults {
-    #[inline]
+    #[inline(always)]
     pub fn group() -> String {
         "keypress".to_owned()
     }
 }
 
 impl Action for KeyLogger {
-    #[inline]
+    #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![]
     }
@@ -56,7 +56,7 @@ impl Action for KeyLogger {
 impl StatefulAction for StatefulKeyLogger {
     impl_stateful!();
 
-    #[inline]
+    #[inline(always)]
     fn props(&self) -> Props {
         INFINITE.into()
     }

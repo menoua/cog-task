@@ -19,7 +19,7 @@ pub struct Counter(#[serde(default = "defaults::from")] u32);
 stateful!(Counter { count: u32 });
 
 mod defaults {
-    #[inline]
+    #[inline(always)]
     pub fn from() -> u32 {
         3
     }
@@ -32,7 +32,7 @@ impl From<u32> for Counter {
 }
 
 impl Action for Counter {
-    #[inline]
+    #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![]
     }
@@ -55,7 +55,7 @@ impl Action for Counter {
 impl StatefulAction for StatefulCounter {
     impl_stateful!();
 
-    #[inline]
+    #[inline(always)]
     fn props(&self) -> Props {
         VISUAL.into()
     }
@@ -68,6 +68,8 @@ impl StatefulAction for StatefulCounter {
         if self.count == 0 {
             self.done = true;
             sync_writer.push(SyncSignal::UpdateGraph);
+        } else {
+            sync_writer.push(SyncSignal::Repaint);
         }
 
         Ok(())
@@ -138,13 +140,14 @@ impl StatefulAction for StatefulCounter {
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     fn stop(
         &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         self.done = true;
+        sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
 

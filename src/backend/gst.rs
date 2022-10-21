@@ -176,43 +176,43 @@ impl MediaStream for Stream {
     }
 
     /// Get if the stream ended or not.
-    #[inline]
+    #[inline(always)]
     fn eos(&self) -> bool {
         self.is_eos
     }
 
     /// Get the size/resolution of the video as `[width, height]`.
-    #[inline]
+    #[inline(always)]
     fn size(&self) -> [u32; 2] {
         self.frame_size
     }
 
     /// Get the framerate of the video as frames per second.
-    #[inline]
+    #[inline(always)]
     fn framerate(&self) -> f64 {
         self.frame_rate
     }
 
     /// Get the number of audio channels.
-    #[inline]
+    #[inline(always)]
     fn channels(&self) -> u16 {
         self.audio_chan
     }
 
     /// Get the media duration.
-    #[inline]
+    #[inline(always)]
     fn duration(&self) -> Duration {
         self.duration
     }
 
     /// Check if stream has a video channel.
-    #[inline]
+    #[inline(always)]
     fn has_video(&self) -> bool {
         self.frame_size.iter().sum::<u32>() > 0
     }
 
     /// Check if stream has an audio channel.
-    #[inline]
+    #[inline(always)]
     fn has_audio(&self) -> bool {
         self.audio_chan > 0
     }
@@ -335,7 +335,7 @@ impl Stream {
     }
 
     /// Get if the stream is paused.
-    #[inline]
+    #[inline(always)]
     pub fn paused(&self) -> bool {
         self.paused
     }

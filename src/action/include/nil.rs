@@ -15,7 +15,7 @@ pub struct Nil;
 stateful!(Nil {});
 
 impl Action for Nil {
-    #[inline]
+    #[inline(always)]
     fn stateful(
         &self,
         _io: &IO,
@@ -24,7 +24,7 @@ impl Action for Nil {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
-        Ok(Box::new(StatefulNil { done: true }))
+        Ok(Box::new(StatefulNil { done: false }))
     }
 }
 
@@ -43,9 +43,11 @@ impl StatefulAction for StatefulNil {
 
     fn start(
         &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
+        self.done = true;
+        sync_writer.push(SyncSignal::UpdateGraph);
         Ok(())
     }
 

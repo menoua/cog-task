@@ -50,7 +50,7 @@ macro_rules! impl_base_stateful {
     ($name:ident) => {
         paste::paste! {
             impl [<Stateful $name>] {
-                #[inline]
+                #[inline(always)]
                 fn type_str(&self) -> String {
                     String::from(stringify!([<$name:snake>]))
                 }
@@ -75,7 +75,7 @@ macro_rules! stateful {
             impl_base_stateful!($name);
 
             impl [<Stateful $name>] {
-                #[inline]
+                #[inline(always)]
                 fn is_over(&self) -> Result<bool, error::Error> {
                     Ok(self.done)
                 }
@@ -97,7 +97,7 @@ macro_rules! stateful_arc {
             impl_base_stateful!($name);
 
             impl [<Stateful $name>] {
-                #[inline]
+                #[inline(always)]
                 fn is_over(&self) -> Result<bool, error::Error> {
                     self.done.lock().unwrap().clone()
                 }
@@ -108,12 +108,12 @@ macro_rules! stateful_arc {
 
 macro_rules! impl_stateful {
     () => {
-        #[inline]
+        #[inline(always)]
         fn is_over(&self) -> Result<bool, error::Error> {
             self.is_over()
         }
 
-        #[inline]
+        #[inline(always)]
         fn type_str(&self) -> String {
             self.type_str()
         }

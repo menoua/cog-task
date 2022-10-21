@@ -37,7 +37,7 @@ stateful!(Instruction {
 });
 
 mod defaults {
-    #[inline]
+    #[inline(always)]
     pub fn persistent() -> bool {
         false
     }
@@ -55,7 +55,7 @@ impl From<&str> for Instruction {
 }
 
 impl Action for Instruction {
-    #[inline]
+    #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         if let Some(path) = text_or_file(&self.text) {
             vec![path]
@@ -85,7 +85,7 @@ impl Action for Instruction {
 impl StatefulAction for StatefulInstruction {
     impl_stateful!();
 
-    #[inline]
+    #[inline(always)]
     fn props(&self) -> Props {
         if self.persistent {
             INFINITE | VISUAL
@@ -97,9 +97,10 @@ impl StatefulAction for StatefulInstruction {
 
     fn start(
         &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
+        sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
 
@@ -161,13 +162,14 @@ impl StatefulAction for StatefulInstruction {
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     fn stop(
         &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         self.done = true;
+        sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
 }

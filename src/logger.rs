@@ -33,7 +33,7 @@ pub enum LoggerSignal {
 }
 
 impl LoggerSignal {
-    #[inline]
+    #[inline(always)]
     fn requires_flush(&self) -> bool {
         matches!(
             self,

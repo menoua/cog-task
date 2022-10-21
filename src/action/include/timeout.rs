@@ -25,7 +25,7 @@ stateful!(Timeout {
 });
 
 impl Action for Timeout {
-    #[inline]
+    #[inline(always)]
     fn resources(&self, config: &Config) -> Vec<PathBuf> {
         self.1.resources(config)
     }
@@ -64,7 +64,11 @@ impl StatefulAction for StatefulTimeout {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
-        {
+        if self.done {
+            sync_writer.push(SyncSignal::UpdateGraph);
+        } else {
+            self.inner.start(sync_writer, async_writer)?;
+
             let dur = self.duration;
             let timeout_over = self.timeout_over.clone();
             let mut sync_writer = sync_writer.clone();
@@ -75,7 +79,7 @@ impl StatefulAction for StatefulTimeout {
             });
         }
 
-        self.inner.start(sync_writer, async_writer)
+        Ok(())
     }
 
     fn update(
@@ -85,17 +89,10 @@ impl StatefulAction for StatefulTimeout {
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         self.inner.update(signal, sync_writer, async_writer)?;
-        if self.inner.is_over()? && !self.done {
+        if self.inner.is_over()?
+            || (matches!(signal, ActionSignal::UpdateGraph) && *self.timeout_over.lock().unwrap())
+        {
             self.done = true;
-            sync_writer.push(SyncSignal::UpdateGraph);
-        }
-
-        if matches!(signal, ActionSignal::UpdateGraph) && !self.done {
-            if *self.timeout_over.lock().unwrap() {
-                self.inner.stop(sync_writer, async_writer)?;
-                self.done = true;
-                sync_writer.push(SyncSignal::UpdateGraph);
-            }
         }
         Ok(())
     }

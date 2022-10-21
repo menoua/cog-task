@@ -12,7 +12,7 @@ use std::path::{Path, PathBuf};
 pub mod block;
 
 pub static ROOT_DIR: OnceCell<PathBuf> = OnceCell::new();
-pub static CONFIG: OnceCell<Config> = OnceCell::new();
+pub static BASE_CFG: OnceCell<Config> = OnceCell::new();
 
 #[derive(Deserialize, Debug, Default, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -64,32 +64,32 @@ impl Task {
 
         // self.config.verify()?;
         self.config.verify_checksum(self.hash())?;
-        CONFIG.set(self.config.clone()).unwrap();
+        BASE_CFG.set(self.config.clone()).unwrap();
 
         Ok(self)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn name(&self) -> &String {
         &self.name
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn version(&self) -> &String {
         &self.version
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn title(&self) -> String {
         format!("{} ({})", self.name, self.version)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn config(&self) -> &Config {
         &self.config
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn block(&self, i: usize) -> &Block {
         &self.blocks[i]
     }
@@ -98,7 +98,7 @@ impl Task {
         self.blocks.iter().map(|b| b.label().to_string()).collect()
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn description(&self) -> &str {
         &self.description
     }

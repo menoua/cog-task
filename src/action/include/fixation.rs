@@ -3,6 +3,7 @@ use crate::action::{Action, StatefulAction};
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
+use crate::resource::color::Color;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
@@ -14,6 +15,8 @@ use std::path::PathBuf;
 pub struct Fixation {
     #[serde(default)]
     width: Option<f32>,
+    #[serde(default)]
+    background: Color,
 }
 
 impl Action for Fixation {
@@ -31,12 +34,10 @@ impl Action for Fixation {
 
 impl From<&Fixation> for Image {
     fn from(fixation: &Fixation) -> Self {
-        Self::new(PathBuf::from("fixation.svg"), fixation.width)
-    }
-}
-
-impl From<Fixation> for Image {
-    fn from(fixation: Fixation) -> Self {
-        Self::new(PathBuf::from("fixation.svg"), fixation.width)
+        Self::new(
+            PathBuf::from("fixation.svg"),
+            fixation.width,
+            fixation.background,
+        )
     }
 }

@@ -28,10 +28,11 @@ pub struct AsyncProcessor {
     server_writer: QWriter<ServerSignal>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SyncSignal {
     UpdateGraph,
     KeyPress(HashSet<egui::Key>),
+    Repaint,
     Finish,
 }
 
@@ -111,22 +112,50 @@ impl SyncProcessor {
             proc.start().unwrap_or_else(|e| {
                 proc.server_writer.push(ServerSignal::BlockCrashed(e));
             });
-            proc.ctx.request_repaint();
 
-            while let Some(signal) = proc.sync_reader.pop() {
-                match signal {
-                    SyncSignal::UpdateGraph => proc.update_graph(),
-                    SyncSignal::KeyPress(keys) => proc.update_keypress(keys),
-                    SyncSignal::Finish => break,
+            'mainloop: while let Some(signals) = proc.sync_reader.poll() {
+                for signal in signals {
+                    match signal {
+                        SyncSignal::UpdateGraph => proc.tree.lock().unwrap().update(
+                            &ActionSignal::UpdateGraph,
+                            &mut proc.sync_writer,
+                            &mut proc.async_writer,
+                        ),
+                        SyncSignal::KeyPress(keys) => proc.tree.lock().unwrap().update(
+                            &ActionSignal::KeyPress(keys),
+                            &mut proc.sync_writer,
+                            &mut proc.async_writer,
+                        ),
+                        SyncSignal::Repaint => {
+                            proc.ctx.request_repaint();
+                            Ok(())
+                        }
+                        SyncSignal::Finish => break 'mainloop,
+                    }
+                    .unwrap_or_else(|e| {
+                        proc.server_writer.push(ServerSignal::BlockCrashed(e));
+                        proc.ctx.request_repaint();
+                    });
+
+                    let mut tree = proc.tree.lock().unwrap();
+                    if tree.is_over().unwrap_or_else(|e| {
+                        proc.server_writer.push(ServerSignal::BlockCrashed(e));
+                        let _ = tree.stop(&mut proc.sync_writer, &mut proc.async_writer);
+                        *tree = Box::new(StatefulNil::new());
+                        proc.ctx.request_repaint();
+                        false
+                    }) {
+                        proc.server_writer.push(ServerSignal::BlockFinished);
+                        tree.stop(&mut proc.sync_writer, &mut proc.async_writer)?;
+                        *tree = Box::new(StatefulNil::new());
+                        proc.ctx.request_repaint();
+                    }
                 }
-                .unwrap_or_else(|e| {
-                    proc.server_writer.push(ServerSignal::BlockCrashed(e));
-                    proc.ctx.request_repaint();
-                });
             }
 
             proc.server_writer.push(ServerSignal::SyncComplete(Ok(())));
             proc.ctx.request_repaint();
+            Result::<(), error::Error>::Ok(())
         });
 
         Ok((sync_writer, tree))
@@ -148,31 +177,5 @@ impl SyncProcessor {
         }
 
         Ok(())
-    }
-
-    fn update_graph(&mut self) -> Result<(), error::Error> {
-        let mut tree = self.tree.lock().unwrap();
-        tree.update(
-            &ActionSignal::UpdateGraph,
-            &mut self.sync_writer,
-            &mut self.async_writer,
-        )?;
-
-        if tree.is_over()? {
-            tree.stop(&mut self.sync_writer, &mut self.async_writer)?;
-            self.server_writer.push(ServerSignal::BlockFinished);
-            *tree = Box::new(StatefulNil::new());
-        }
-
-        self.ctx.request_repaint();
-        Ok(())
-    }
-
-    fn update_keypress(&mut self, keys: HashSet<egui::Key>) -> Result<(), error::Error> {
-        self.tree.lock().unwrap().update(
-            &ActionSignal::KeyPress(keys),
-            &mut self.sync_writer,
-            &mut self.async_writer,
-        )
     }
 }

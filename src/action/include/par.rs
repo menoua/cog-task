@@ -35,21 +35,6 @@ impl Action for Par {
             .collect()
     }
 
-    // fn init(self) -> Result<Box<dyn Action>, error::Error> {
-    //     if self.0.iter().filter(|&c| c.props().visual()).count() > 1 {
-    //         Err(TaskDefinitionError(
-    //             "There can be at most one visual action in primary action set of a Par".to_owned(),
-    //         ))
-    //     } else if self.1.iter().filter(|&c| c.props().visual()).count() > 1 {
-    //         Err(TaskDefinitionError(
-    //             "There can be at most one visual action in secondary action set of a Par"
-    //                 .to_owned(),
-    //         ))
-    //     } else {
-    //         Ok(Box::new(self))
-    //     }
-    // }
-
     fn stateful(
         &self,
         io: &IO,
@@ -95,8 +80,9 @@ impl StatefulAction for StatefulPar {
 
     #[inline]
     fn props(&self) -> Props {
-        let children = self.primary.iter().chain(self.secondary.iter());
-        children
+        self.primary
+            .iter()
+            .chain(self.secondary.iter())
             .fold(DEFAULT, |mut state, c| {
                 let c = c.props();
                 if c.visual() {
@@ -116,14 +102,15 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
-        for c in children {
-            c.start(sync_writer, async_writer)?;
-        }
-
         if self.primary.is_empty() {
             self.done = true;
+            sync_writer.push(SyncSignal::UpdateGraph);
+        } else {
+            for c in self.primary.iter_mut().chain(self.secondary.iter_mut()) {
+                c.start(sync_writer, async_writer)?;
+            }
         }
+
         Ok(())
     }
 
@@ -134,25 +121,34 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
-        for c in children {
+        let mut done = vec![];
+        for (i, c) in self.primary.iter_mut().enumerate() {
             c.update(signal, sync_writer, async_writer)?;
+
+            if c.is_over()? {
+                c.stop(sync_writer, async_writer)?;
+                done.push(i);
+            }
+        }
+        for i in done.into_iter().rev() {
+            self.primary.remove(i);
         }
 
-        if matches!(signal, ActionSignal::UpdateGraph) {
-            let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
-            for c in children {
-                if c.is_over()? {
-                    c.stop(sync_writer, async_writer)?;
-                }
-            }
+        let mut done = vec![];
+        for (i, c) in self.secondary.iter_mut().enumerate() {
+            c.update(signal, sync_writer, async_writer)?;
 
-            self.primary.retain(|c| !c.is_over().unwrap());
-            self.secondary.retain(|c| !c.is_over().unwrap());
-            if self.primary.is_empty() {
-                self.done = true;
-                sync_writer.push(SyncSignal::UpdateGraph);
+            if c.is_over()? {
+                c.stop(sync_writer, async_writer)?;
+                done.push(i);
             }
+        }
+        for i in done.into_iter().rev() {
+            self.secondary.remove(i);
+        }
+
+        if self.primary.is_empty() {
+            self.done = true;
         }
 
         Ok(())

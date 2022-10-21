@@ -10,7 +10,7 @@ use crate::scheduler::processor::{AsyncProcessor, AsyncSignal, SyncProcessor, Sy
 use crate::server::{Server, ServerSignal};
 use crate::signal::QWriter;
 use eframe::egui;
-use eframe::egui::CursorIcon;
+use eframe::egui::{CentralPanel, CursorIcon, Frame};
 use serde_json::Value;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
@@ -36,7 +36,7 @@ pub struct Scheduler {
 impl Scheduler {
     pub fn new(server: &Server, ctx: &egui::Context) -> Result<Self, error::Error> {
         let task = server.task();
-        let block = server.active_block();
+        let block = server.active_block().unwrap();
         let info = Info::new(server, task, block);
         let resources = server.resources();
         let config = block.config(server.config());
@@ -84,12 +84,12 @@ impl Scheduler {
         })
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn info(&self) -> &Info {
         &self.info
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn config(&self) -> &Config {
         &self.config
     }
@@ -135,29 +135,31 @@ impl Scheduler {
 
         #[cfg(feature = "benchmark")]
         self.profiler.tic(2);
-        {
+        let result = {
             let mut tree = self.tree.lock().unwrap();
-            if tree.props().visual() {
-                let result = tree.show(ui, &mut self.sync_writer, &mut self.async_writer);
+            CentralPanel::default()
+                .frame(Frame::default().fill(self.config.background().into()))
+                .show_inside(ui, |ui| {
+                    if tree.props().visual() {
+                        tree.show(ui, &mut self.sync_writer, &mut self.async_writer)
+                    } else {
+                        ui.output().cursor_icon = CursorIcon::None;
+                        Ok(())
+                    }
+                })
+                .inner
+        };
 
-                if let Err(e) = &result {
-                    self.async_writer.push(LoggerSignal::Append(
-                        "mainevent".to_owned(),
-                        ("crash".to_owned(), Value::String(format!("{e:#?}"))),
-                    ));
-                }
-
-                #[cfg(feature = "benchmark")]
-                self.profiler.toc(2);
-                return result;
-            }
+        if let Err(e) = &result {
+            self.async_writer.push(LoggerSignal::Append(
+                "mainevent".to_owned(),
+                ("crash".to_owned(), Value::String(format!("{e:#?}"))),
+            ));
         }
         #[cfg(feature = "benchmark")]
         self.profiler.toc(2);
 
-        ui.output().cursor_icon = CursorIcon::None;
-
-        Ok(())
+        result
     }
 }
 

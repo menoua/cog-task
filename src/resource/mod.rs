@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod color;
 pub mod image;
 pub mod stream;
 pub mod text;
@@ -75,11 +76,12 @@ impl Debug for ResourceValue {
 pub struct ResourceMap(Arc<Mutex<HashMap<PathBuf, ResourceValue>>>);
 
 impl ResourceMap {
-    #[inline]
+    #[inline(always)]
     pub fn new() -> Self {
         Self::default()
     }
 
+    #[inline(always)]
     pub fn clear(&mut self) {
         self.0.lock().unwrap().clear();
     }

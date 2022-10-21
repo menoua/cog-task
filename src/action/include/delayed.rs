@@ -1,4 +1,4 @@
-use crate::action::{Action, StatefulAction};
+use crate::action::{Action, StatefulAction, DEFAULT};
 use crate::action::{ActionSignal, Props};
 use crate::config::Config;
 use crate::error;
@@ -8,7 +8,7 @@ use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use crate::util::spin_sleeper;
-use eframe::egui::{CursorIcon, Ui};
+use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -21,11 +21,12 @@ pub struct Delayed(f32, Box<dyn Action>);
 stateful!(Delayed {
     duration: Duration,
     wait_over: Arc<Mutex<bool>>,
+    has_begun: bool,
     inner: Box<dyn StatefulAction>,
 });
 
 impl Action for Delayed {
-    #[inline]
+    #[inline(always)]
     fn resources(&self, config: &Config) -> Vec<PathBuf> {
         self.1.resources(config)
     }
@@ -46,6 +47,7 @@ impl Action for Delayed {
             done: inner.is_over()?,
             duration: Duration::from_secs_f32(self.0),
             wait_over: Arc::new(Mutex::new(false)),
+            has_begun: false,
             inner,
         }))
     }
@@ -55,7 +57,11 @@ impl StatefulAction for StatefulDelayed {
     impl_stateful!();
 
     fn props(&self) -> Props {
-        self.inner.props()
+        if self.has_begun {
+            self.inner.props()
+        } else {
+            DEFAULT.into()
+        }
     }
 
     fn start(
@@ -63,14 +69,18 @@ impl StatefulAction for StatefulDelayed {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
-        let wait_over = self.wait_over.clone();
-        let dur = self.duration;
-        let mut sync_writer = sync_writer.clone();
-        thread::spawn(move || {
-            spin_sleeper().sleep(dur);
-            *wait_over.lock().unwrap() = true;
-            sync_writer.push(SyncSignal::UpdateGraph)
-        });
+        if self.done {
+            sync_writer.push(SyncSignal::UpdateGraph);
+        } else {
+            let wait_over = self.wait_over.clone();
+            let dur = self.duration;
+            let mut sync_writer = sync_writer.clone();
+            thread::spawn(move || {
+                spin_sleeper().sleep(dur);
+                *wait_over.lock().unwrap() = true;
+                sync_writer.push(SyncSignal::UpdateGraph);
+            });
+        }
         Ok(())
     }
 
@@ -81,15 +91,19 @@ impl StatefulAction for StatefulDelayed {
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         if *self.wait_over.lock().unwrap() {
-            self.inner.update(signal, sync_writer, async_writer)?;
-            match self.inner.is_over() {
-                Ok(true) | Err(_) => self.done = true,
-                Ok(false) => {}
+            if !self.has_begun {
+                self.inner.start(sync_writer, async_writer)?;
+                self.has_begun = true;
+            } else {
+                self.inner.update(signal, sync_writer, async_writer)?;
             }
-            Ok(())
-        } else {
-            self.inner.start(sync_writer, async_writer)
+
+            if self.inner.is_over()? {
+                self.done = true;
+            }
         }
+
+        Ok(())
     }
 
     fn show(
@@ -98,10 +112,9 @@ impl StatefulAction for StatefulDelayed {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
-        if *self.wait_over.lock().unwrap() {
+        if self.has_begun {
             self.inner.show(ui, sync_writer, async_writer)
         } else {
-            ui.output().cursor_icon = CursorIcon::None;
             Ok(())
         }
     }

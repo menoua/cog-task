@@ -19,7 +19,7 @@ impl<T: Debug> QReader<T> {
         Self(queue, tx, rx)
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn push(&mut self, msg: impl Into<T>) {
         let mut queue = self.0.lock().unwrap();
         if self.1.send(()).is_ok() {
@@ -27,7 +27,7 @@ impl<T: Debug> QReader<T> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn pop(&mut self) -> Option<T> {
         if self.2.recv().is_ok() {
             Some(self.0.lock().unwrap().pop_front().unwrap())
@@ -36,7 +36,7 @@ impl<T: Debug> QReader<T> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn try_pop(&mut self) -> Option<T> {
         if let Ok(()) = self.2.try_recv() {
             self.0.lock().unwrap().pop_front()
@@ -45,19 +45,44 @@ impl<T: Debug> QReader<T> {
         }
     }
 
-    #[inline]
+    #[inline(always)]
+    pub fn poll(&mut self) -> Option<Vec<T>>
+    where
+        T: Eq,
+    {
+        let mut signals = Vec::with_capacity(16);
+        if self.2.recv().is_ok() {
+            let mut queue = self.0.lock().unwrap();
+            loop {
+                let signal = queue.pop_front().unwrap();
+                if !signals.contains(&signal) {
+                    signals.push(signal);
+                }
+                if self.2.try_recv().is_err() {
+                    break;
+                }
+            }
+
+            Some(signals)
+        } else {
+            println!("Failed to poll. Ending sync queue.");
+            None
+        }
+    }
+
+    #[inline(always)]
     pub fn clear(&mut self) {
         self.0.lock().unwrap().clear();
     }
 
-    #[inline]
+    #[inline(always)]
     pub fn writer(&self) -> QWriter<T> {
         QWriter(self.0.clone(), self.1.clone())
     }
 }
 
 impl<T: Debug> QWriter<T> {
-    #[inline]
+    #[inline(always)]
     pub fn push(&mut self, msg: impl Into<T>) {
         let mut queue = self.0.lock().unwrap();
         if self.1.send(()).is_ok() {

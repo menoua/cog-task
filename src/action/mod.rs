@@ -20,12 +20,12 @@ pub use include::*;
 pub use props::*;
 
 pub trait Action: Debug {
-    #[inline]
+    #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![]
     }
 
-    #[inline]
+    #[inline(always)]
     fn init(self) -> Result<Box<dyn Action>, error::Error>
     where
         Self: 'static + Sized,

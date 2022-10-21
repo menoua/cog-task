@@ -65,7 +65,7 @@ impl StatefulSeq {
 impl StatefulAction for StatefulSeq {
     impl_stateful!();
 
-    #[inline]
+    #[inline(always)]
     fn props(&self) -> Props {
         if let Some(c) = self.children.get(0) {
             c.props()
@@ -84,6 +84,7 @@ impl StatefulAction for StatefulSeq {
             c.start(sync_writer, async_writer)
         } else {
             self.done = true;
+            sync_writer.push(SyncSignal::UpdateGraph);
             Ok(())
         }
     }
@@ -97,10 +98,8 @@ impl StatefulAction for StatefulSeq {
     ) -> Result<(), error::Error> {
         if let Some(c) = self.children.get_mut(0) {
             c.update(signal, sync_writer, async_writer)?;
-        }
 
-        if matches!(signal, ActionSignal::UpdateGraph) {
-            while let Some(true) = self.children.get(0).map(|c| c.is_over().unwrap()) {
+            if c.is_over()? {
                 self.children
                     .pop_front()
                     .unwrap()
@@ -110,7 +109,6 @@ impl StatefulAction for StatefulSeq {
                     c.start(sync_writer, async_writer)?;
                 } else {
                     self.done = true;
-                    sync_writer.push(SyncSignal::UpdateGraph);
                 }
             }
         }

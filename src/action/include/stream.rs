@@ -6,12 +6,13 @@ use crate::error::Error;
 use crate::error::Error::{InternalError, InvalidResourceError, TaskDefinitionError};
 use crate::io::IO;
 use crate::resource::audio::Trigger;
+use crate::resource::color::Color;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use crate::util::spin_sleeper;
 use eframe::egui;
-use eframe::egui::{CursorIcon, TextureId, Vec2};
+use eframe::egui::{CentralPanel, CursorIcon, Frame, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
@@ -32,6 +33,8 @@ pub struct Stream {
     looping: bool,
     #[serde(default)]
     trigger: Trigger,
+    #[serde(default)]
+    background: Color,
 }
 
 stateful_arc!(Stream {
@@ -42,17 +45,18 @@ stateful_arc!(Stream {
     link_start: Sender<()>,
     link_stop: Option<Receiver<()>>,
     join_handle: Option<JoinHandle<Result<(), error::Error>>>,
+    background: Color,
 });
 
 impl Stream {
-    #[inline]
+    #[inline(always)]
     fn src(&self) -> PathBuf {
         PathBuf::from(format!("{}#stream", self.src.to_str().unwrap()))
     }
 }
 
 impl Action for Stream {
-    #[inline]
+    #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         if let Trigger::Ext(trig) = &self.trigger {
             vec![self.src(), trig.clone()]
@@ -161,6 +165,7 @@ impl Action for Stream {
             link_start: tx_start,
             link_stop: Some(rx_stop),
             join_handle: Some(join_handle),
+            background: self.background,
         }))
     }
 }
@@ -168,7 +173,7 @@ impl Action for Stream {
 impl StatefulAction for StatefulStream {
     impl_stateful!();
 
-    #[inline]
+    #[inline(always)]
     fn props(&self) -> Props {
         match (self.framerate, self.looping) {
             (f, false) if f > 0.0 => VISUAL,
@@ -202,19 +207,28 @@ impl StatefulAction for StatefulStream {
             .take()
             .ok_or_else(|| InternalError(format!("JoinHandle for action has died prematurely")))?;
 
-        let mut sync_writer = sync_writer.clone();
-        thread::spawn(move || {
-            let _ = rx_stop.recv();
-            *done.lock().unwrap() = match join_handle.join() {
-                Ok(Ok(_)) => Ok(true),
-                Ok(Err(e)) => Err(e),
-                Err(e) => Err(InternalError(format!(
-                    "Failed to graciously close stream decoder thread:\n{e:#?}"
-                ))),
-            };
+        if let Ok(true) = *self.done.lock().unwrap() {
             sync_writer.push(SyncSignal::UpdateGraph);
-        });
+            return Ok(());
+        }
 
+        {
+            let mut sync_writer = sync_writer.clone();
+
+            thread::spawn(move || {
+                let _ = rx_stop.recv();
+                *done.lock().unwrap() = match join_handle.join() {
+                    Ok(Ok(_)) => Ok(true),
+                    Ok(Err(e)) => Err(e),
+                    Err(e) => Err(InternalError(format!(
+                        "Failed to graciously close stream decoder thread:\n{e:#?}"
+                    ))),
+                };
+                sync_writer.push(SyncSignal::UpdateGraph);
+            });
+        }
+
+        sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
 
@@ -242,14 +256,18 @@ impl StatefulAction for StatefulStream {
 
         ui.output().cursor_icon = CursorIcon::None;
 
-        ui.centered_and_justified(|ui| {
-            if let Some(width) = self.width {
-                let scale = width as f32 / size.x;
-                ui.image(texture, size * scale);
-            } else {
-                ui.image(texture, size);
-            }
-        });
+        CentralPanel::default()
+            .frame(Frame::default().fill(self.background.into()))
+            .show_inside(ui, |ui| {
+                ui.centered_and_justified(|ui| {
+                    if let Some(width) = self.width {
+                        let scale = width as f32 / size.x;
+                        ui.image(texture, size * scale);
+                    } else {
+                        ui.image(texture, size);
+                    }
+                });
+            });
 
         if self.framerate > 0.0 {
             ui.ctx().request_repaint();
@@ -257,13 +275,16 @@ impl StatefulAction for StatefulStream {
         Ok(())
     }
 
-    #[inline]
+    #[inline(always)]
     fn stop(
         &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         *self.done.lock().unwrap() = Ok(true);
+        if self.framerate > 0.0 {
+            sync_writer.push(SyncSignal::Repaint);
+        }
         Ok(())
     }
 

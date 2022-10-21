@@ -4,6 +4,7 @@ use crate::server::ServerSignal;
 use eframe::egui;
 
 impl Server {
+    #[inline]
     pub(crate) fn show_activity(&mut self, ui: &mut egui::Ui) {
         if let Some(scheduler) = self.scheduler.as_mut() {
             if let Err(e) = scheduler.show(ui) {
