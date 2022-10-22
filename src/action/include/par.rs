@@ -11,16 +11,38 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Par(Vec<Box<dyn Action>>, #[serde(default)] Vec<Box<dyn Action>>);
+pub struct Par(
+    Vec<Box<dyn Action>>,
+    #[serde(default)] Vec<Box<dyn Action>>,
+    #[serde(default)] Require,
+);
 
 stateful!(Par {
     primary: Vec<Box<dyn StatefulAction>>,
     secondary: Vec<Box<dyn StatefulAction>>,
+    require: Require,
 });
 
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Require {
+    All,
+    Any,
+}
+
+impl Default for Require {
+    fn default() -> Self {
+        Require::All
+    }
+}
+
 impl Par {
-    pub fn new(primary: Vec<Box<dyn Action>>, secondary: Vec<Box<dyn Action>>) -> Self {
-        Self(primary, secondary)
+    pub fn new(
+        primary: Vec<Box<dyn Action>>,
+        secondary: Vec<Box<dyn Action>>,
+        require: Require,
+    ) -> Self {
+        Self(primary, secondary, require)
     }
 }
 
@@ -61,6 +83,7 @@ impl Action for Par {
                         .unwrap()
                 })
                 .collect(),
+            require: self.2,
         }))
     }
 }
@@ -122,6 +145,7 @@ impl StatefulAction for StatefulPar {
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
         let mut done = vec![];
+        let mut finished = false;
         for (i, c) in self.primary.iter_mut().enumerate() {
             c.update(signal, sync_writer, async_writer)?;
 
@@ -130,8 +154,14 @@ impl StatefulAction for StatefulPar {
                 done.push(i);
             }
         }
+        if matches!(self.require, Require::Any) && !done.is_empty() {
+            finished = true;
+        }
         for i in done.into_iter().rev() {
             self.primary.remove(i);
+        }
+        if self.primary.is_empty() {
+            finished = true;
         }
 
         let mut done = vec![];
@@ -147,7 +177,7 @@ impl StatefulAction for StatefulPar {
             self.secondary.remove(i);
         }
 
-        if self.primary.is_empty() {
+        if finished {
             self.done = true;
         }
 
