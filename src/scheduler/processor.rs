@@ -4,16 +4,18 @@ use crate::config::Config;
 use crate::error;
 use crate::io::IO;
 use crate::logger::{Logger, LoggerSignal};
+use crate::message::InternalSignal;
 use crate::resource::ResourceMap;
 use crate::scheduler::info::Info;
 use crate::server::ServerSignal;
 use crate::signal::{QReader, QWriter};
 use chrono::{DateTime, Local};
 use eframe::egui;
-use serde_json::Value;
+use ron::Value;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 pub enum AsyncSignal {
@@ -31,7 +33,9 @@ pub struct AsyncProcessor {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SyncSignal {
     UpdateGraph,
-    KeyPress(HashSet<egui::Key>),
+    KeyPress(Instant, HashSet<egui::Key>),
+    Internal(Instant, InternalSignal),
+    // External(Instant, ExtSignal),
     Repaint,
     Finish,
 }
@@ -121,8 +125,13 @@ impl SyncProcessor {
                             &mut proc.sync_writer,
                             &mut proc.async_writer,
                         ),
-                        SyncSignal::KeyPress(keys) => proc.tree.lock().unwrap().update(
-                            &ActionSignal::KeyPress(keys),
+                        SyncSignal::KeyPress(time, keys) => proc.tree.lock().unwrap().update(
+                            &ActionSignal::KeyPress(time, keys),
+                            &mut proc.sync_writer,
+                            &mut proc.async_writer,
+                        ),
+                        SyncSignal::Internal(time, signal) => proc.tree.lock().unwrap().update(
+                            &ActionSignal::Internal(time, signal),
                             &mut proc.sync_writer,
                             &mut proc.async_writer,
                         ),
@@ -166,7 +175,7 @@ impl SyncProcessor {
 
         self.async_writer.push(LoggerSignal::Append(
             "mainevent".to_owned(),
-            ("start".to_owned(), Value::String("Success".to_owned())),
+            ("start".to_owned(), Value::String("ok".to_owned())),
         ));
 
         tree.start(&mut self.sync_writer, &mut self.async_writer)?;

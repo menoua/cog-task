@@ -7,6 +7,7 @@ use itertools::Itertools;
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
+use std::time::Instant;
 
 #[macro_use]
 mod macros;
@@ -14,6 +15,7 @@ pub mod de;
 pub mod include;
 pub mod props;
 
+use crate::message::InternalSignal;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 pub use include::*;
@@ -104,5 +106,7 @@ pub trait ImplStatefulAction: StatefulAction {}
 #[derive(Debug, Clone)]
 pub enum ActionSignal {
     UpdateGraph,
-    KeyPress(HashSet<egui::Key>),
+    KeyPress(Instant, HashSet<egui::Key>),
+    Internal(Instant, InternalSignal),
+    // External(DateTime<Local>, ExtSignal),
 }

@@ -6,7 +6,8 @@ use crate::scheduler::processor::AsyncSignal;
 use crate::signal::QWriter;
 use chrono::{DateTime, Local};
 use itertools::Itertools;
-use serde_json::Value;
+use ron::ser::PrettyConfig;
+use ron::Value;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::{create_dir_all, File};
@@ -41,6 +42,7 @@ impl LoggerSignal {
         )
     }
 }
+
 impl From<LoggerSignal> for AsyncSignal {
     fn from(signal: LoggerSignal) -> Self {
         AsyncSignal::Logger(Local::now(), signal)
@@ -116,7 +118,7 @@ impl Logger {
                 })?,
                 LogFormat::RON => file
                     .write_all(
-                        ron::to_string(vec)
+                        ron::ser::to_string_pretty(vec, PrettyConfig::default())
                             .map_err(|e| {
                                 LoggerError(format!("Failed to serialize log to RON:\n{e:#?}"))
                             })?

@@ -11,6 +11,7 @@ use crate::signal::QWriter;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use rodio::{Sink, Source};
+use ron::Value;
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use std::path::PathBuf;
@@ -29,6 +30,8 @@ pub struct Audio {
     looping: bool,
     #[serde(default)]
     trigger: Trigger,
+    #[serde(default)]
+    volume_control: Option<String>,
 }
 
 stateful_arc!(Audio {
@@ -36,6 +39,7 @@ stateful_arc!(Audio {
     looping: bool,
     sink: Arc<Mutex<Option<Sink>>>,
     link: Option<(Sender<()>, Receiver<()>)>,
+    volume_control: Option<String>,
 });
 
 impl Action for Audio {
@@ -168,6 +172,7 @@ impl Action for Audio {
             looping: self.looping,
             sink,
             link: Some((tx_start, rx_stop)),
+            volume_control: self.volume_control.clone(),
         }))
     }
 }
@@ -215,10 +220,34 @@ impl StatefulAction for StatefulAudio {
 
     fn update(
         &mut self,
-        _signal: &ActionSignal,
+        signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
+        if let Some(name) = &self.volume_control {
+            if let ActionSignal::Internal(_, signal) = signal {
+                if let Some(f) = signal
+                    .into_iter()
+                    .filter_map(|(k, v)| {
+                        if k == name {
+                            if let Value::Number(f) = v {
+                                if let Some(f) = f.as_f64() {
+                                    if f.is_finite() {
+                                        return Some(f.clamp(0.0, 1.0));
+                                    }
+                                }
+                            }
+                        }
+                        None
+                    })
+                    .next()
+                {
+                    if let Some(sink) = self.sink.lock().unwrap().as_mut() {
+                        sink.set_volume(f as f32);
+                    }
+                }
+            }
+        }
         Ok(())
     }
 

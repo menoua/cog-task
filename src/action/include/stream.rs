@@ -12,7 +12,7 @@ use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use crate::util::spin_sleeper;
 use eframe::egui;
-use eframe::egui::{CentralPanel, CursorIcon, Frame, TextureId, Vec2};
+use eframe::egui::{CentralPanel, CursorIcon, Frame, TextureId, Vec2, Color32};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
@@ -45,7 +45,7 @@ stateful_arc!(Stream {
     link_start: Sender<()>,
     link_stop: Option<Receiver<()>>,
     join_handle: Option<JoinHandle<Result<(), error::Error>>>,
-    background: Color,
+    background: Color32,
 });
 
 impl Stream {
@@ -165,7 +165,7 @@ impl Action for Stream {
             link_start: tx_start,
             link_stop: Some(rx_stop),
             join_handle: Some(join_handle),
-            background: self.background,
+            background: self.background.into(),
         }))
     }
 }
@@ -257,7 +257,7 @@ impl StatefulAction for StatefulStream {
         ui.output().cursor_icon = CursorIcon::None;
 
         CentralPanel::default()
-            .frame(Frame::default().fill(self.background.into()))
+            .frame(Frame::default().fill(self.background))
             .show_inside(ui, |ui| {
                 ui.centered_and_justified(|ui| {
                     if let Some(width) = self.width {

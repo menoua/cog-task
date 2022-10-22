@@ -11,9 +11,9 @@ use crate::server::{Server, ServerSignal};
 use crate::signal::QWriter;
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, Frame};
-use serde_json::Value;
+use ron::Value;
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, Instant, SystemTime};
 
 pub mod info;
 pub mod monitor;
@@ -59,8 +59,14 @@ impl Scheduler {
         async_writer.push(LoggerSignal::Extend(
             "mainevent".to_owned(),
             vec![
-                ("info".to_owned(), serde_json::to_value(&info).unwrap()),
-                ("config".to_owned(), serde_json::to_value(&config).unwrap()),
+                (
+                    "info".to_owned(),
+                    ron::to_string(&info).unwrap().parse().unwrap(),
+                ),
+                (
+                    "config".to_owned(),
+                    ron::to_string(&config).unwrap().parse().unwrap(),
+                ),
             ],
         ));
         sync_writer.push(SyncSignal::UpdateGraph);
@@ -99,7 +105,7 @@ impl Scheduler {
             "mainevent".to_owned(),
             (
                 "interrupt".to_owned(),
-                Value::String("User request".to_owned()),
+                Value::String("user request".to_owned()),
             ),
         ));
 
@@ -128,7 +134,8 @@ impl Scheduler {
         let mut keys_pressed = ui.input().keys_down.clone();
         keys_pressed.retain(|k| ui.input().key_pressed(*k));
         if !keys_pressed.is_empty() {
-            self.sync_writer.push(SyncSignal::KeyPress(keys_pressed))
+            self.sync_writer
+                .push(SyncSignal::KeyPress(Instant::now(), keys_pressed))
         }
         #[cfg(feature = "benchmark")]
         self.profiler.toc(0);
@@ -167,7 +174,7 @@ impl Drop for Scheduler {
     fn drop(&mut self) {
         self.async_writer.push(LoggerSignal::Append(
             "mainevent".to_owned(),
-            ("finish".to_owned(), Value::String("Success".to_owned())),
+            ("finish".to_owned(), Value::String("ok".to_owned())),
         ));
 
         self.sync_writer.push(SyncSignal::Finish);

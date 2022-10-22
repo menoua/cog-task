@@ -8,8 +8,8 @@ use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use eframe::egui::Ui;
+use ron::Value;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Event(String);
@@ -46,7 +46,7 @@ impl StatefulAction for StatefulEvent {
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         async_writer.push(LoggerSignal::Append(
-            "Event".to_owned(),
+            "event".to_owned(),
             (self.name.clone(), Value::String("start".to_owned())),
         ));
         Ok(())
@@ -76,7 +76,7 @@ impl StatefulAction for StatefulEvent {
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         async_writer.push(LoggerSignal::Append(
-            "Event".to_owned(),
+            "event".to_owned(),
             (self.name.clone(), Value::String("stop".to_owned())),
         ));
 

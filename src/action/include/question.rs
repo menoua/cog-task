@@ -17,8 +17,8 @@ use eframe::egui::{
     Checkbox, Color32, RadioButton, ScrollArea, Slider, Stroke, TextEdit, Vec2, Widget,
 };
 use egui_extras::StripBuilder;
+use ron::{Number, Value};
 use serde::{Deserialize, Serialize};
-use serde_json::{Number, Value};
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
 
@@ -521,12 +521,12 @@ impl StatefulQItem {
                 if let Some(choice) = choice {
                     Value::String(options[*choice].to_owned())
                 } else {
-                    Value::Null
+                    Value::Unit
                 }
             }
             StatefulQItem::MultiChoice {
                 choice, options, ..
-            } => Value::Array(
+            } => Value::Seq(
                 choice
                     .iter()
                     .enumerate()
@@ -542,7 +542,7 @@ impl StatefulQItem {
             StatefulQItem::Slider {
                 choice, precision, ..
             } => Value::Number({
-                Number::from_f64(f64_with_precision(*choice, *precision)).unwrap()
+                Number::from(f64_with_precision(*choice, *precision))
             }),
         };
 

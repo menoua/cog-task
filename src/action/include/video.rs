@@ -10,7 +10,7 @@ use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use crate::util::spin_sleeper;
 use eframe::egui;
-use eframe::egui::{CentralPanel, CursorIcon, Frame, TextureId, Vec2};
+use eframe::egui::{CentralPanel, CursorIcon, Frame, TextureId, Vec2, Color32};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -38,7 +38,7 @@ stateful_arc!(Video {
     width: Option<u16>,
     looping: bool,
     link: Option<(Sender<()>, Receiver<()>)>,
-    background: Color,
+    background: Color32,
 });
 
 impl Video {
@@ -115,7 +115,7 @@ impl Action for Video {
                     width: self.width,
                     looping: self.looping,
                     link: Some((tx_start, rx_stop)),
-                    background: self.background,
+                    background: self.background.into(),
                 }))
             }
             _ => Err(InvalidResourceError(format!(
@@ -198,7 +198,7 @@ impl StatefulAction for StatefulVideo {
         ui.output().cursor_icon = CursorIcon::None;
 
         CentralPanel::default()
-            .frame(Frame::default().fill(self.background.into()))
+            .frame(Frame::default().fill(self.background))
             .show_inside(ui, |ui| {
                 ui.centered_and_justified(|ui| {
                     if let Some(width) = self.width {

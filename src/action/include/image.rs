@@ -9,7 +9,7 @@ use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use eframe::egui;
-use eframe::egui::{CentralPanel, CursorIcon, Frame, TextureId, Vec2};
+use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -27,7 +27,7 @@ stateful!(Image {
     handle: TextureId,
     size: Vec2,
     width: Option<f32>,
-    background: Color,
+    background: Color32,
 });
 
 impl Image {
@@ -71,7 +71,7 @@ impl Action for Image {
             handle: texture,
             size,
             width: self.width,
-            background: self.background,
+            background: self.background.into(),
         }))
     }
 }
@@ -111,7 +111,7 @@ impl StatefulAction for StatefulImage {
         ui.output().cursor_icon = CursorIcon::None;
 
         CentralPanel::default()
-            .frame(Frame::default().fill(self.background.into()))
+            .frame(Frame::default().fill(self.background))
             .show_inside(ui, |ui| {
                 ui.centered_and_justified(|ui| {
                     if let Some(width) = self.width {

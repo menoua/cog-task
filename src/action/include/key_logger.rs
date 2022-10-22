@@ -9,9 +9,10 @@ use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use eframe::egui::Ui;
+use ron::Value;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use std::path::PathBuf;
+use chrono::Local;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -79,17 +80,21 @@ impl StatefulAction for StatefulKeyLogger {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        if let ActionSignal::KeyPress(keys) = signal {
+        if let ActionSignal::KeyPress(_, keys) = signal {
             let group = self.group.clone();
             let entry = (
                 "key".to_string(),
-                Value::Array(
+                Value::Seq(
                     keys.iter()
                         .map(|k| Value::String(format!("{k:?}")))
                         .collect(),
                 ),
             );
-            async_writer.push(LoggerSignal::Append(group, entry));
+
+            async_writer.push(AsyncSignal::Logger(
+                Local::now(),
+                LoggerSignal::Append(group, entry),
+            ));
         }
         Ok(())
     }

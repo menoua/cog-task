@@ -23,9 +23,9 @@ impl Default for Color {
     }
 }
 
-impl From<Color> for Color32 {
+impl From<&Color> for Color32 {
     #[inline]
-    fn from(c: Color) -> Self {
+    fn from(c: &Color) -> Self {
         match c {
             Color::Transparent => Color32::TRANSPARENT,
             Color::White => Color32::WHITE,
@@ -35,8 +35,15 @@ impl From<Color> for Color32 {
             Color::Blue => Color32::BLUE,
             Color::Green => Color32::GREEN,
             Color::Yellow => Color32::YELLOW,
-            Color::Rgb(r, g, b) => Color32::from_rgb(r, g, b),
-            Color::Rgba(r, g, b, a) => Color32::from_rgba_unmultiplied(r, g, b, a),
+            Color::Rgb(r, g, b) => Color32::from_rgb(*r, *g, *b),
+            Color::Rgba(r, g, b, a) => Color32::from_rgba_unmultiplied(*r, *g, *b, *a),
         }
+    }
+}
+
+impl From<Color> for Color32 {
+    #[inline(always)]
+    fn from(c: Color) -> Self {
+        Self::from(&c)
     }
 }

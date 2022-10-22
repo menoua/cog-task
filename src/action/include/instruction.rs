@@ -12,6 +12,7 @@ use crate::template::{center_x, header_body_controls};
 use eframe::egui;
 use eframe::egui::{CursorIcon, ScrollArea};
 use egui_extras::{Size, StripBuilder};
+use ron::{Number, Value};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -106,10 +107,26 @@ impl StatefulAction for StatefulInstruction {
 
     fn update(
         &mut self,
-        _signal: &ActionSignal,
+        signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
+        if let ActionSignal::Internal(_, signal) = signal {
+            for (k, v) in signal.into_iter() {
+                self.params.insert(
+                    k.to_owned(),
+                    match v {
+                        Value::Bool(v) => format!("{v}"),
+                        Value::Char(v) => format!("{v}"),
+                        Value::Number(Number::Integer(v)) => format!("{v}"),
+                        Value::Number(Number::Float(v)) => format!("{:.4}", v.get()),
+                        Value::String(v) => format!("{v}"),
+                        _ => "<?>".to_owned(),
+                    },
+                );
+            }
+        }
+
         Ok(())
     }
 

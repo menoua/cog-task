@@ -7,6 +7,7 @@ pub mod error;
 pub mod io;
 pub mod launcher;
 pub mod logger;
+pub mod message;
 pub mod resource;
 pub mod scheduler;
 pub mod server;

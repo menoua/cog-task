@@ -14,7 +14,7 @@ pub enum LogFormat {
 impl Default for LogFormat {
     #[inline(always)]
     fn default() -> Self {
-        LogFormat::JSON
+        LogFormat::RON
     }
 }
 

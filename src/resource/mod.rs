@@ -1,6 +1,7 @@
 pub mod audio;
 pub mod color;
 pub mod image;
+pub mod key;
 pub mod stream;
 pub mod text;
 pub mod video;
