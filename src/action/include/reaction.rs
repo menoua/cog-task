@@ -5,15 +5,14 @@ use crate::error::Error;
 use crate::error::Error::InvalidNameError;
 use crate::io::IO;
 use crate::logger::LoggerSignal;
-use crate::message::InternalSignal;
 use crate::resource::key::Key;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use eframe::egui;
 use eframe::egui::Ui;
-use ron::{Number, Value};
 use serde::{Deserialize, Serialize};
+use serde_cbor::Value;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
@@ -29,7 +28,11 @@ pub struct Reaction {
     #[serde(default = "defaults::tol")]
     tol: f32,
     #[serde(default)]
-    outgoing: Option<String>,
+    sig_accuracy: u16,
+    #[serde(default)]
+    sig_recall: u16,
+    #[serde(default)]
+    sig_mean_rt: u16,
 }
 
 stateful!(Reaction {
@@ -42,7 +45,9 @@ stateful!(Reaction {
     reaction_correct: Vec<bool>,
     reaction_times: Vec<f32>,
     reaction_rts: Vec<f32>,
-    outgoing: Option<String>,
+    sig_accuracy: u16,
+    sig_recall: u16,
+    sig_mean_rt: u16,
 });
 
 mod defaults {
@@ -109,7 +114,9 @@ impl Action for Reaction {
             reaction_correct: vec![],
             reaction_times: vec![],
             reaction_rts: vec![],
-            outgoing: self.outgoing.clone(),
+            sig_accuracy: self.sig_accuracy,
+            sig_recall: self.sig_recall,
+            sig_mean_rt: self.sig_mean_rt,
         }))
     }
 }
@@ -130,7 +137,7 @@ impl StatefulAction for StatefulReaction {
         self.since = Instant::now();
         async_writer.push(LoggerSignal::Append(
             self.group.clone(),
-            ("event".to_owned(), Value::String("start".to_owned())),
+            ("event".to_owned(), Value::Text("start".to_owned())),
         ));
         Ok(())
     }
@@ -141,64 +148,64 @@ impl StatefulAction for StatefulReaction {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        if let ActionSignal::KeyPress(time, keys) = signal {
-            if self.keys.is_empty() || !keys.is_disjoint(&self.keys) {
-                let group = self.group.clone();
-                let time = time.duration_since(self.since);
+        let (time, keys) = match signal {
+            ActionSignal::KeyPress(t, k) => (t.duration_since(self.since), k),
+            _ => return Ok(()),
+        };
 
-                let mut correct = false;
-                self.reaction_times.push(time.as_secs_f32());
-                if self.next.is_none() {
+        if !self.keys.is_empty() && keys.is_disjoint(&self.keys) {
+            return Ok(());
+        }
+
+        self.reaction_times.push(time.as_secs_f32());
+
+        let mut correct = false;
+        if self.next.is_none() {
+            self.reaction_correct.push(false);
+        } else {
+            while let Some(i) = self.next {
+                let target = self.times[i];
+                if time < target {
                     self.reaction_correct.push(false);
-                } else {
-                    while let Some(i) = self.next {
-                        let target = self.times[i];
-                        if time < target {
-                            self.reaction_correct.push(false);
-                            break;
-                        } else if time <= target + self.tol {
-                            correct = true;
-                            self.reaction_correct.push(true);
-                            self.reaction_rts.push((time - target).as_secs_f32());
-                            if i < self.times.len() - 1 {
-                                self.next = Some(i + 1);
-                            } else {
-                                self.next = None;
-                            }
-                            break;
-                        } else if i < self.times.len() - 1 {
-                            self.next = Some(i + 1);
-                        } else {
-                            self.next = None;
-                            self.reaction_correct.push(false);
-                            break;
-                        }
+                    break;
+                } else if time <= target + self.tol {
+                    correct = true;
+                    self.reaction_correct.push(true);
+                    self.reaction_rts.push((time - target).as_secs_f32());
+                    if i < self.times.len() - 1 {
+                        self.next = Some(i + 1);
+                    } else {
+                        self.next = None;
                     }
-                }
-
-                let entry = if correct {
-                    (
-                        "correct".to_string(),
-                        Value::Seq(vec![
-                            Value::Number(Number::from(
-                                self.reaction_times[self.reaction_times.len() - 1] as f64,
-                            )),
-                            Value::Number(Number::from(
-                                self.reaction_rts[self.reaction_rts.len() - 1] as f64,
-                            )),
-                        ]),
-                    )
+                    break;
+                } else if i < self.times.len() - 1 {
+                    self.next = Some(i + 1);
                 } else {
-                    (
-                        "incorrect".to_string(),
-                        Value::Seq(vec![Value::Number(Number::from(
-                            self.reaction_times[self.reaction_times.len() - 1] as f64,
-                        ))]),
-                    )
-                };
-                async_writer.push(LoggerSignal::Append(group, entry));
+                    self.next = None;
+                    self.reaction_correct.push(false);
+                    break;
+                }
             }
         }
+
+        let entry = if correct {
+            (
+                "correct".to_string(),
+                Value::Array(vec![
+                    Value::Float(self.reaction_times[self.reaction_times.len() - 1] as f64),
+                    Value::Float(self.reaction_rts[self.reaction_rts.len() - 1] as f64),
+                ]),
+            )
+        } else {
+            (
+                "incorrect".to_string(),
+                Value::Array(vec![Value::Float(
+                    self.reaction_times[self.reaction_times.len() - 1] as f64,
+                )]),
+            )
+        };
+        async_writer.push(LoggerSignal::Append(self.group.clone(), entry));
+
         Ok(())
     }
 
@@ -217,34 +224,32 @@ impl StatefulAction for StatefulReaction {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), error::Error> {
-        async_writer.push(LoggerSignal::Append(
+        let accuracy = self.accuracy();
+        let recall = self.recall();
+        let mean_rt = self.mean_rt();
+
+        async_writer.push(LoggerSignal::Extend(
             self.group.clone(),
-            ("event".to_owned(), Value::String("stop".to_owned())),
+            vec![
+                ("event".to_owned(), Value::Text("stop".to_owned())),
+                ("accuracy".to_owned(), Value::Float(accuracy)),
+                ("recall".to_owned(), Value::Float(recall)),
+                ("mean_rt".to_owned(), Value::Float(mean_rt)),
+            ],
         ));
 
-        let time = Instant::now();
-        if let Some(group) = &self.outgoing {
-            let accuracy = self.reaction_rts.len() as f32 / self.reaction_correct.len() as f32;
-            let recall = self.reaction_rts.len() as f32 / self.times.len() as f32;
-            let mean_rt = self.reaction_rts.iter().sum::<f32>() / self.reaction_rts.len() as f32;
-
-            sync_writer.push(SyncSignal::Internal(
-                time,
-                InternalSignal::new(vec![
-                    (
-                        format!("{group}:accuracy"),
-                        Value::Number(Number::from(accuracy as f64)),
-                    ),
-                    (
-                        format!("{group}:recall"),
-                        Value::Number(Number::from(recall as f64)),
-                    ),
-                    (
-                        format!("{group}:mean_rt"),
-                        Value::Number(Number::from(mean_rt as f64)),
-                    ),
-                ]),
-            ));
+        let mut signals = vec![];
+        if self.sig_accuracy > 0x00 {
+            signals.push((self.sig_accuracy, Value::Float(accuracy)))
+        }
+        if self.sig_recall > 0x00 {
+            signals.push((self.sig_recall, Value::Float(recall)))
+        }
+        if self.sig_mean_rt > 0x00 {
+            signals.push((self.sig_mean_rt, Value::Float(mean_rt)))
+        }
+        if !signals.is_empty() {
+            sync_writer.push(SyncSignal::Internal(Instant::now(), signals.into()));
         }
 
         self.done = true;
@@ -256,5 +261,22 @@ impl StatefulAction for StatefulReaction {
             .into_iter()
             .chain([("group", format!("{:?}", self.group))])
             .collect()
+    }
+}
+
+impl StatefulReaction {
+    #[inline(always)]
+    fn accuracy(&self) -> f64 {
+        self.reaction_rts.len() as f64 / self.reaction_correct.len() as f64
+    }
+
+    #[inline(always)]
+    fn recall(&self) -> f64 {
+        self.reaction_rts.len() as f64 / self.times.len() as f64
+    }
+
+    #[inline(always)]
+    fn mean_rt(&self) -> f64 {
+        self.reaction_rts.iter().sum::<f32>() as f64 / self.reaction_rts.len() as f64
     }
 }

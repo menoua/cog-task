@@ -3,30 +3,30 @@ use crate::server::Server;
 use crate::task::block::Block;
 use crate::task::Task;
 use crate::util::Hash;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Info {
     server: ServerInfo,
     task: TaskInfo,
     block: BlockInfo,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct TaskInfo {
     name: String,
     version: String,
     hash: String,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct BlockInfo {
     name: String,
     hash: String,
 }
 
-#[derive(Debug, Default, Serialize)]
+#[derive(Debug, Default, Deserialize, Serialize)]
 pub struct ServerInfo {
     subject: String,
     output: PathBuf,

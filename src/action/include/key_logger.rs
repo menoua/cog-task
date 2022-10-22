@@ -8,11 +8,11 @@ use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
-use eframe::egui::Ui;
-use ron::Value;
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use chrono::Local;
+use eframe::egui::Ui;
+use serde::{Deserialize, Serialize};
+use serde_cbor::Value;
+use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -69,7 +69,7 @@ impl StatefulAction for StatefulKeyLogger {
     ) -> Result<(), Error> {
         async_writer.push(LoggerSignal::Append(
             self.group.clone(),
-            ("event".to_owned(), Value::String("start".to_owned())),
+            ("event".to_owned(), Value::Text("start".to_owned())),
         ));
         Ok(())
     }
@@ -84,11 +84,7 @@ impl StatefulAction for StatefulKeyLogger {
             let group = self.group.clone();
             let entry = (
                 "key".to_string(),
-                Value::Seq(
-                    keys.iter()
-                        .map(|k| Value::String(format!("{k:?}")))
-                        .collect(),
-                ),
+                Value::Array(keys.iter().map(|k| Value::Text(format!("{k:?}"))).collect()),
             );
 
             async_writer.push(AsyncSignal::Logger(
@@ -116,7 +112,7 @@ impl StatefulAction for StatefulKeyLogger {
     ) -> Result<(), error::Error> {
         async_writer.push(LoggerSignal::Append(
             self.group.clone(),
-            ("event".to_owned(), Value::String("stop".to_owned())),
+            ("event".to_owned(), Value::Text("stop".to_owned())),
         ));
 
         self.done = true;

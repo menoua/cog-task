@@ -4,14 +4,14 @@ use crate::benchmark::Profiler;
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
-use crate::logger::LoggerSignal;
+use crate::logger::{LoggerSignal, TAG_CONF, TAG_INFO};
 use crate::scheduler::info::Info;
 use crate::scheduler::processor::{AsyncProcessor, AsyncSignal, SyncProcessor, SyncSignal};
 use crate::server::{Server, ServerSignal};
 use crate::signal::QWriter;
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, Frame};
-use ron::Value;
+use serde_cbor::{to_vec, Value};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -61,11 +61,11 @@ impl Scheduler {
             vec![
                 (
                     "info".to_owned(),
-                    ron::to_string(&info).unwrap().parse().unwrap(),
+                    Value::Tag(TAG_INFO, Box::new(Value::Bytes(to_vec(&info).unwrap()))),
                 ),
                 (
                     "config".to_owned(),
-                    ron::to_string(&config).unwrap().parse().unwrap(),
+                    Value::Tag(TAG_CONF, Box::new(Value::Bytes(to_vec(&config).unwrap()))),
                 ),
             ],
         ));
@@ -105,7 +105,7 @@ impl Scheduler {
             "mainevent".to_owned(),
             (
                 "interrupt".to_owned(),
-                Value::String("user request".to_owned()),
+                Value::Text("user request".to_owned()),
             ),
         ));
 
@@ -160,7 +160,7 @@ impl Scheduler {
         if let Err(e) = &result {
             self.async_writer.push(LoggerSignal::Append(
                 "mainevent".to_owned(),
-                ("crash".to_owned(), Value::String(format!("{e:#?}"))),
+                ("crash".to_owned(), Value::Text(format!("{e:#?}"))),
             ));
         }
         #[cfg(feature = "benchmark")]
@@ -174,7 +174,7 @@ impl Drop for Scheduler {
     fn drop(&mut self) {
         self.async_writer.push(LoggerSignal::Append(
             "mainevent".to_owned(),
-            ("finish".to_owned(), Value::String("ok".to_owned())),
+            ("finish".to_owned(), Value::Text("ok".to_owned())),
         ));
 
         self.sync_writer.push(SyncSignal::Finish);

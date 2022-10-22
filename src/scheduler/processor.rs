@@ -11,7 +11,7 @@ use crate::server::ServerSignal;
 use crate::signal::{QReader, QWriter};
 use chrono::{DateTime, Local};
 use eframe::egui;
-use ron::Value;
+use serde_cbor::Value;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -175,7 +175,7 @@ impl SyncProcessor {
 
         self.async_writer.push(LoggerSignal::Append(
             "mainevent".to_owned(),
-            ("start".to_owned(), Value::String("ok".to_owned())),
+            ("start".to_owned(), Value::Text("ok".to_owned())),
         ));
 
         tree.start(&mut self.sync_writer, &mut self.async_writer)?;

@@ -2,6 +2,7 @@ use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUA
 use crate::config::Config;
 use crate::error;
 use crate::error::Error;
+use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
 use crate::resource::{text::text_or_file, ResourceMap};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
@@ -12,9 +13,10 @@ use crate::template::{center_x, header_body_controls};
 use eframe::egui;
 use eframe::egui::{CursorIcon, ScrollArea};
 use egui_extras::{Size, StripBuilder};
-use ron::{Number, Value};
+use regex::{Captures, Regex};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde_cbor::Value;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -24,7 +26,7 @@ pub struct Instruction {
     #[serde(default)]
     header: String,
     #[serde(default)]
-    params: HashMap<String, String>,
+    params: BTreeMap<u16, String>,
     #[serde(default = "defaults::persistent")]
     #[serde(rename = "static")]
     persistent: bool,
@@ -33,7 +35,7 @@ pub struct Instruction {
 stateful!(Instruction {
     text: String,
     header: String,
-    params: HashMap<String, String>,
+    params: BTreeMap<u16, String>,
     persistent: bool,
 });
 
@@ -49,7 +51,7 @@ impl From<&str> for Instruction {
         Self {
             text: text.to_owned(),
             header: "".to_owned(),
-            params: HashMap::new(),
+            params: BTreeMap::new(),
             persistent: defaults::persistent(),
         }
     }
@@ -63,6 +65,44 @@ impl Action for Instruction {
         } else {
             vec![]
         }
+    }
+
+    fn init(mut self) -> Result<Box<dyn Action>, Error> {
+        let re = Regex::new(r"#\{((0x)?\d+)}").unwrap();
+        for caps in re.captures_iter(&self.text) {
+            let key = if caps[1].starts_with("0x") {
+                u16::from_str_radix(caps[1].trim_start_matches("0x"), 16).map_err(|_| {
+                    TaskDefinitionError(format!(
+                        "Failed to parse hexadecimal integer: {}",
+                        &caps[1]
+                    ))
+                })
+            } else {
+                caps[1].parse::<u16>().map_err(|_| {
+                    TaskDefinitionError(format!("Failed to parse decimal integer: {}", &caps[1]))
+                })
+            }?;
+
+            if !self.params.contains_key(&key) {
+                self.params.insert(key, "<UNSET>".to_owned());
+            }
+        }
+
+        self.text = re
+            .replace_all(&self.text, |caps: &Captures| {
+                format!(
+                    "#{{{}}}",
+                    if caps[1].starts_with("0x") {
+                        u16::from_str_radix(&caps[1].trim_start_matches("0x"), 16).unwrap()
+                    } else {
+                        caps[1].parse::<u16>().unwrap()
+                    }
+                )
+            })
+            .parse()
+            .unwrap();
+
+        Ok(Box::new(self))
     }
 
     fn stateful(
@@ -112,18 +152,16 @@ impl StatefulAction for StatefulInstruction {
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
         if let ActionSignal::Internal(_, signal) = signal {
-            for (k, v) in signal.into_iter() {
-                self.params.insert(
-                    k.to_owned(),
-                    match v {
+            for (k, v) in signal.iter() {
+                if let Some(entry) = self.params.get_mut(k) {
+                    *entry = match v {
                         Value::Bool(v) => format!("{v}"),
-                        Value::Char(v) => format!("{v}"),
-                        Value::Number(Number::Integer(v)) => format!("{v}"),
-                        Value::Number(Number::Float(v)) => format!("{:.4}", v.get()),
-                        Value::String(v) => format!("{v}"),
-                        _ => "<?>".to_owned(),
-                    },
-                );
+                        Value::Integer(v) => format!("{v}"),
+                        Value::Float(v) => format!("{v:.4}"),
+                        Value::Text(v) => format!("{v}"),
+                        _ => "<INVALID>".to_owned(),
+                    };
+                }
             }
         }
 
@@ -138,7 +176,7 @@ impl StatefulAction for StatefulInstruction {
     ) -> Result<(), error::Error> {
         let mut text = self.text.clone();
         for (k, v) in self.params.iter() {
-            let re = regex::Regex::new(&format!(r"\$\{{{k}\}}")).unwrap();
+            let re = Regex::new(&format!(r"#\{{{k}}}")).unwrap();
             text = re.replace_all(&text, v).to_string();
         }
 

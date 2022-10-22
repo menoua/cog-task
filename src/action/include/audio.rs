@@ -11,8 +11,8 @@ use crate::signal::QWriter;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use rodio::{Sink, Source};
-use ron::Value;
 use serde::{Deserialize, Serialize};
+use serde_cbor::Value;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
@@ -31,7 +31,7 @@ pub struct Audio {
     #[serde(default)]
     trigger: Trigger,
     #[serde(default)]
-    volume_control: Option<String>,
+    volume_control: u16,
 }
 
 stateful_arc!(Audio {
@@ -39,7 +39,7 @@ stateful_arc!(Audio {
     looping: bool,
     sink: Arc<Mutex<Option<Sink>>>,
     link: Option<(Sender<()>, Receiver<()>)>,
-    volume_control: Option<String>,
+    volume_control: u16,
 });
 
 impl Action for Audio {
@@ -172,7 +172,7 @@ impl Action for Audio {
             looping: self.looping,
             sink,
             link: Some((tx_start, rx_stop)),
-            volume_control: self.volume_control.clone(),
+            volume_control: self.volume_control,
         }))
     }
 }
@@ -224,30 +224,22 @@ impl StatefulAction for StatefulAudio {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<(), Error> {
-        if let Some(name) = &self.volume_control {
-            if let ActionSignal::Internal(_, signal) = signal {
-                if let Some(f) = signal
-                    .into_iter()
-                    .filter_map(|(k, v)| {
-                        if k == name {
-                            if let Value::Number(f) = v {
-                                if let Some(f) = f.as_f64() {
-                                    if f.is_finite() {
-                                        return Some(f.clamp(0.0, 1.0));
-                                    }
-                                }
-                            }
-                        }
-                        None
-                    })
-                    .next()
-                {
-                    if let Some(sink) = self.sink.lock().unwrap().as_mut() {
-                        sink.set_volume(f as f32);
-                    }
-                }
+        if self.volume_control == 0x00 {
+            return Ok(());
+        }
+
+        let signal = match signal {
+            ActionSignal::Internal(_, signal) => signal,
+            _ => return Ok(()),
+        };
+
+        if let Some(Value::Float(vol)) = signal.get(self.volume_control) {
+            let vol = vol.clamp(0.0, 1.0) as f32;
+            if let Some(sink) = self.sink.lock().unwrap().as_mut() {
+                sink.set_volume(vol);
             }
         }
+
         Ok(())
     }
 

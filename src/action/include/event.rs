@@ -8,7 +8,7 @@ use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::signal::QWriter;
 use eframe::egui::Ui;
-use ron::Value;
+use serde_cbor::Value;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -47,7 +47,7 @@ impl StatefulAction for StatefulEvent {
     ) -> Result<(), Error> {
         async_writer.push(LoggerSignal::Append(
             "event".to_owned(),
-            (self.name.clone(), Value::String("start".to_owned())),
+            (self.name.clone(), Value::Text("start".to_owned())),
         ));
         Ok(())
     }
@@ -77,7 +77,7 @@ impl StatefulAction for StatefulEvent {
     ) -> Result<(), Error> {
         async_writer.push(LoggerSignal::Append(
             "event".to_owned(),
-            (self.name.clone(), Value::String("stop".to_owned())),
+            (self.name.clone(), Value::Text("stop".to_owned())),
         ));
 
         self.done = true;

@@ -1,13 +1,14 @@
 use crate::config::{Config, LogFormat};
 use crate::error;
-use crate::error::Error::LoggerError;
+use crate::error::Error::{InternalError, LoggerError};
 use crate::scheduler::info::Info;
 use crate::scheduler::processor::AsyncSignal;
 use crate::signal::QWriter;
 use chrono::{DateTime, Local};
 use itertools::Itertools;
 use ron::ser::PrettyConfig;
-use ron::Value;
+use serde::{Serialize, Serializer};
+use serde_cbor::{from_slice, Value};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::fs::{create_dir_all, File};
@@ -15,6 +16,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::thread;
 use std::time::Duration;
+
+pub const TAG_INFO: u64 = 0x01;
+pub const TAG_CONF: u64 = 0x02;
 
 pub type LogGroup = (Vec<(String, String, Value)>, bool);
 
@@ -109,25 +113,7 @@ impl Logger {
                 ))
             })?;
 
-            match self.log_format {
-                LogFormat::JSON => serde_json::to_writer_pretty(file, vec).map_err(|e| {
-                    LoggerError(format!("Failed to log JSON to file: {path:?}\n{e:#?}"))
-                })?,
-                LogFormat::YAML => serde_yaml::to_writer(file, vec).map_err(|e| {
-                    LoggerError(format!("Failed to log YAML to file: {path:?}\n{e:#?}"))
-                })?,
-                LogFormat::RON => file
-                    .write_all(
-                        ron::ser::to_string_pretty(vec, PrettyConfig::default())
-                            .map_err(|e| {
-                                LoggerError(format!("Failed to serialize log to RON:\n{e:#?}"))
-                            })?
-                            .as_bytes(),
-                    )
-                    .map_err(|e| {
-                        LoggerError(format!("Failed to log RON to file: {path:?}\n{e:#?}"))
-                    })?,
-            }
+            write_vec(&mut file, self.log_format, &vec)?;
             *flush = false;
 
             #[cfg(debug_assertions)]
@@ -181,4 +167,68 @@ pub fn normalized_name(name: &str) -> String {
         .split_whitespace()
         .join("_")
         .replace('-', "_")
+}
+
+fn write_vec(
+    file: &mut File,
+    fmt: LogFormat,
+    vec: &Vec<(String, String, Value)>,
+) -> Result<(), error::Error> {
+    let mut vec_t: Vec<(&str, &str, Serializable)> = vec![];
+    for (a, b, v) in vec {
+        let v = match v {
+            Value::Tag(TAG_INFO, v) => Serializable::Info(match v.as_ref() {
+                Value::Bytes(v) => from_slice::<Info>(v).unwrap(),
+                _ => {
+                    return Err(InternalError(
+                        "Failed to deserialize Info struct".to_owned(),
+                    ))
+                }
+            }),
+            Value::Tag(TAG_CONF, v) => Serializable::Config(match v.as_ref() {
+                Value::Bytes(v) => from_slice::<Config>(v).unwrap(),
+                _ => {
+                    return Err(InternalError(
+                        "Failed to deserialize Info struct".to_owned(),
+                    ))
+                }
+            }),
+            v => Serializable::Value(v),
+        };
+
+        vec_t.push((a, b, v));
+    }
+
+    match fmt {
+        LogFormat::JSON => serde_json::to_writer_pretty(file, &vec_t)
+            .map_err(|e| LoggerError(format!("Failed to log JSON to file: {e:#?}"))),
+        LogFormat::YAML => serde_yaml::to_writer(file, &vec_t)
+            .map_err(|e| LoggerError(format!("Failed to log YAML to file: {e:#?}"))),
+        LogFormat::RON => file
+            .write_all(
+                ron::ser::to_string_pretty(&vec_t, PrettyConfig::default())
+                    .map_err(|e| LoggerError(format!("Failed to serialize log to RON: {e:#?}")))?
+                    .as_bytes(),
+            )
+            .map_err(|e| LoggerError(format!("Failed to log RON to file: {e:#?}"))),
+    }
+}
+
+enum Serializable<'a> {
+    Info(Info),
+    Config(Config),
+    Value(&'a Value),
+}
+
+impl<'a> Serialize for Serializable<'a> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Serializable::Info(info) => info.serialize(serializer),
+            Serializable::Config(config) => config.serialize(serializer),
+            Serializable::Value(value) => value.serialize(serializer),
+        }
+    }
 }

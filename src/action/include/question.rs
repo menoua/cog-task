@@ -17,8 +17,8 @@ use eframe::egui::{
     Checkbox, Color32, RadioButton, ScrollArea, Slider, Stroke, TextEdit, Vec2, Widget,
 };
 use egui_extras::StripBuilder;
-use ron::{Number, Value};
 use serde::{Deserialize, Serialize};
+use serde_cbor::Value;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
 
@@ -513,26 +513,26 @@ impl StatefulQItem {
 
         let value = match self {
             StatefulQItem::SingleLine { input, .. } | StatefulQItem::MultiLine { input, .. } => {
-                Value::String(input.to_owned())
+                Value::Text(input.to_owned())
             }
             StatefulQItem::SingleChoice {
                 choice, options, ..
             } => {
                 if let Some(choice) = choice {
-                    Value::String(options[*choice].to_owned())
+                    Value::Text(options[*choice].to_owned())
                 } else {
-                    Value::Unit
+                    Value::Null
                 }
             }
             StatefulQItem::MultiChoice {
                 choice, options, ..
-            } => Value::Seq(
+            } => Value::Array(
                 choice
                     .iter()
                     .enumerate()
                     .filter_map(|(i, checked)| {
                         if *checked {
-                            Some(Value::String(options[i].to_owned()))
+                            Some(Value::Text(options[i].to_owned()))
                         } else {
                             None
                         }
@@ -541,9 +541,7 @@ impl StatefulQItem {
             ),
             StatefulQItem::Slider {
                 choice, precision, ..
-            } => Value::Number({
-                Number::from(f64_with_precision(*choice, *precision))
-            }),
+            } => Value::Float(f64_with_precision(*choice, *precision)),
         };
 
         (name, value)
