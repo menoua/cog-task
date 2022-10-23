@@ -226,7 +226,7 @@ impl MediaStream for Stream {
     /// Restarts a stream; seeks to the first frame and unpauses, sets the `eos` flag to false.
     fn restart(&mut self) -> Result<(), error::Error> {
         self.is_eos = false;
-        let position: gst::GenericFormattedValue = gst::format::Default(0).into();
+        let position: gst::GenericFormattedValue = gst::format::Default::from_u64(0).into();
         self.source
             .seek_simple(gst::SeekFlags::FLUSH, position)
             .map_err(|e| StreamDecodingError(format!("Failed to seek video position:\n{e:#?}")))?;

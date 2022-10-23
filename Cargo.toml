@@ -9,44 +9,44 @@ description = "CogTask: a general-purpose low-latency application to serve cogni
 exclude = [".*"]
 
 [dependencies]
-anyhow = "1.0.65"
-eframe = "0.19.0"
-egui_extras = "0.19.0"
-egui_demo_lib = "0.19.0"
-resvg = "0.23.0"
-usvg = "0.23.0"
-tiny-skia = "0.6.6"
-image = { version = "0.24.4", features = ["jpeg", "png", "gif", "bmp", "ico", "tiff"] }
-serde = { version = "1.0.139", features = ["derive"] }
-serde_json = "1.0.82"
-serde_yaml = "0.8.26"
-ron = "0.8.0"
-petgraph = "0.6.2"
-itertools = "0.10.5"
-rodio = "0.15.0"
-chrono = "0.4.19"
-heck = "0.4.0"
-spin_sleep = "1.1.1"
-sha2 = "0.10.2"
-hex = "0.4.3"
-sysinfo = "0.26.4"
-gstreamer = { version = "0.18.8", features = ["v1_10"] }
-gstreamer-app = { version = "0.18.7", features = ["v1_10"] }
-ffmpeg-next = { version = "5.1.1", features = ["default"] } # look into "static" feature
-glib = "0.15.12"
-num-rational = "0.4.1" # framerates come in rationals
-num-traits = "0.2.15" # convert rationals to floats (ToPrimitive)
-thiserror = "1.0.32"
-regex = "1.6.0"
-native-dialog = "0.6.3"
-once_cell = "1.13.0"
-paste = "1.0.9"
-rmp = "0.8.11"
-serde_cbor = "0.11.2"
+anyhow = "1.0"
+eframe = "0.19"
+egui_extras = "0.19"
+egui_demo_lib = "0.19"
+resvg = "0.24"
+usvg = "0.24"
+tiny-skia = "0.8"
+image = { version = "0.24", features = ["jpeg", "png", "gif", "bmp", "ico", "tiff"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.9"
+ron = "0.8"
+petgraph = "0.6"
+itertools = "0.10"
+rodio = "0.16"
+chrono = "0.4"
+heck = "0.4"
+spin_sleep = "1.1"
+sha2 = "0.10"
+hex = "0.4"
+sysinfo = "0.26"
+gstreamer = { version = "0.19" }
+gstreamer-app = { version = "0.19" }
+ffmpeg-next = { version = "5.1", features = ["default"] } # look into "static" feature
+glib = "0.16"
+num-rational = "0.4" # framerates come in rationals
+num-traits = "0.2" # convert rationals to floats (ToPrimitive)
+thiserror = "1.0"
+regex = "1.6"
+native-dialog = "0.6"
+once_cell = "1.13"
+paste = "1.0"
+rmp = "0.8"
+serde_cbor = "0.11"
 
 [build-dependencies]
-itertools = "0.10.5"
-heck = "0.4.0"
+itertools = "0.10"
+heck = "0.4"
 
 [features]
 benchmark = []
