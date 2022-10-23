@@ -164,7 +164,13 @@ impl SyncProcessor {
                                 for (k, v) in state_sig.into_iter() {
                                     state.insert(k, v);
                                 }
-                                proc.ctx.request_repaint();
+
+                                tree.update(
+                                    &ActionSignal::StateChanged,
+                                    &mut proc.sync_writer,
+                                    &mut proc.async_writer,
+                                    &state,
+                                )?;
                             }
 
                             if !int_sig.is_empty() {

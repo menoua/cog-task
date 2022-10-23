@@ -184,23 +184,31 @@ impl StatefulAction for StatefulInstruction {
     fn update(
         &mut self,
         signal: &ActionSignal,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
     ) -> Result<(), Error> {
-        if let ActionSignal::Internal(_, signal) = signal {
-            for (k, v) in signal.iter() {
-                if let Some(entry) = self.params_i.get_mut(k) {
-                    *entry = match v {
-                        Value::Bool(v) => format!("{v}"),
-                        Value::Integer(v) => format!("{v}"),
-                        Value::Float(v) => format!("{v:.4}"),
-                        Value::Text(v) => format!("{v}"),
-                        Value::Null => "<UNSET>".to_owned(),
-                        _ => "<INVALID>".to_owned(),
-                    };
+        match signal {
+            ActionSignal::Internal(_, signal) => {
+                for (k, v) in signal.iter() {
+                    if let Some(entry) = self.params_i.get_mut(k) {
+                        *entry = match v {
+                            Value::Bool(v) => format!("{v}"),
+                            Value::Integer(v) => format!("{v}"),
+                            Value::Float(v) => format!("{v:.4}"),
+                            Value::Text(v) => format!("{v}"),
+                            Value::Null => "<UNSET>".to_owned(),
+                            _ => "<INVALID>".to_owned(),
+                        };
+                    }
                 }
             }
+            ActionSignal::StateChanged => {
+                if !self.params_s.is_empty() {
+                    sync_writer.push(SyncSignal::Repaint);
+                }
+            }
+            _ => {}
         }
 
         Ok(())

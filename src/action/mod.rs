@@ -114,4 +114,5 @@ pub enum ActionSignal {
     KeyPress(Instant, HashSet<egui::Key>),
     Internal(Instant, IntSignal),
     // External(Instant, ExtSignal),
+    StateChanged,
 }
