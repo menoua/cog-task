@@ -1,4 +1,4 @@
-use crate::action::{Action, ActionEnum};
+use crate::action::{Action, ActionEnum, ActionEnumAsRef};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 impl<'de> Deserialize<'de> for Box<dyn Action> {
@@ -17,6 +17,6 @@ impl Serialize for Box<dyn Action> {
     where
         S: Serializer,
     {
-        format!("{:#?}", self).serialize(serializer)
+        ActionEnumAsRef::from(self.as_ref()).serialize(serializer)
     }
 }

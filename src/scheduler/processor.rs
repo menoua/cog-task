@@ -223,7 +223,7 @@ impl SyncProcessor {
         let (tree, state) = &mut *self.atomic.lock().unwrap();
 
         self.async_writer.push(LoggerSignal::Append(
-            "mainevent".to_owned(),
+            "main".to_owned(),
             ("start".to_owned(), Value::Text("ok".to_owned())),
         ));
 

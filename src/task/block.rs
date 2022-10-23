@@ -4,6 +4,7 @@ use crate::error;
 use crate::error::Error::TaskDefinitionError;
 use crate::util::Hash;
 use serde::{Deserialize, Serialize};
+use serde_cbor::ser::to_vec_packed;
 use std::path::PathBuf;
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -49,10 +50,16 @@ impl Block {
     }
 
     #[inline(always)]
+    pub fn action_tree_vec(&self) -> Vec<u8> {
+        to_vec_packed(&self.tree).unwrap()
+    }
+
+    #[inline(always)]
     pub fn label(&self) -> &str {
         &self.name
     }
 
+    #[inline]
     pub fn config(&self, base_config: &Config) -> Config {
         self.config.fill_blanks(base_config)
     }

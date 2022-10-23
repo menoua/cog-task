@@ -1,3 +1,4 @@
+use crate::action::Action;
 use crate::config::{Config, LogFormat};
 use crate::error;
 use crate::error::Error::{InternalError, LoggerError};
@@ -18,7 +19,8 @@ use std::thread;
 use std::time::Duration;
 
 pub const TAG_INFO: u64 = 0x01;
-pub const TAG_CONF: u64 = 0x02;
+pub const TAG_CONFIG: u64 = 0x02;
+pub const TAG_ACTION: u64 = 0x03;
 
 pub type LogGroup = (Vec<(String, String, Value)>, bool);
 
@@ -185,8 +187,16 @@ fn write_vec(
                     ))
                 }
             }),
-            Value::Tag(TAG_CONF, v) => Serializable::Config(match v.as_ref() {
+            Value::Tag(TAG_CONFIG, v) => Serializable::Config(match v.as_ref() {
                 Value::Bytes(v) => from_slice::<Config>(v).unwrap(),
+                _ => {
+                    return Err(InternalError(
+                        "Failed to deserialize Info struct".to_owned(),
+                    ))
+                }
+            }),
+            Value::Tag(TAG_ACTION, v) => Serializable::Action(match v.as_ref() {
+                Value::Bytes(v) => from_slice::<Box<dyn Action>>(v).unwrap(),
                 _ => {
                     return Err(InternalError(
                         "Failed to deserialize Info struct".to_owned(),
@@ -217,6 +227,7 @@ fn write_vec(
 enum Serializable<'a> {
     Info(Info),
     Config(Config),
+    Action(Box<dyn Action>),
     Value(&'a Value),
 }
 
@@ -228,6 +239,7 @@ impl<'a> Serialize for Serializable<'a> {
         match self {
             Serializable::Info(info) => info.serialize(serializer),
             Serializable::Config(config) => config.serialize(serializer),
+            Serializable::Action(action) => action.serialize(serializer),
             Serializable::Value(value) => value.serialize(serializer),
         }
     }

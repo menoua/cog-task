@@ -16,6 +16,7 @@ use crate::scheduler::State;
 use crate::signal::IntSignal;
 use eframe::egui;
 use itertools::Itertools;
+use std::any::Any;
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
@@ -24,7 +25,7 @@ use std::time::Instant;
 pub use include::*;
 pub use props::*;
 
-pub trait Action: Debug {
+pub trait Action: Debug + Any {
     #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<PathBuf> {
         vec![]

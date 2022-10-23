@@ -4,14 +4,14 @@ use crate::benchmark::Profiler;
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
-use crate::logger::{LoggerSignal, TAG_CONF, TAG_INFO};
+use crate::logger::{LoggerSignal, TAG_ACTION, TAG_CONFIG, TAG_INFO};
 use crate::queue::QWriter;
 use crate::scheduler::info::Info;
 use crate::scheduler::processor::{AsyncProcessor, AsyncSignal, SyncProcessor, SyncSignal};
 use crate::server::{Server, ServerSignal};
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, Frame};
-use serde_cbor::{to_vec, Value};
+use serde_cbor::{ser::to_vec, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
@@ -46,7 +46,6 @@ impl Scheduler {
         let config = block.config(server.config());
         let io = IO::new()?;
         let tree = block.action_tree();
-        println!("{tree:?}");
 
         let server_writer = server.callback_channel();
         let mut async_writer = AsyncProcessor::spawn(&info, &config, &server_writer)?;
@@ -61,7 +60,7 @@ impl Scheduler {
         )?;
 
         async_writer.push(LoggerSignal::Extend(
-            "mainevent".to_owned(),
+            "main".to_owned(),
             vec![
                 (
                     "info".to_owned(),
@@ -69,7 +68,11 @@ impl Scheduler {
                 ),
                 (
                     "config".to_owned(),
-                    Value::Tag(TAG_CONF, Box::new(Value::Bytes(to_vec(&config).unwrap()))),
+                    Value::Tag(TAG_CONFIG, Box::new(Value::Bytes(to_vec(&config).unwrap()))),
+                ),
+                (
+                    "tree".to_owned(),
+                    Value::Tag(TAG_ACTION, Box::new(Value::Bytes(block.action_tree_vec()))),
                 ),
             ],
         ));
@@ -106,7 +109,7 @@ impl Scheduler {
 
     pub fn request_interrupt(&mut self) {
         self.async_writer.push(LoggerSignal::Append(
-            "mainevent".to_owned(),
+            "main".to_owned(),
             (
                 "interrupt".to_owned(),
                 Value::Text("user request".to_owned()),
@@ -163,7 +166,7 @@ impl Scheduler {
 
         if let Err(e) = &result {
             self.async_writer.push(LoggerSignal::Append(
-                "mainevent".to_owned(),
+                "main".to_owned(),
                 ("crash".to_owned(), Value::Text(format!("{e:#?}"))),
             ));
         }
@@ -177,7 +180,7 @@ impl Scheduler {
 impl Drop for Scheduler {
     fn drop(&mut self) {
         self.async_writer.push(LoggerSignal::Append(
-            "mainevent".to_owned(),
+            "main".to_owned(),
             ("finish".to_owned(), Value::Text("ok".to_owned())),
         ));
 

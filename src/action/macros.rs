@@ -3,6 +3,7 @@ macro_rules! include_actions {
         use crate::action::Action;
         use crate::error;
         use serde::{Deserialize, Serialize};
+        use std::any::TypeId;
 
         paste::paste! {
             $(
@@ -31,6 +32,37 @@ macro_rules! include_actions {
                         $(
                             Self::[<$name:camel>](inner) => inner.init(),
                         )*
+                    }
+                }
+
+                pub fn as_ref(&self) -> ActionEnumAsRef {
+                    match self {
+                        $(
+                            Self::[<$name:camel>](inner) => ActionEnumAsRef::[<$name:camel>](inner),
+                        )*
+                    }
+                }
+            }
+
+            #[derive(Serialize)]
+            #[serde(rename_all = "snake_case")]
+            pub enum ActionEnumAsRef<'a> {
+                $(
+                    [<$name:camel>](&'a [<$name:camel>]),
+                )*
+            }
+
+            impl<'a> From<&'a dyn Action> for ActionEnumAsRef<'a> {
+                fn from(f: &dyn Action) -> ActionEnumAsRef {
+                    match f.type_id() {
+                        $(
+                            t if t == TypeId::of::<[<$name:camel>]>() => unsafe {
+                                ActionEnumAsRef::[<$name:camel>](
+                                    &*(f as *const dyn Action as *const [<$name:camel>])
+                                )
+                            }
+                        )*
+                        t => panic!("Unknown action type ({t:?})"),
                     }
                 }
             }
