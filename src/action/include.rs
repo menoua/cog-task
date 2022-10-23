@@ -16,9 +16,11 @@ include_actions!(
     reaction,
     seq,
     stream,
+    switch,
     template,
     timeout,
     video,
+    view,
     wait,
 );
 
@@ -36,7 +38,9 @@ include_stateful_actions!(
     reaction,
     seq,
     stream,
+    switch,
     timeout,
     video,
+    view,
     wait,
 );
