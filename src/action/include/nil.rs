@@ -5,9 +5,10 @@ use crate::error::Error;
 use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
+use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Nil;
@@ -45,6 +46,7 @@ impl StatefulAction for StatefulNil {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         self.done = true;
         sync_writer.push(SyncSignal::UpdateGraph);
@@ -56,6 +58,7 @@ impl StatefulAction for StatefulNil {
         _signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -65,6 +68,7 @@ impl StatefulAction for StatefulNil {
         _ui: &mut Ui,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -73,6 +77,7 @@ impl StatefulAction for StatefulNil {
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }

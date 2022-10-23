@@ -5,13 +5,14 @@ use crate::error::Error;
 use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -54,6 +55,7 @@ impl StatefulAction for StatefulWait {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         let done = self.done.clone();
         let duration = self.duration;
@@ -71,6 +73,7 @@ impl StatefulAction for StatefulWait {
         _signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -80,6 +83,7 @@ impl StatefulAction for StatefulWait {
         _ui: &mut Ui,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -89,6 +93,7 @@ impl StatefulAction for StatefulWait {
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         *self.done.lock().unwrap() = Ok(true);
         Ok(())

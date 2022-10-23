@@ -4,10 +4,12 @@ use crate::error;
 use crate::error::Error;
 use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
+use crate::queue::QWriter;
 use crate::resource::audio::{drop_channel, interlace_channels, Trigger};
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::scheduler::State;
+use crate::signal::SignalId;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use rodio::{Sink, Source};
@@ -31,7 +33,7 @@ pub struct Audio {
     #[serde(default)]
     trigger: Trigger,
     #[serde(default)]
-    volume_control: u16,
+    volume_control: SignalId,
 }
 
 stateful_arc!(Audio {
@@ -39,7 +41,7 @@ stateful_arc!(Audio {
     looping: bool,
     sink: Arc<Mutex<Option<Sink>>>,
     link: Option<(Sender<()>, Receiver<()>)>,
-    volume_control: u16,
+    volume_control: SignalId,
 });
 
 impl Action for Audio {
@@ -189,6 +191,7 @@ impl StatefulAction for StatefulAudio {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         let link = self.link.take().ok_or_else(|| {
             InternalError(format!(
@@ -223,17 +226,19 @@ impl StatefulAction for StatefulAudio {
         signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
-        if self.volume_control == 0x00 {
-            return Ok(());
-        }
+        let volume_control = match self.volume_control {
+            SignalId::Internal(i) => i,
+            _ => return Ok(()),
+        };
 
         let signal = match signal {
             ActionSignal::Internal(_, signal) => signal,
             _ => return Ok(()),
         };
 
-        if let Some(Value::Float(vol)) = signal.get(self.volume_control) {
+        if let Some(Value::Float(vol)) = signal.get(&volume_control) {
             let vol = vol.clamp(0.0, 1.0) as f32;
             if let Some(sink) = self.sink.lock().unwrap().as_mut() {
                 sink.set_volume(vol);
@@ -248,6 +253,7 @@ impl StatefulAction for StatefulAudio {
         _ui: &mut Ui,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -257,6 +263,7 @@ impl StatefulAction for StatefulAudio {
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         if let Some(sink) = self.sink.lock().unwrap().take() {
             sink.stop();

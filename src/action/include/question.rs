@@ -7,7 +7,7 @@ use crate::io::IO;
 use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use crate::style::text::{body, button1, inactive};
 use crate::style::{style_ui, Style, TEXT_SIZE_BODY};
 use crate::template::{center_x, header_body_controls};
@@ -21,6 +21,7 @@ use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
+use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -97,6 +98,7 @@ impl StatefulAction for StatefulQuestion {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         sync_writer.push(SyncSignal::Repaint);
         Ok(())
@@ -107,6 +109,7 @@ impl StatefulAction for StatefulQuestion {
         _signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -116,6 +119,7 @@ impl StatefulAction for StatefulQuestion {
         ui: &mut egui::Ui,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         header_body_controls(ui, |strip| {
             strip.empty();
@@ -137,6 +141,7 @@ impl StatefulAction for StatefulQuestion {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         self.done = true;
         sync_writer.push(SyncSignal::Repaint);

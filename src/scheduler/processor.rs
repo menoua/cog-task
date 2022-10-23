@@ -1,14 +1,15 @@
 use crate::action::nil::StatefulNil;
-use crate::action::{Action, ActionSignal, StatefulAction};
+use crate::action::{Action, ActionSignal};
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
 use crate::logger::{Logger, LoggerSignal};
-use crate::message::InternalSignal;
+use crate::queue::{QReader, QWriter};
 use crate::resource::ResourceMap;
 use crate::scheduler::info::Info;
+use crate::scheduler::{Atomic, State};
 use crate::server::ServerSignal;
-use crate::signal::{QReader, QWriter};
+use crate::signal::Signal;
 use chrono::{DateTime, Local};
 use eframe::egui;
 use serde_cbor::Value;
@@ -30,19 +31,19 @@ pub struct AsyncProcessor {
     server_writer: QWriter<ServerSignal>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub enum SyncSignal {
     UpdateGraph,
     KeyPress(Instant, HashSet<egui::Key>),
-    Internal(Instant, InternalSignal),
-    // External(Instant, ExtSignal),
+    Emit(Instant, Signal),
+    // External(Instant, Signal),
     Repaint,
     Finish,
 }
 
 pub struct SyncProcessor {
     ctx: egui::Context,
-    tree: Arc<Mutex<Box<dyn StatefulAction>>>,
+    atomic: Atomic,
     sync_reader: QReader<SyncSignal>,
     sync_writer: QWriter<SyncSignal>,
     async_writer: QWriter<AsyncSignal>,
@@ -86,6 +87,22 @@ impl AsyncProcessor {
     }
 }
 
+impl PartialEq for SyncSignal {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (SyncSignal::UpdateGraph, SyncSignal::UpdateGraph) => true,
+            (SyncSignal::KeyPress(t1, _), SyncSignal::KeyPress(t2, _)) => t1 == t2,
+            (SyncSignal::Emit(_, _), SyncSignal::Emit(_, _)) => false,
+            // External(Instant, Signal),
+            (SyncSignal::Repaint, SyncSignal::Repaint) => true,
+            (SyncSignal::Finish, SyncSignal::Finish) => true,
+            _ => false,
+        }
+    }
+}
+
+impl Eq for SyncSignal {}
+
 impl SyncProcessor {
     pub fn spawn(
         io: &IO,
@@ -95,13 +112,14 @@ impl SyncProcessor {
         tree: &dyn Action,
         async_writer: &QWriter<AsyncSignal>,
         server_writer: &QWriter<ServerSignal>,
-    ) -> Result<(QWriter<SyncSignal>, Arc<Mutex<Box<dyn StatefulAction>>>), error::Error> {
+    ) -> Result<(QWriter<SyncSignal>, Atomic), error::Error> {
         let sync_reader = QReader::new();
         let sync_writer = sync_reader.writer();
         let tree = tree.stateful(io, res, config, &sync_writer, async_writer)?;
+        let atomic = Arc::new(Mutex::new((tree, State::new())));
         let mut proc = Self {
             ctx: ctx.clone(),
-            tree: Arc::new(Mutex::new(tree)),
+            atomic,
             sync_reader,
             sync_writer,
             async_writer: async_writer.clone(),
@@ -109,7 +127,7 @@ impl SyncProcessor {
         };
 
         let sync_writer = proc.sync_writer.clone();
-        let tree = proc.tree.clone();
+        let atomic = proc.atomic.clone();
 
         thread::spawn(move || {
             proc.sync_reader.pop();
@@ -120,21 +138,46 @@ impl SyncProcessor {
             'mainloop: while let Some(signals) = proc.sync_reader.poll() {
                 for signal in signals {
                     match signal {
-                        SyncSignal::UpdateGraph => proc.tree.lock().unwrap().update(
-                            &ActionSignal::UpdateGraph,
-                            &mut proc.sync_writer,
-                            &mut proc.async_writer,
-                        ),
-                        SyncSignal::KeyPress(time, keys) => proc.tree.lock().unwrap().update(
-                            &ActionSignal::KeyPress(time, keys),
-                            &mut proc.sync_writer,
-                            &mut proc.async_writer,
-                        ),
-                        SyncSignal::Internal(time, signal) => proc.tree.lock().unwrap().update(
-                            &ActionSignal::Internal(time, signal),
-                            &mut proc.sync_writer,
-                            &mut proc.async_writer,
-                        ),
+                        SyncSignal::UpdateGraph => {
+                            let (tree, state) = &mut *proc.atomic.lock().unwrap();
+                            tree.update(
+                                &ActionSignal::UpdateGraph,
+                                &mut proc.sync_writer,
+                                &mut proc.async_writer,
+                                &state,
+                            )
+                        }
+                        SyncSignal::KeyPress(time, keys) => {
+                            let (tree, state) = &mut *proc.atomic.lock().unwrap();
+                            tree.update(
+                                &ActionSignal::KeyPress(time, keys),
+                                &mut proc.sync_writer,
+                                &mut proc.async_writer,
+                                &state,
+                            )
+                        }
+                        SyncSignal::Emit(time, signal) => {
+                            let (int_sig, _ext_sig, state_sig) = signal.split();
+                            let (tree, state) = &mut *proc.atomic.lock().unwrap();
+
+                            if !state_sig.is_empty() {
+                                for (k, v) in state_sig.into_iter() {
+                                    state.insert(k, v);
+                                }
+                                proc.ctx.request_repaint();
+                            }
+
+                            if !int_sig.is_empty() {
+                                tree.update(
+                                    &ActionSignal::Internal(time, int_sig),
+                                    &mut proc.sync_writer,
+                                    &mut proc.async_writer,
+                                    &state,
+                                )?;
+                            }
+
+                            Ok(())
+                        }
                         SyncSignal::Repaint => {
                             proc.ctx.request_repaint();
                             Ok(())
@@ -146,16 +189,16 @@ impl SyncProcessor {
                         proc.ctx.request_repaint();
                     });
 
-                    let mut tree = proc.tree.lock().unwrap();
+                    let (tree, state) = &mut *proc.atomic.lock().unwrap();
                     if tree.is_over().unwrap_or_else(|e| {
                         proc.server_writer.push(ServerSignal::BlockCrashed(e));
-                        let _ = tree.stop(&mut proc.sync_writer, &mut proc.async_writer);
+                        let _ = tree.stop(&mut proc.sync_writer, &mut proc.async_writer, &state);
                         *tree = Box::new(StatefulNil::new());
                         proc.ctx.request_repaint();
                         false
                     }) {
                         proc.server_writer.push(ServerSignal::BlockFinished);
-                        tree.stop(&mut proc.sync_writer, &mut proc.async_writer)?;
+                        tree.stop(&mut proc.sync_writer, &mut proc.async_writer, &state)?;
                         *tree = Box::new(StatefulNil::new());
                         proc.ctx.request_repaint();
                     }
@@ -167,18 +210,18 @@ impl SyncProcessor {
             Result::<(), error::Error>::Ok(())
         });
 
-        Ok((sync_writer, tree))
+        Ok((sync_writer, atomic))
     }
 
     fn start(&mut self) -> Result<(), error::Error> {
-        let tree = &mut (*self.tree.lock().unwrap());
+        let (tree, state) = &mut *self.atomic.lock().unwrap();
 
         self.async_writer.push(LoggerSignal::Append(
             "mainevent".to_owned(),
             ("start".to_owned(), Value::Text("ok".to_owned())),
         ));
 
-        tree.start(&mut self.sync_writer, &mut self.async_writer)?;
+        tree.start(&mut self.sync_writer, &mut self.async_writer, &state)?;
 
         if tree.is_over()? {
             self.server_writer.push(ServerSignal::BlockFinished);

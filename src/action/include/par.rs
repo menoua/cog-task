@@ -4,11 +4,12 @@ use crate::error;
 use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use eframe::egui;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Par(
@@ -124,13 +125,14 @@ impl StatefulAction for StatefulPar {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), error::Error> {
         if self.primary.is_empty() {
             self.done = true;
             sync_writer.push(SyncSignal::UpdateGraph);
         } else {
             for c in self.primary.iter_mut().chain(self.secondary.iter_mut()) {
-                c.start(sync_writer, async_writer)?;
+                c.start(sync_writer, async_writer, state)?;
             }
         }
 
@@ -143,14 +145,15 @@ impl StatefulAction for StatefulPar {
         signal: &ActionSignal,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), error::Error> {
         let mut done = vec![];
         let mut finished = false;
         for (i, c) in self.primary.iter_mut().enumerate() {
-            c.update(signal, sync_writer, async_writer)?;
+            c.update(signal, sync_writer, async_writer, state)?;
 
             if c.is_over()? {
-                c.stop(sync_writer, async_writer)?;
+                c.stop(sync_writer, async_writer, state)?;
                 done.push(i);
             }
         }
@@ -166,10 +169,10 @@ impl StatefulAction for StatefulPar {
 
         let mut done = vec![];
         for (i, c) in self.secondary.iter_mut().enumerate() {
-            c.update(signal, sync_writer, async_writer)?;
+            c.update(signal, sync_writer, async_writer, state)?;
 
             if c.is_over()? {
-                c.stop(sync_writer, async_writer)?;
+                c.stop(sync_writer, async_writer, state)?;
                 done.push(i);
             }
         }
@@ -189,6 +192,7 @@ impl StatefulAction for StatefulPar {
         ui: &mut egui::Ui,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), error::Error> {
         if let Some(c) = self
             .primary
@@ -196,14 +200,14 @@ impl StatefulAction for StatefulPar {
             .filter(|c| c.props().visual())
             .next()
         {
-            c.show(ui, sync_writer, async_writer)
+            c.show(ui, sync_writer, async_writer, state)
         } else if let Some(c) = self
             .secondary
             .iter_mut()
             .filter(|c| c.props().visual())
             .next()
         {
-            c.show(ui, sync_writer, async_writer)
+            c.show(ui, sync_writer, async_writer, state)
         } else {
             Ok(())
         }
@@ -214,10 +218,11 @@ impl StatefulAction for StatefulPar {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), error::Error> {
         let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
         for c in children {
-            c.stop(sync_writer, async_writer)?;
+            c.stop(sync_writer, async_writer, state)?;
         }
         self.done = true;
         Ok(())

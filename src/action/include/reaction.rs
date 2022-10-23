@@ -8,7 +8,7 @@ use crate::logger::LoggerSignal;
 use crate::resource::key::Key;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use eframe::egui;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
@@ -16,6 +16,8 @@ use serde_cbor::Value;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
+use crate::scheduler::State;
+use crate::signal::SignalId;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -28,11 +30,11 @@ pub struct Reaction {
     #[serde(default = "defaults::tol")]
     tol: f32,
     #[serde(default)]
-    sig_accuracy: u16,
+    sig_accuracy: SignalId,
     #[serde(default)]
-    sig_recall: u16,
+    sig_recall: SignalId,
     #[serde(default)]
-    sig_mean_rt: u16,
+    sig_mean_rt: SignalId,
 }
 
 stateful!(Reaction {
@@ -45,9 +47,9 @@ stateful!(Reaction {
     reaction_correct: Vec<bool>,
     reaction_times: Vec<f32>,
     reaction_rts: Vec<f32>,
-    sig_accuracy: u16,
-    sig_recall: u16,
-    sig_mean_rt: u16,
+    sig_accuracy: SignalId,
+    sig_recall: SignalId,
+    sig_mean_rt: SignalId,
 });
 
 mod defaults {
@@ -133,6 +135,7 @@ impl StatefulAction for StatefulReaction {
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         self.since = Instant::now();
         async_writer.push(LoggerSignal::Append(
@@ -147,6 +150,7 @@ impl StatefulAction for StatefulReaction {
         signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         let (time, keys) = match signal {
             ActionSignal::KeyPress(t, k) => (t.duration_since(self.since), k),
@@ -214,6 +218,7 @@ impl StatefulAction for StatefulReaction {
         _ui: &mut Ui,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -223,6 +228,7 @@ impl StatefulAction for StatefulReaction {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         let accuracy = self.accuracy();
         let recall = self.recall();
@@ -239,17 +245,17 @@ impl StatefulAction for StatefulReaction {
         ));
 
         let mut signals = vec![];
-        if self.sig_accuracy > 0x00 {
+        if !self.sig_accuracy.is_none() {
             signals.push((self.sig_accuracy, Value::Float(accuracy)))
         }
-        if self.sig_recall > 0x00 {
+        if !self.sig_recall.is_none() {
             signals.push((self.sig_recall, Value::Float(recall)))
         }
-        if self.sig_mean_rt > 0x00 {
+        if !self.sig_mean_rt.is_none() {
             signals.push((self.sig_mean_rt, Value::Float(mean_rt)))
         }
         if !signals.is_empty() {
-            sync_writer.push(SyncSignal::Internal(Instant::now(), signals.into()));
+            sync_writer.push(SyncSignal::Emit(Instant::now(), signals.into()));
         }
 
         self.done = true;

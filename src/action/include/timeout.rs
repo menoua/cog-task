@@ -4,9 +4,10 @@ use crate::config::Config;
 use crate::error;
 use crate::error::Error;
 use crate::io::IO;
+use crate::queue::QWriter;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::scheduler::State;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
@@ -63,11 +64,12 @@ impl StatefulAction for StatefulTimeout {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), Error> {
         if self.done {
             sync_writer.push(SyncSignal::UpdateGraph);
         } else {
-            self.inner.start(sync_writer, async_writer)?;
+            self.inner.start(sync_writer, async_writer, state)?;
 
             let dur = self.duration;
             let timeout_over = self.timeout_over.clone();
@@ -87,8 +89,10 @@ impl StatefulAction for StatefulTimeout {
         signal: &ActionSignal,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), Error> {
-        self.inner.update(signal, sync_writer, async_writer)?;
+        self.inner
+            .update(signal, sync_writer, async_writer, state)?;
         if self.inner.is_over()?
             || (matches!(signal, ActionSignal::UpdateGraph) && *self.timeout_over.lock().unwrap())
         {
@@ -102,16 +106,18 @@ impl StatefulAction for StatefulTimeout {
         ui: &mut Ui,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), Error> {
-        self.inner.show(ui, sync_writer, async_writer)
+        self.inner.show(ui, sync_writer, async_writer, state)
     }
 
     fn stop(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), Error> {
-        self.inner.stop(sync_writer, async_writer)?;
+        self.inner.stop(sync_writer, async_writer, state)?;
         self.done = true;
         Ok(())
     }

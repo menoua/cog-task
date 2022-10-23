@@ -4,9 +4,11 @@ use crate::error;
 use crate::error::Error;
 use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
+use crate::queue::QWriter;
 use crate::resource::{text::text_or_file, ResourceMap};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::scheduler::State;
+use crate::signal::SignalId;
 use crate::style::text::{body, button1};
 use crate::style::{style_ui, Style};
 use crate::template::{center_x, header_body_controls};
@@ -16,7 +18,7 @@ use egui_extras::{Size, StripBuilder};
 use regex::{Captures, Regex};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
-use std::collections::BTreeMap;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -26,7 +28,7 @@ pub struct Instruction {
     #[serde(default)]
     header: String,
     #[serde(default)]
-    params: BTreeMap<u16, String>,
+    params: HashMap<SignalId, String>,
     #[serde(default = "defaults::persistent")]
     #[serde(rename = "static")]
     persistent: bool,
@@ -35,7 +37,9 @@ pub struct Instruction {
 stateful!(Instruction {
     text: String,
     header: String,
-    params: BTreeMap<u16, String>,
+    params_i: HashMap<u16, String>,
+    params_e: HashMap<u16, String>,
+    params_s: HashSet<u16>,
     persistent: bool,
 });
 
@@ -51,7 +55,7 @@ impl From<&str> for Instruction {
         Self {
             text: text.to_owned(),
             header: "".to_owned(),
-            params: BTreeMap::new(),
+            params: HashMap::new(),
             persistent: defaults::persistent(),
         }
     }
@@ -68,19 +72,29 @@ impl Action for Instruction {
     }
 
     fn init(mut self) -> Result<Box<dyn Action>, Error> {
-        let re = Regex::new(r"#\{((0x)?\d+)}").unwrap();
+        let re = Regex::new(r"#([ies])\(((0x)?\d+)\)").unwrap();
         for caps in re.captures_iter(&self.text) {
-            let key = if caps[1].starts_with("0x") {
-                u16::from_str_radix(caps[1].trim_start_matches("0x"), 16).map_err(|_| {
+            let key = if caps[2].starts_with("0x") {
+                u16::from_str_radix(caps[2].trim_start_matches("0x"), 16).map_err(|_| {
                     TaskDefinitionError(format!(
                         "Failed to parse hexadecimal integer: {}",
-                        &caps[1]
+                        &caps[2]
                     ))
                 })
             } else {
-                caps[1].parse::<u16>().map_err(|_| {
-                    TaskDefinitionError(format!("Failed to parse decimal integer: {}", &caps[1]))
+                caps[2].parse::<u16>().map_err(|_| {
+                    TaskDefinitionError(format!("Failed to parse decimal integer: {}", &caps[2]))
                 })
+            }?;
+
+            let key = match &caps[1] {
+                "i" => Ok(SignalId::Internal(key)),
+                "e" => Ok(SignalId::External(key)),
+                "s" => Ok(SignalId::State(key)),
+                _ => Err(TaskDefinitionError(format!(
+                    "Unknown signal identifier: {}",
+                    &caps[1]
+                ))),
             }?;
 
             if !self.params.contains_key(&key) {
@@ -91,11 +105,12 @@ impl Action for Instruction {
         self.text = re
             .replace_all(&self.text, |caps: &Captures| {
                 format!(
-                    "#{{{}}}",
-                    if caps[1].starts_with("0x") {
-                        u16::from_str_radix(&caps[1].trim_start_matches("0x"), 16).unwrap()
+                    "#{}({})",
+                    &caps[1],
+                    if caps[2].starts_with("0x") {
+                        u16::from_str_radix(&caps[2].trim_start_matches("0x"), 16).unwrap()
                     } else {
-                        caps[1].parse::<u16>().unwrap()
+                        caps[2].parse::<u16>().unwrap()
                     }
                 )
             })
@@ -113,11 +128,31 @@ impl Action for Instruction {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
+        let mut params_i = HashMap::new();
+        let mut params_e = HashMap::new();
+        let mut params_s = HashSet::new();
+        for (k, v) in self.params.iter() {
+            match k {
+                SignalId::None => {}
+                SignalId::Internal(i) => {
+                    params_i.insert(*i, v.clone());
+                }
+                SignalId::External(i) => {
+                    params_e.insert(*i, v.clone());
+                }
+                SignalId::State(i) => {
+                    params_s.insert(*i);
+                }
+            };
+        }
+
         Ok(Box::new(StatefulInstruction {
             done: false,
             text: res.fetch_text(&self.text)?,
             header: self.header.clone(),
-            params: self.params.clone(),
+            params_i,
+            params_e,
+            params_s,
             persistent: self.persistent,
         }))
     }
@@ -140,6 +175,7 @@ impl StatefulAction for StatefulInstruction {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         sync_writer.push(SyncSignal::Repaint);
         Ok(())
@@ -150,15 +186,17 @@ impl StatefulAction for StatefulInstruction {
         signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         if let ActionSignal::Internal(_, signal) = signal {
             for (k, v) in signal.iter() {
-                if let Some(entry) = self.params.get_mut(k) {
+                if let Some(entry) = self.params_i.get_mut(k) {
                     *entry = match v {
                         Value::Bool(v) => format!("{v}"),
                         Value::Integer(v) => format!("{v}"),
                         Value::Float(v) => format!("{v:.4}"),
                         Value::Text(v) => format!("{v}"),
+                        Value::Null => "<UNSET>".to_owned(),
                         _ => "<INVALID>".to_owned(),
                     };
                 }
@@ -173,11 +211,36 @@ impl StatefulAction for StatefulInstruction {
         ui: &mut egui::Ui,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), error::Error> {
         let mut text = self.text.clone();
-        for (k, v) in self.params.iter() {
-            let re = Regex::new(&format!(r"#\{{{k}}}")).unwrap();
-            text = re.replace_all(&text, v).to_string();
+
+        for (i, v) in self.params_i.iter() {
+            text = Regex::new(&format!(r"#i\({i}\)"))
+                .unwrap()
+                .replace_all(&text, v)
+                .to_string();
+        }
+        for (i, v) in self.params_e.iter() {
+            text = Regex::new(&format!(r"#e\({i}\)"))
+                .unwrap()
+                .replace_all(&text, v)
+                .to_string();
+        }
+        for i in self.params_s.iter() {
+            let v = match state.get(i).unwrap_or(&Value::Null) {
+                Value::Bool(v) => format!("{v}"),
+                Value::Integer(v) => format!("{v}"),
+                Value::Float(v) => format!("{v:.4}"),
+                Value::Text(v) => format!("{v}"),
+                Value::Null => "<UNSET>".to_owned(),
+                _ => "<INVALID>".to_owned(),
+            };
+
+            text = Regex::new(&format!(r"#s\({i}\)"))
+                .unwrap()
+                .replace_all(&text, v)
+                .to_string();
         }
 
         header_body_controls(ui, |strip| {
@@ -222,6 +285,7 @@ impl StatefulAction for StatefulInstruction {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         self.done = true;
         sync_writer.push(SyncSignal::Repaint);

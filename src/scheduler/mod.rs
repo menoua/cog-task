@@ -5,13 +5,14 @@ use crate::config::Config;
 use crate::error;
 use crate::io::IO;
 use crate::logger::{LoggerSignal, TAG_CONF, TAG_INFO};
+use crate::queue::QWriter;
 use crate::scheduler::info::Info;
 use crate::scheduler::processor::{AsyncProcessor, AsyncSignal, SyncProcessor, SyncSignal};
 use crate::server::{Server, ServerSignal};
-use crate::signal::QWriter;
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, Frame};
 use serde_cbor::{to_vec, Value};
+use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -19,8 +20,11 @@ pub mod info;
 pub mod monitor;
 pub mod processor;
 
+pub type State = HashMap<u16, Value>;
+pub type Atomic = Arc<Mutex<(Box<dyn StatefulAction>, State)>>;
+
 pub struct Scheduler {
-    tree: Arc<Mutex<Box<dyn StatefulAction>>>,
+    atomic: Atomic,
     info: Info,
     last_esc: Option<SystemTime>,
     config: Config,
@@ -46,7 +50,7 @@ impl Scheduler {
 
         let server_writer = server.callback_channel();
         let mut async_writer = AsyncProcessor::spawn(&info, &config, &server_writer)?;
-        let (mut sync_writer, tree) = SyncProcessor::spawn(
+        let (mut sync_writer, atomic) = SyncProcessor::spawn(
             &io,
             &resources,
             &config,
@@ -72,7 +76,7 @@ impl Scheduler {
         sync_writer.push(SyncSignal::UpdateGraph);
 
         Ok(Self {
-            tree,
+            atomic,
             info,
             last_esc: None,
             config,
@@ -143,12 +147,12 @@ impl Scheduler {
         #[cfg(feature = "benchmark")]
         self.profiler.tic(2);
         let result = {
-            let mut tree = self.tree.lock().unwrap();
+            let (tree, state) = &mut *self.atomic.lock().unwrap();
             CentralPanel::default()
                 .frame(Frame::default().fill(self.config.background().into()))
                 .show_inside(ui, |ui| {
                     if tree.props().visual() {
-                        tree.show(ui, &mut self.sync_writer, &mut self.async_writer)
+                        tree.show(ui, &mut self.sync_writer, &mut self.async_writer, &state)
                     } else {
                         ui.output().cursor_icon = CursorIcon::None;
                         Ok(())

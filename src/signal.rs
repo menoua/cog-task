@@ -1,92 +1,78 @@
-use std::collections::VecDeque;
-use std::fmt::Debug;
-use std::sync::mpsc::{Receiver, Sender};
-use std::sync::{mpsc, Arc, Mutex};
+use crate::scheduler::processor::SyncSignal;
+use crate::scheduler::State;
+use serde::{Deserialize, Serialize};
+use serde_cbor::Value;
+use std::collections::hash_map::Iter;
+use std::collections::HashMap;
+use std::time::Instant;
 
-pub const QUEUE_SIZE: usize = 64;
-pub type Queue<T> = Arc<Mutex<VecDeque<T>>>;
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+pub enum SignalId {
+    None,
+    #[serde(rename = "i")]
+    Internal(u16),
+    #[serde(rename = "e")]
+    External(u16),
+    #[serde(rename = "s")]
+    State(u16),
+}
 
-#[derive(Debug)]
-pub struct QReader<T: Debug>(Queue<T>, Sender<()>, Receiver<()>);
-
-#[derive(Debug, Clone)]
-pub struct QWriter<T: Debug>(Queue<T>, Sender<()>);
-
-impl<T: Debug> QReader<T> {
-    pub fn new() -> Self {
-        let queue = Arc::new(Mutex::new(VecDeque::with_capacity(QUEUE_SIZE)));
-        let (tx, rx) = mpsc::channel();
-        Self(queue, tx, rx)
-    }
-
-    #[inline(always)]
-    pub fn push(&mut self, msg: impl Into<T>) {
-        let mut queue = self.0.lock().unwrap();
-        if self.1.send(()).is_ok() {
-            queue.push_back(msg.into());
-        }
-    }
-
-    #[inline(always)]
-    pub fn pop(&mut self) -> Option<T> {
-        if self.2.recv().is_ok() {
-            Some(self.0.lock().unwrap().pop_front().unwrap())
-        } else {
-            None
-        }
-    }
-
-    #[inline(always)]
-    pub fn try_pop(&mut self) -> Option<T> {
-        if let Ok(()) = self.2.try_recv() {
-            self.0.lock().unwrap().pop_front()
-        } else {
-            None
-        }
-    }
-
-    #[inline(always)]
-    pub fn poll(&mut self) -> Option<Vec<T>>
-    where
-        T: Eq,
-    {
-        let mut signals = Vec::with_capacity(16);
-        if self.2.recv().is_ok() {
-            let mut queue = self.0.lock().unwrap();
-            loop {
-                let signal = queue.pop_front().unwrap();
-                if !signals.contains(&signal) {
-                    signals.push(signal);
-                }
-                if self.2.try_recv().is_err() {
-                    break;
-                }
-            }
-
-            Some(signals)
-        } else {
-            println!("Failed to poll. Ending sync queue.");
-            None
-        }
-    }
-
-    #[inline(always)]
-    pub fn clear(&mut self) {
-        self.0.lock().unwrap().clear();
-    }
-
-    #[inline(always)]
-    pub fn writer(&self) -> QWriter<T> {
-        QWriter(self.0.clone(), self.1.clone())
+impl Default for SignalId {
+    fn default() -> Self {
+        SignalId::None
     }
 }
 
-impl<T: Debug> QWriter<T> {
-    #[inline(always)]
-    pub fn push(&mut self, msg: impl Into<T>) {
-        let mut queue = self.0.lock().unwrap();
-        if self.1.send(()).is_ok() {
-            queue.push_back(msg.into());
+impl SignalId {
+    pub fn is_none(&self) -> bool {
+        matches!(self, SignalId::None)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Signal(HashMap<SignalId, Value>);
+
+pub type IntSignal = HashMap<u16, Value>;
+pub type ExtSignal = HashMap<u16, Value>;
+
+impl Signal {
+    pub fn new(signals: HashMap<SignalId, Value>) -> Self {
+        Self(signals)
+    }
+
+    pub fn get(&self, tag: SignalId) -> Option<&Value> {
+        self.0.get(&tag)
+    }
+
+    pub fn iter(&self) -> Iter<SignalId, Value> {
+        self.0.iter()
+    }
+
+    pub fn split(self) -> (IntSignal, ExtSignal, State) {
+        let mut ints = HashMap::new();
+        let mut exts = HashMap::new();
+        let mut state = HashMap::new();
+        for (k, v) in self.0.into_iter() {
+            match k {
+                SignalId::None => None,
+                SignalId::Internal(i) => ints.insert(i, v),
+                SignalId::External(i) => exts.insert(i, v),
+                SignalId::State(i) => state.insert(i, v),
+            };
         }
+
+        (ints, exts, state)
+    }
+}
+
+impl From<Vec<(SignalId, Value)>> for Signal {
+    fn from(vec: Vec<(SignalId, Value)>) -> Self {
+        Self(vec.into_iter().collect())
+    }
+}
+
+impl From<Signal> for SyncSignal {
+    fn from(signal: Signal) -> Self {
+        SyncSignal::Emit(Instant::now(), signal)
     }
 }

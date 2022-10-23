@@ -1,7 +1,17 @@
+#[macro_use]
+mod macros;
+pub mod de;
+pub mod include;
+pub mod props;
+
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
+use crate::queue::QWriter;
 use crate::resource::ResourceMap;
+use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use crate::scheduler::State;
+use crate::signal::IntSignal;
 use eframe::egui;
 use itertools::Itertools;
 use std::collections::HashSet;
@@ -9,15 +19,6 @@ use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
 use std::time::Instant;
 
-#[macro_use]
-mod macros;
-pub mod de;
-pub mod include;
-pub mod props;
-
-use crate::message::InternalSignal;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
 pub use include::*;
 pub use props::*;
 
@@ -56,6 +57,7 @@ pub trait StatefulAction: Send {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), error::Error>;
 
     fn update(
@@ -63,6 +65,7 @@ pub trait StatefulAction: Send {
         signal: &ActionSignal,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), error::Error>;
 
     fn show(
@@ -70,12 +73,14 @@ pub trait StatefulAction: Send {
         ui: &mut egui::Ui,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), error::Error>;
 
     fn stop(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), error::Error>;
 
     fn debug(&self) -> Vec<(&str, String)> {
@@ -107,6 +112,6 @@ pub trait ImplStatefulAction: StatefulAction {}
 pub enum ActionSignal {
     UpdateGraph,
     KeyPress(Instant, HashSet<egui::Key>),
-    Internal(Instant, InternalSignal),
-    // External(DateTime<Local>, ExtSignal),
+    Internal(Instant, IntSignal),
+    // External(Instant, ExtSignal),
 }

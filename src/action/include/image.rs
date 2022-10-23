@@ -7,11 +7,12 @@ use crate::io::IO;
 use crate::resource::color::Color;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -88,6 +89,7 @@ impl StatefulAction for StatefulImage {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         sync_writer.push(SyncSignal::Repaint);
         Ok(())
@@ -98,6 +100,7 @@ impl StatefulAction for StatefulImage {
         _signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -107,6 +110,7 @@ impl StatefulAction for StatefulImage {
         ui: &mut egui::Ui,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         ui.output().cursor_icon = CursorIcon::None;
 
@@ -131,6 +135,7 @@ impl StatefulAction for StatefulImage {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         self.done = true;
         sync_writer.push(SyncSignal::Repaint);

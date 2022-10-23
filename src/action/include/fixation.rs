@@ -6,7 +6,7 @@ use crate::io::IO;
 use crate::resource::color::Color;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 

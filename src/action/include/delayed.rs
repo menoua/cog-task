@@ -6,7 +6,7 @@ use crate::error::Error;
 use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
@@ -14,6 +14,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
+use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Delayed(f32, Box<dyn Action>);
@@ -68,6 +69,7 @@ impl StatefulAction for StatefulDelayed {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         if self.done {
             sync_writer.push(SyncSignal::UpdateGraph);
@@ -89,13 +91,14 @@ impl StatefulAction for StatefulDelayed {
         signal: &ActionSignal,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), Error> {
         if *self.wait_over.lock().unwrap() {
             if !self.has_begun {
-                self.inner.start(sync_writer, async_writer)?;
+                self.inner.start(sync_writer, async_writer, state)?;
                 self.has_begun = true;
             } else {
-                self.inner.update(signal, sync_writer, async_writer)?;
+                self.inner.update(signal, sync_writer, async_writer, state)?;
             }
 
             if self.inner.is_over()? {
@@ -111,9 +114,10 @@ impl StatefulAction for StatefulDelayed {
         ui: &mut Ui,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), Error> {
         if self.has_begun {
-            self.inner.show(ui, sync_writer, async_writer)
+            self.inner.show(ui, sync_writer, async_writer, state)
         } else {
             Ok(())
         }
@@ -123,9 +127,10 @@ impl StatefulAction for StatefulDelayed {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<(), Error> {
         if *self.wait_over.lock().unwrap() {
-            self.inner.stop(sync_writer, async_writer)?;
+            self.inner.stop(sync_writer, async_writer, state)?;
         }
         self.done = true;
         Ok(())

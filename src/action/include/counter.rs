@@ -4,13 +4,14 @@ use crate::error::Error;
 use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use crate::style::{style_ui, Style};
 use crate::error;
 use eframe::egui;
 use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -64,6 +65,7 @@ impl StatefulAction for StatefulCounter {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         if self.count == 0 {
             self.done = true;
@@ -80,6 +82,7 @@ impl StatefulAction for StatefulCounter {
         _signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -89,6 +92,7 @@ impl StatefulAction for StatefulCounter {
         ui: &mut egui::Ui,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         enum Interaction {
             None,
@@ -145,6 +149,7 @@ impl StatefulAction for StatefulCounter {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         self.done = true;
         sync_writer.push(SyncSignal::Repaint);

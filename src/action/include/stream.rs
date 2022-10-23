@@ -9,7 +9,7 @@ use crate::resource::audio::Trigger;
 use crate::resource::color::Color;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use crate::util::spin_sleeper;
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, Frame, TextureId, Vec2, Color32};
@@ -20,6 +20,7 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::thread::JoinHandle;
 use std::time::Duration;
+use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -188,6 +189,7 @@ impl StatefulAction for StatefulStream {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         self.link_start.send(()).map_err(|e| {
             InternalError(format!(
@@ -237,6 +239,7 @@ impl StatefulAction for StatefulStream {
         _signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -246,6 +249,7 @@ impl StatefulAction for StatefulStream {
         ui: &mut egui::Ui,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         let (texture, size) = self
             .frame
@@ -280,6 +284,7 @@ impl StatefulAction for StatefulStream {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         *self.done.lock().unwrap() = Ok(true);
         if self.framerate > 0.0 {

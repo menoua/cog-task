@@ -1,9 +1,9 @@
 use crate::config::{Config, LogFormat};
 use crate::error;
 use crate::error::Error::{InternalError, LoggerError};
+use crate::queue::QWriter;
 use crate::scheduler::info::Info;
 use crate::scheduler::processor::AsyncSignal;
-use crate::signal::QWriter;
 use chrono::{DateTime, Local};
 use itertools::Itertools;
 use ron::ser::PrettyConfig;

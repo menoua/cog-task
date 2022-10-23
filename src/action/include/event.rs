@@ -6,10 +6,11 @@ use crate::io::IO;
 use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use eframe::egui::Ui;
 use serde_cbor::Value;
 use serde::{Deserialize, Serialize};
+use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Event(String);
@@ -44,6 +45,7 @@ impl StatefulAction for StatefulEvent {
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         async_writer.push(LoggerSignal::Append(
             "event".to_owned(),
@@ -57,6 +59,7 @@ impl StatefulAction for StatefulEvent {
         _signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -66,6 +69,7 @@ impl StatefulAction for StatefulEvent {
         _ui: &mut Ui,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -74,6 +78,7 @@ impl StatefulAction for StatefulEvent {
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         async_writer.push(LoggerSignal::Append(
             "event".to_owned(),

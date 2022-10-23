@@ -7,12 +7,13 @@ use crate::io::IO;
 use crate::logger::LoggerSignal;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use chrono::Local;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::path::PathBuf;
+use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -66,6 +67,7 @@ impl StatefulAction for StatefulKeyLogger {
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         async_writer.push(LoggerSignal::Append(
             self.group.clone(),
@@ -79,6 +81,7 @@ impl StatefulAction for StatefulKeyLogger {
         signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         if let ActionSignal::KeyPress(_, keys) = signal {
             let group = self.group.clone();
@@ -100,6 +103,7 @@ impl StatefulAction for StatefulKeyLogger {
         _ui: &mut Ui,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), Error> {
         Ok(())
     }
@@ -109,6 +113,7 @@ impl StatefulAction for StatefulKeyLogger {
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<(), error::Error> {
         async_writer.push(LoggerSignal::Append(
             self.group.clone(),

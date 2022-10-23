@@ -5,7 +5,7 @@ use crate::error::Error::{InternalError, TaskDefinitionError};
 use crate::io::IO;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::signal::QWriter;
+use crate::queue::QWriter;
 use crate::task::ROOT_DIR;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

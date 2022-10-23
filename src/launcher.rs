@@ -1,5 +1,5 @@
 use crate::assets::{Icon, VERSION};
-use crate::signal::QReader;
+use crate::queue::QReader;
 use crate::style;
 use crate::style::text::{button1, tooltip};
 use crate::style::{style_ui, Style, TEXT_SIZE_DIALOGUE_BODY, TEXT_SIZE_DIALOGUE_TITLE};
