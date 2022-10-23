@@ -1,17 +1,17 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, VISUAL};
 use crate::config::Config;
+use crate::error;
 use crate::error::Error;
 use crate::io::IO;
+use crate::queue::QWriter;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::queue::QWriter;
+use crate::scheduler::State;
 use crate::style::{style_ui, Style};
-use crate::error;
 use eframe::egui;
 use egui_extras::{Size, StripBuilder};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

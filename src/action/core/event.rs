@@ -1,21 +1,23 @@
-use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
+use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::config::Config;
 use crate::error;
 use crate::error::Error;
 use crate::io::IO;
+use crate::logger::LoggerSignal;
+use crate::queue::QWriter;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::queue::QWriter;
+use crate::scheduler::State;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
-use crate::scheduler::State;
+use serde_cbor::Value;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Nil;
+pub struct Event(String);
 
-stateful!(Nil {});
+stateful!(Event { name: String });
 
-impl Action for Nil {
+impl Action for Event {
     #[inline(always)]
     fn stateful(
         &self,
@@ -25,31 +27,30 @@ impl Action for Nil {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
-        Ok(Box::new(StatefulNil { done: false }))
+        Ok(Box::new(StatefulEvent {
+            done: false,
+            name: self.0.clone(),
+        }))
     }
 }
 
-impl Nil {
-    pub fn new() -> Self {
-        Self
-    }
-}
-
-impl StatefulAction for StatefulNil {
+impl StatefulAction for StatefulEvent {
     impl_stateful!();
 
     fn props(&self) -> Props {
-        DEFAULT.into()
+        INFINITE.into()
     }
 
     fn start(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
     ) -> Result<(), Error> {
-        self.done = true;
-        sync_writer.push(SyncSignal::UpdateGraph);
+        async_writer.push(LoggerSignal::Append(
+            "event".to_owned(),
+            (self.name.clone(), Value::Text("start".to_owned())),
+        ));
         Ok(())
     }
 
@@ -76,15 +77,15 @@ impl StatefulAction for StatefulNil {
     fn stop(
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
     ) -> Result<(), Error> {
-        Ok(())
-    }
-}
+        async_writer.push(LoggerSignal::Append(
+            "event".to_owned(),
+            (self.name.clone(), Value::Text("stop".to_owned())),
+        ));
 
-impl StatefulNil {
-    pub fn new() -> Self {
-        Self { done: true }
+        self.done = true;
+        Ok(())
     }
 }

@@ -4,15 +4,15 @@ use crate::error;
 use crate::error::Error;
 use crate::error::Error::InvalidResourceError;
 use crate::io::IO;
+use crate::queue::QWriter;
 use crate::resource::color::Color;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::queue::QWriter;
+use crate::scheduler::State;
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

@@ -34,8 +34,8 @@ gstreamer = { version = "0.19" }
 gstreamer-app = { version = "0.19" }
 ffmpeg-next = { version = "5.1", features = ["default"] } # look into "static" feature
 glib = "0.16"
-num-rational = "0.4" # framerates come in rationals
-num-traits = "0.2" # convert rationals to floats (ToPrimitive)
+num-rational = "0.4"
+num-traits = "0.2"
 thiserror = "1.0"
 regex = "1.6"
 native-dialog = "0.6"

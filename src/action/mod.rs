@@ -1,6 +1,8 @@
 #[macro_use]
 mod macros;
+pub mod core;
 pub mod de;
+pub mod extra;
 pub mod include;
 pub mod props;
 

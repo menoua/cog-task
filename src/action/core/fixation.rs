@@ -3,10 +3,10 @@ use crate::action::{Action, StatefulAction};
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
+use crate::queue::QWriter;
 use crate::resource::color::Color;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::queue::QWriter;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 

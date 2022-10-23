@@ -1,16 +1,18 @@
 macro_rules! include_actions {
-    ($($name:ident),* $(,)?) => {
+    ($($group:ident::$name:ident),* $(,)?) => {
         use crate::action::Action;
         use crate::error;
         use serde::{Deserialize, Serialize};
 
-        $(
-            pub mod $name;
-        )*
+        paste::paste! {
+            $(
+                pub use crate::action::$group::$name;
+            )*
+        }
 
         paste::paste! {
             $(
-                pub use crate::action::[<$name>]::[<$name:camel>];
+                pub use crate::action::$group::$name::[<$name:camel>];
             )*
         }
 
@@ -37,10 +39,10 @@ macro_rules! include_actions {
 }
 
 macro_rules! include_stateful_actions {
-    ($($name:ident),* $(,)?) => {
+    ($($group:ident::$name:ident),* $(,)?) => {
         paste::paste!(
             $(
-                pub use crate::action::[<$name>]::[<Stateful $name:camel>];
+                pub use crate::action::$group::$name::[<Stateful $name:camel>];
             )*
         );
     }

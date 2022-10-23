@@ -4,9 +4,10 @@ use crate::config::Config;
 use crate::error;
 use crate::error::Error;
 use crate::io::IO;
+use crate::queue::QWriter;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::queue::QWriter;
+use crate::scheduler::State;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
@@ -14,7 +15,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Delayed(f32, Box<dyn Action>);
@@ -98,7 +98,8 @@ impl StatefulAction for StatefulDelayed {
                 self.inner.start(sync_writer, async_writer, state)?;
                 self.has_begun = true;
             } else {
-                self.inner.update(signal, sync_writer, async_writer, state)?;
+                self.inner
+                    .update(signal, sync_writer, async_writer, state)?;
             }
 
             if self.inner.is_over()? {

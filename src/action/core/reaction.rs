@@ -5,10 +5,12 @@ use crate::error::Error;
 use crate::error::Error::InvalidNameError;
 use crate::io::IO;
 use crate::logger::LoggerSignal;
+use crate::queue::QWriter;
 use crate::resource::key::Key;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::queue::QWriter;
+use crate::scheduler::State;
+use crate::signal::SignalId;
 use eframe::egui;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
@@ -16,8 +18,6 @@ use serde_cbor::Value;
 use std::collections::HashSet;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
-use crate::scheduler::State;
-use crate::signal::SignalId;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]

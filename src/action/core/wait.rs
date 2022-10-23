@@ -3,16 +3,16 @@ use crate::config::Config;
 use crate::error;
 use crate::error::Error;
 use crate::io::IO;
+use crate::queue::QWriter;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::queue::QWriter;
+use crate::scheduler::State;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
-use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
