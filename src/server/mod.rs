@@ -15,6 +15,7 @@ use crate::system::SystemInfo;
 use crate::task::block::Block;
 use crate::task::Task;
 use crate::{error, style};
+use chrono::NaiveDateTime;
 use eframe::egui;
 use eframe::egui::CentralPanel;
 use eframe::glow::HasContext;
@@ -37,6 +38,7 @@ pub enum Progress {
     Interrupt,
     Failure(error::Error),
     CleanupError(error::Error),
+    LastRun(NaiveDateTime),
 }
 
 pub struct Server {

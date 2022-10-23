@@ -1,12 +1,14 @@
 use crate::assets::Icon;
-use crate::server::{Page, Server};
-use crate::style;
+use crate::server::{Page, Progress, Server};
 use crate::style::text::{body, inactive, tooltip};
 use crate::style::{style_ui, Style};
 use crate::template::header_body_controls;
+use crate::{error, style};
+use chrono::{NaiveDate, NaiveTime};
 use eframe::egui;
 use egui::{ScrollArea, TextEdit, Widget};
 use egui_extras::{Size, StripBuilder};
+use heck::ToSnakeCase;
 
 impl Server {
     pub(crate) fn show_startup(&mut self, ui: &mut egui::Ui) {
@@ -149,8 +151,49 @@ impl Server {
             Interaction::ToggleMagnification => self.show_magnification = !self.show_magnification,
             Interaction::Start => {
                 self.page = Page::Selection;
+                for i in 0..self.blocks.len() {
+                    if matches!(self.blocks[i].1, Progress::None) {
+                        let _ = self.update_history(i);
+                    }
+                }
                 println!("\n{:#?}", self.task.config());
             }
         }
+    }
+
+    fn update_history(&mut self, i: usize) -> Result<(), error::Error> {
+        let name = self.blocks[i].0.to_snake_case();
+        let progress = &mut self.blocks[i].1;
+
+        let mut last = None;
+        let dir = self.env.output().join(&self.subject);
+        if let Ok(sessions) = dir.read_dir() {
+            for session in sessions {
+                let date = session.unwrap().file_name().to_str().unwrap().to_owned();
+                let dir = dir.join(&date);
+                if let Ok(date) = NaiveDate::parse_from_str(&date, "%Y-%m-%d") {
+                    if let Ok(runs) = dir.join(&name).read_dir() {
+                        for run in runs {
+                            let time = run.unwrap().file_name().to_str().unwrap().to_owned();
+                            if let Ok(time) = NaiveTime::parse_from_str(&time, "%H-%M-%S") {
+                                let datetime = date.and_time(time);
+
+                                match last {
+                                    None => last = Some(datetime),
+                                    Some(t) if datetime > t => last = Some(datetime),
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(t) = last {
+            *progress = Progress::LastRun(t);
+        }
+
+        Ok(())
     }
 }

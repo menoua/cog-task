@@ -121,6 +121,14 @@ impl Server {
                                                                     "Failed in clean-up: {e:?}"
                                                                 ))),
                                                             ),
+                                                            Progress::LastRun(t) => (
+                                                                Style::TodoButton,
+                                                                Some(tooltip(format!(
+                                                                    "Last run: {}",
+                                                                    t.format("%Y-%m-%d %H:%M:%S")
+                                                                        .to_string()
+                                                                ))),
+                                                            ),
                                                         };
 
                                                         style_ui(ui, style);
@@ -210,6 +218,7 @@ impl Server {
             Progress::CleanupError(e) => Some(
                 body(format!("\nFailed to clean up after block: {e:#?}\n")).color(CUSTOM_ORANGE),
             ),
+            Progress::LastRun(_) => None,
         };
 
         if let Some(content) = content {
