@@ -5,11 +5,12 @@ use crate::error::Error;
 use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
 use crate::queue::QWriter;
+use crate::resource::text::parse_text;
 use crate::resource::{text::text_or_file, ResourceMap};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::scheduler::State;
 use crate::signal::SignalId;
-use crate::style::text::{body, button1};
+use crate::style::text::button1;
 use crate::style::{style_ui, Style};
 use crate::template::{center_x, header_body_controls};
 use eframe::egui;
@@ -266,7 +267,7 @@ impl StatefulAction for StatefulInstruction {
                         strip.cell(|ui| {
                             ScrollArea::vertical().show(ui, |ui| {
                                 ui.centered_and_justified(|ui| {
-                                    ui.label(body(&text));
+                                    let _ = parse_text(ui, &text);
                                 });
                             });
                         });

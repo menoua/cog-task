@@ -5,9 +5,11 @@ use crate::error::Error;
 use crate::error::Error::InvalidNameError;
 use crate::io::IO;
 use crate::logger::LoggerSignal;
+use crate::queue::QWriter;
+use crate::resource::text::parse_text;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::queue::QWriter;
+use crate::scheduler::State;
 use crate::style::text::{body, button1, inactive};
 use crate::style::{style_ui, Style, TEXT_SIZE_BODY};
 use crate::template::{center_x, header_body_controls};
@@ -21,7 +23,6 @@ use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::ops::RangeInclusive;
 use std::path::PathBuf;
-use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -167,7 +168,9 @@ impl StatefulQuestion {
                         | StatefulQItem::MultiLine { prompt, .. }
                         | StatefulQItem::SingleChoice { prompt, .. }
                         | StatefulQItem::MultiChoice { prompt, .. }
-                        | StatefulQItem::Slider { prompt, .. } => ui.label(body(prompt.as_str())),
+                        | StatefulQItem::Slider { prompt, .. } => {
+                            let _ = parse_text(ui, prompt.as_str());
+                        }
                     };
 
                     question.ui(ui);

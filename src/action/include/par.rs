@@ -2,14 +2,14 @@ use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINI
 use crate::config::Config;
 use crate::error;
 use crate::io::IO;
+use crate::queue::QWriter;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::queue::QWriter;
+use crate::scheduler::State;
 use eframe::egui;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Par(
@@ -104,20 +104,26 @@ impl StatefulAction for StatefulPar {
 
     #[inline]
     fn props(&self) -> Props {
-        self.primary
-            .iter()
-            .chain(self.secondary.iter())
-            .fold(DEFAULT, |mut state, c| {
-                let c = c.props();
-                if c.visual() {
-                    state |= VISUAL;
-                }
-                if c.infinite() {
-                    state |= INFINITE;
-                }
-                state
-            })
-            .into()
+        let mut props = DEFAULT;
+
+        for c in self.primary.iter() {
+            let c = c.props();
+            if c.visual() {
+                props |= VISUAL;
+            }
+            if c.infinite() {
+                props |= INFINITE;
+            }
+        }
+
+        for c in self.secondary.iter() {
+            let c = c.props();
+            if c.visual() {
+                props |= VISUAL;
+            }
+        }
+
+        props.into()
     }
 
     #[inline]
