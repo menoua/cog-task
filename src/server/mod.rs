@@ -200,6 +200,11 @@ impl Server {
                     self.sync_reader.push(ServerSignal::BlockCrashed(e));
                 }
             },
+            (Page::Loading, ServerSignal::BlockCrashed(e)) => {
+                self.status = Progress::Failure(e);
+                self.page = Page::Selection;
+                self.cleaning_up = 0;
+            }
             (Page::Activity, ServerSignal::BlockFinished) => {
                 self.status = Progress::Success;
                 self.drop_scheduler();
@@ -208,7 +213,7 @@ impl Server {
                 self.status = Progress::Interrupt;
                 self.drop_scheduler();
             }
-            (Page::Loading | Page::Activity, ServerSignal::BlockCrashed(e)) => {
+            (Page::Activity, ServerSignal::BlockCrashed(e)) => {
                 self.status = Progress::Failure(e);
                 self.drop_scheduler();
             }

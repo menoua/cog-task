@@ -1,16 +1,17 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
 use crate::config::Config;
 use crate::error;
+use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
+use crate::queue::QWriter;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::queue::QWriter;
+use crate::scheduler::State;
 use eframe::egui;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 use std::path::PathBuf;
-use crate::scheduler::State;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Seq(Vec<Box<dyn Action>>);
@@ -43,16 +44,26 @@ impl Action for Seq {
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>, error::Error> {
+        let children: VecDeque<_> = self
+            .0
+            .iter()
+            .map(|a| {
+                a.stateful(io, res, config, sync_writer, async_writer)
+                    .unwrap()
+            })
+            .collect();
+
+        for i in 0..(children.len() - 1) {
+            if children[i].props().infinite() {
+                return Err(TaskDefinitionError(
+                    "Only the final action in a `Seq` can be infinite, otherwise the remaining actions will be unreachable.".to_owned()
+                ));
+            }
+        }
+
         Ok(Box::new(StatefulSeq {
             done: false,
-            children: self
-                .0
-                .iter()
-                .map(|a| {
-                    a.stateful(io, res, config, sync_writer, async_writer)
-                        .unwrap()
-                })
-                .collect(),
+            children,
         }))
     }
 }
