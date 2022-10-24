@@ -1,7 +1,8 @@
 use cog_task::assets::VERSION;
 use cog_task::server::Server;
-use eyre::Result;
+use eyre::{Context, Result};
 use sha2::{Digest, Sha256};
+use std::env::current_exe;
 use std::path::PathBuf;
 
 fn main() -> Result<()> {
@@ -13,7 +14,12 @@ fn main() -> Result<()> {
         println!("Starting task \"{}\" with Server-v{}...", args[1], VERSION);
     }
 
-    let bin = PathBuf::from(&args[0]);
+    let mut bin = current_exe().wrap_err("Could not obtain path to current executable.")?;
+    while bin.is_symlink() {
+        bin = bin
+            .read_link()
+            .wrap_err("Could not dereference symlink to current executable.")?;
+    }
     let mut hasher = Sha256::default();
     hasher.update(&std::fs::read(bin).unwrap());
     let bin_hash = hex::encode(hasher.finalize());
