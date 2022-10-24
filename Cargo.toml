@@ -71,14 +71,13 @@ path = "src/bin/server.rs"
 systems = ["x86_64-linux"]
 app = true
 build = true
-runtimeLibs = [
-    "alsa-tools",
-    # "vulkan-loader",
-    # "wayland",
-    # "wayland-protocols",
-    # "libxkbcommon",
-    # "xorg.libX11",
-    # "xorg.libXrandr",
-    # "xorg.libXi", "gst_all_1.gstreamer", "gst_all_1.gstreamermm", "gst_all_1.gst-plugins-bad", "gst_all_1.gst-plugins-ugly", "gst_all_1.gst-plugins-good", "gst_all_1.gst-plugins-base",
-]
+#runtimeLibs = [
+#    "vulkan-loader",
+#    "wayland",
+#    "wayland-protocols",
+#    "libxkbcommon",
+#    "xorg.libX11",
+#    "xorg.libXrandr",
+#    "xorg.libXi", "gst_all_1.gstreamer", "gst_all_1.gstreamermm", "gst_all_1.gst-plugins-bad", "gst_all_1.gst-plugins-ugly", "gst_all_1.gst-plugins-good", "gst_all_1.gst-plugins-base",
+#]
 #buildInputs = ["libxkbcommon", "gst_all_1.gstreamer", "gst_all_1.gstreamermm", "gst_all_1.gst-plugins-bad", "gst_all_1.gst-plugins-ugly", "gst_all_1.gst-plugins-good", "gst_all_1.gst-plugins-base"]
