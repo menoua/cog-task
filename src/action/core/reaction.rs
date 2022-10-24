@@ -1,8 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error;
-use crate::error::Error::InvalidNameError;
 use crate::io::IO;
 use crate::logger::LoggerSignal;
 use crate::queue::QWriter;
@@ -13,6 +10,7 @@ use crate::scheduler::State;
 use crate::signal::SignalId;
 use eframe::egui;
 use eframe::egui::Ui;
+use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::collections::HashSet;
@@ -94,11 +92,9 @@ impl Action for Reaction {
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         if self.group.is_empty() {
-            return Err(InvalidNameError(
-                "Reaction `group` cannot be an empty string".to_owned(),
-            ));
+            return Err(eyre!("Reaction `group` cannot be an empty string"));
         }
 
         Ok(Box::new(StatefulReaction {
@@ -151,7 +147,7 @@ impl StatefulAction for StatefulReaction {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         let (time, keys) = match signal {
             ActionSignal::KeyPress(t, k) => (t.duration_since(self.since), k),
             _ => return Ok(()),
@@ -229,7 +225,7 @@ impl StatefulAction for StatefulReaction {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         let accuracy = self.accuracy();
         let recall = self.recall();
         let mean_rt = self.mean_rt();

@@ -1,9 +1,10 @@
 use cog_task::assets::VERSION;
 use cog_task::server::Server;
+use eyre::Result;
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 
-fn main() -> anyhow::Result<()> {
+fn main() -> Result<()> {
     let args: Vec<_> = std::env::args().collect();
     if args.len() != 2 {
         println!("Invalid number of arguments. Correct usage:\n./server path_to_task_dir");

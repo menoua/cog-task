@@ -1,12 +1,12 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::config::Config;
-use crate::error;
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::scheduler::State;
 use eframe::egui;
+use eyre::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -65,7 +65,7 @@ impl Action for Par {
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         Ok(Box::new(StatefulPar {
             done: false,
             primary: self
@@ -132,7 +132,7 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         if self.primary.is_empty() {
             self.done = true;
             sync_writer.push(SyncSignal::UpdateGraph);
@@ -152,7 +152,7 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         let mut done = vec![];
         let mut finished = false;
         for (i, c) in self.primary.iter_mut().enumerate() {
@@ -199,7 +199,7 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         if let Some(c) = self
             .primary
             .iter_mut()
@@ -225,7 +225,7 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
         for c in children {
             c.stop(sync_writer, async_writer, state)?;

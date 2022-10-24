@@ -1,13 +1,12 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::scheduler::State;
 use eframe::egui;
+use eyre::{eyre, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
@@ -43,7 +42,7 @@ impl Action for Seq {
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         let children: VecDeque<_> = self
             .0
             .iter()
@@ -55,9 +54,7 @@ impl Action for Seq {
 
         for i in 0..(children.len() - 1) {
             if children[i].props().infinite() {
-                return Err(TaskDefinitionError(
-                    "Only the final action in a `Seq` can be infinite, otherwise the remaining actions will be unreachable.".to_owned()
-                ));
+                return Err(eyre!("Only the final action in a `Seq` can be infinite."));
             }
         }
 
@@ -92,7 +89,7 @@ impl StatefulAction for StatefulSeq {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         if let Some(c) = self.children.get_mut(0) {
             c.start(sync_writer, async_writer, state)
         } else {
@@ -109,7 +106,7 @@ impl StatefulAction for StatefulSeq {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         if let Some(c) = self.children.get_mut(0) {
             c.update(signal, sync_writer, async_writer, state)?;
 
@@ -136,7 +133,7 @@ impl StatefulAction for StatefulSeq {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         if let Some(c) = self.children.get_mut(0) {
             c.show(ui, sync_writer, async_writer, state)
         } else {
@@ -150,7 +147,7 @@ impl StatefulAction for StatefulSeq {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         if let Some(c) = self.children.get_mut(0) {
             c.stop(sync_writer, async_writer, state)?;
         }

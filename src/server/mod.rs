@@ -11,14 +11,15 @@ use crate::env::Env;
 use crate::queue::{QReader, QWriter};
 use crate::resource::ResourceMap;
 use crate::scheduler::Scheduler;
+use crate::style;
 use crate::system::SystemInfo;
 use crate::task::block::Block;
 use crate::task::Task;
-use crate::{error, style};
-use chrono::NaiveDateTime;
+use chrono::{DateTime, Local, NaiveDateTime};
 use eframe::egui;
 use eframe::egui::CentralPanel;
 use eframe::glow::HasContext;
+use eyre::{Error, Result};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -31,13 +32,13 @@ pub enum Page {
     CleanUp,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Progress {
     None,
-    Success,
-    Interrupt,
-    Failure(error::Error),
-    CleanupError(error::Error),
+    Success(DateTime<Local>),
+    Interrupt(DateTime<Local>),
+    Failure(DateTime<Local>, Error),
+    CleanupError(DateTime<Local>, Error),
     LastRun(NaiveDateTime),
 }
 
@@ -63,7 +64,7 @@ pub struct Server {
 }
 
 impl Server {
-    pub fn new(path: PathBuf, bin_hash: String) -> anyhow::Result<Self> {
+    pub fn new(path: PathBuf, bin_hash: String) -> Result<Self> {
         let env = Env::new(path)?;
         let task = Task::new(env.task())?;
         let blocks = task
@@ -203,34 +204,32 @@ impl Server {
                 }
             },
             (Page::Loading, ServerSignal::BlockCrashed(e)) => {
-                self.status = Progress::Failure(e);
+                self.status = Progress::Failure(Local::now(), e);
                 self.page = Page::Selection;
                 self.cleaning_up = 0;
             }
             (Page::Activity, ServerSignal::BlockFinished) => {
-                self.status = Progress::Success;
+                self.status = Progress::Success(Local::now());
                 self.drop_scheduler();
             }
             (Page::Activity, ServerSignal::BlockInterrupted) => {
-                self.status = Progress::Interrupt;
+                self.status = Progress::Interrupt(Local::now());
                 self.drop_scheduler();
             }
             (Page::Activity, ServerSignal::BlockCrashed(e)) => {
-                self.status = Progress::Failure(e);
+                self.status = Progress::Failure(Local::now(), e);
                 self.drop_scheduler();
             }
             (Page::CleanUp, ServerSignal::SyncComplete(success))
             | (Page::CleanUp, ServerSignal::AsyncComplete(success)) => {
                 self.cleaning_up -= 1;
                 if self.cleaning_up == 0 {
-                    self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 =
-                        match (&self.status, success) {
-                            (Progress::Success, Err(e)) => {
-                                self.status = Progress::CleanupError(e.clone());
-                                Progress::CleanupError(e)
-                            }
-                            (progress, _) => progress.clone(),
-                        };
+                    match (&self.status, success) {
+                        (Progress::Success(_), Err(e)) => {
+                            self.status = Progress::CleanupError(Local::now(), e)
+                        }
+                        _ => {}
+                    }
 
                     self.page = Page::Selection;
                 }
@@ -271,14 +270,14 @@ impl Server {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum ServerSignal {
     LoadComplete,
     BlockFinished,
     BlockInterrupted,
-    BlockCrashed(error::Error),
-    SyncComplete(Result<(), error::Error>),
-    AsyncComplete(Result<(), error::Error>),
+    BlockCrashed(Error),
+    SyncComplete(Result<()>),
+    AsyncComplete(Result<()>),
 }
 
 impl eframe::App for Server {

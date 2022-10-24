@@ -1,15 +1,14 @@
+pub mod block;
+
 use crate::config::Config;
-use crate::error;
-use crate::error::Error::{InvalidNameError, TaskDefinitionError};
 use crate::util::Hash;
 use block::Block;
+use eyre::{eyre, Context, Result};
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
-
-pub mod block;
 
 pub static ROOT_DIR: OnceCell<PathBuf> = OnceCell::new();
 pub static BASE_CFG: OnceCell<Config> = OnceCell::new();
@@ -27,38 +26,34 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new(root_dir: &Path) -> Result<Self, error::Error> {
+    pub fn new(root_dir: &Path) -> Result<Self> {
         ROOT_DIR.set(root_dir.to_owned()).unwrap();
 
         let path = root_dir.join("task.ron");
-        let content =
-            fs::read_to_string(path).map_err(|e| TaskDefinitionError(format!("{e:?}")))?;
+        let content = fs::read_to_string(path).wrap_err("Failed to read task description file.")?;
 
         ron::from_str::<Task>(&content)
-            .map_err(|e| TaskDefinitionError(format!("{e:?}")))?
+            .wrap_err("Failed to deserialize task description file.")?
             .init(root_dir)
     }
 
-    pub fn init(mut self, root_dir: &Path) -> Result<Self, error::Error> {
+    pub fn init(mut self, root_dir: &Path) -> Result<Self> {
         for block in self.blocks.iter_mut() {
             block.init()?;
         }
 
         for (name, count) in self.block_labels().into_iter().counts() {
             if count > 1 {
-                Err(InvalidNameError(format!(
-                    "Block names have to be unique within a task: '{name}' is repeated"
-                )))?;
+                Err(eyre!(
+                    "Block names have to be unique within a task ('{name}' is repeated)."
+                ))?;
             }
         }
 
         if self.description.is_empty() {
             let path = root_dir.join("description.text");
-            let description = fs::read_to_string(&path).map_err(|e| {
-                TaskDefinitionError(format!(
-                    "Unable to open task description file ({path:?}):\n{e:#?}"
-                ))
-            })?;
+            let description = fs::read_to_string(&path)
+                .wrap_err_with(|| format!("Unable to open task description file ({path:?})."))?;
             self.description = description;
         }
 

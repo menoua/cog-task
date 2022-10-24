@@ -1,8 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error;
-use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::color::Color;
@@ -12,6 +9,7 @@ use crate::scheduler::State;
 use crate::util::spin_sleeper;
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
+use eyre::{eyre, Context, Error, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender};
@@ -62,7 +60,7 @@ impl Action for Video {
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         match res.fetch(&self.src())? {
             ResourceValue::Video(frames, framerate) => {
                 let done = Arc::new(Mutex::new(Ok(frames.is_empty())));
@@ -119,10 +117,10 @@ impl Action for Video {
                     background: self.background.into(),
                 }))
             }
-            _ => Err(InvalidResourceError(format!(
+            _ => Err(eyre!(
                 "Video action supplied non-video resource: `{:?}`",
                 self.src
-            ))),
+            )),
         }
     }
 }
@@ -146,18 +144,15 @@ impl StatefulAction for StatefulVideo {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
-        let link = self.link.take().ok_or_else(|| {
-            InternalError(format!(
-                "Link to video thread could not be acquired for action",
-            ))
-        })?;
+    ) -> Result<()> {
+        let link = self
+            .link
+            .take()
+            .ok_or_else(|| eyre!("Link to video thread could not be acquired for action",))?;
 
-        link.0.send(()).map_err(|e| {
-            InternalError(format!(
-                "Failed to send start signal to concurrent video thread:\n{e:#?}"
-            ))
-        })?;
+        link.0
+            .send(())
+            .wrap_err("Failed to send start signal to concurrent video thread.")?;
 
         if let Ok(true) = *self.done.lock().unwrap() {
             sync_writer.push(SyncSignal::UpdateGraph);
@@ -196,7 +191,7 @@ impl StatefulAction for StatefulVideo {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         let (texture, size) = self.frames[*self.position.lock().unwrap()];
 
         ui.output().cursor_icon = CursorIcon::None;
@@ -224,7 +219,7 @@ impl StatefulAction for StatefulVideo {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         *self.done.lock().unwrap() = Ok(true);
         sync_writer.push(SyncSignal::Repaint);
         Ok(())

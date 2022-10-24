@@ -14,12 +14,11 @@ use video::video_from_file;
 use crate::assets::{IMAGE_FIXATION, IMAGE_RUSTACEAN};
 use crate::config::Config;
 use crate::env::Env;
-use crate::error;
-use crate::error::Error::ResourceLoadError;
 use crate::resource::stream::{stream_from_file, Stream};
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{TextureId, Vec2};
 use eframe::epaint;
+use eyre::{eyre, Result};
 use rodio::buffer::SamplesBuffer;
 use rodio::source::Buffered;
 use rodio::Source;
@@ -93,7 +92,7 @@ impl ResourceMap {
         tex_manager: Arc<RwLock<epaint::TextureManager>>,
         config: &Config,
         env: &Env,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         // Lock map
         let mut map = self.0.lock().unwrap();
 
@@ -156,11 +155,7 @@ impl ResourceMap {
                 let extn = if mode.is_empty() { extn } else { mode };
                 let data = match extn {
                     "txt" | "ron" => {
-                        let text = std::fs::read_to_string(&path).map_err(|e| {
-                            ResourceLoadError(format!(
-                                "Unable to read text file ({path:?})\n{e:#?}"
-                            ))
-                        })?;
+                        let text = std::fs::read_to_string(&path)?;
                         Ok(ResourceValue::Text(Arc::new(text)))
                     }
                     "png" | "jpg" | "jpeg" | "bmp" | "tiff" | "ico" => {
@@ -189,9 +184,9 @@ impl ResourceMap {
                             &config,
                         )?))
                     }
-                    _ => Err(ResourceLoadError(format!(
-                        "Invalid extension `{extn}` with mode `{mode}` for data file `{src:?}`"
-                    ))),
+                    _ => Err(eyre!(
+                        "Invalid extension `{extn}` with mode `{mode}` for data file {src:?}"
+                    )),
                 }?;
                 println!("+ {src:?} : {data:?}");
                 map.insert(src, data);
@@ -201,25 +196,21 @@ impl ResourceMap {
         Ok(())
     }
 
-    pub fn fetch(&self, src: &PathBuf) -> Result<ResourceValue, error::Error> {
+    pub fn fetch(&self, src: &PathBuf) -> Result<ResourceValue> {
         if let Some(res) = self.0.lock().unwrap().get(src) {
             Ok(res.clone())
         } else {
-            Err(ResourceLoadError(format!(
-                "Tried to fetch unexpected resource: {src:?}"
-            )))
+            Err(eyre!("Tried to fetch unexpected resource: {src:?}"))
         }
     }
 
-    pub fn fetch_text(&self, text: &str) -> Result<String, error::Error> {
+    pub fn fetch_text(&self, text: &str) -> Result<String> {
         let text: String = match text_or_file(text) {
             Some(src) => {
                 if let ResourceValue::Text(text) = self.fetch(&src)? {
                     Ok((*text).clone())
                 } else {
-                    Err(ResourceLoadError(format!(
-                        "Text file caused unexpected error: `{src:?}`"
-                    )))
+                    Err(eyre!("Tried to read non-text file as text: {src:?}"))
                 }
             }
             None => Ok(text.to_owned()),

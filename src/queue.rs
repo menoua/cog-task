@@ -1,18 +1,15 @@
 use std::collections::VecDeque;
-use std::fmt::Debug;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, Mutex};
 
 pub const QUEUE_SIZE: usize = 64;
 pub type Queue<T> = Arc<Mutex<VecDeque<T>>>;
 
-#[derive(Debug)]
-pub struct QReader<T: Debug>(Queue<T>, Sender<()>, Receiver<()>);
+pub struct QReader<T>(Queue<T>, Sender<()>, Receiver<()>);
 
-#[derive(Debug, Clone)]
-pub struct QWriter<T: Debug>(Queue<T>, Sender<()>);
+pub struct QWriter<T>(Queue<T>, Sender<()>);
 
-impl<T: Debug> QReader<T> {
+impl<T> QReader<T> {
     pub fn new() -> Self {
         let queue = Arc::new(Mutex::new(VecDeque::with_capacity(QUEUE_SIZE)));
         let (tx, rx) = mpsc::channel();
@@ -81,12 +78,18 @@ impl<T: Debug> QReader<T> {
     }
 }
 
-impl<T: Debug> QWriter<T> {
+impl<T> QWriter<T> {
     #[inline(always)]
     pub fn push(&mut self, msg: impl Into<T>) {
         let mut queue = self.0.lock().unwrap();
         if self.1.send(()).is_ok() {
             queue.push_back(msg.into());
         }
+    }
+}
+
+impl<T> Clone for QWriter<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone(), self.1.clone())
     }
 }

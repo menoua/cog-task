@@ -1,7 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error;
 use crate::io::IO;
 use crate::logger::LoggerSignal;
 use crate::queue::QWriter;
@@ -9,6 +7,7 @@ use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::scheduler::State;
 use eframe::egui::Ui;
+use eyre::{Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 
@@ -26,7 +25,7 @@ impl Action for Event {
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         Ok(Box::new(StatefulEvent {
             done: false,
             name: self.0.clone(),

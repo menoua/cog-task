@@ -1,8 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error;
-use crate::error::Error::TaskDefinitionError;
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::text::parse_text;
@@ -16,6 +13,7 @@ use crate::template::{center_x, header_body_controls};
 use eframe::egui;
 use eframe::egui::{CursorIcon, ScrollArea};
 use egui_extras::{Size, StripBuilder};
+use eyre::{eyre, Error, Result};
 use regex::{Captures, Regex};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
@@ -76,26 +74,19 @@ impl Action for Instruction {
         let re = Regex::new(r"#([ies])\(((0x)?\d+)\)").unwrap();
         for caps in re.captures_iter(&self.text) {
             let key = if caps[2].starts_with("0x") {
-                u16::from_str_radix(caps[2].trim_start_matches("0x"), 16).map_err(|_| {
-                    TaskDefinitionError(format!(
-                        "Failed to parse hexadecimal integer: {}",
-                        &caps[2]
-                    ))
-                })
+                u16::from_str_radix(caps[2].trim_start_matches("0x"), 16)
+                    .map_err(|_| eyre!("Failed to parse hexadecimal integer: {}", &caps[2]))
             } else {
-                caps[2].parse::<u16>().map_err(|_| {
-                    TaskDefinitionError(format!("Failed to parse decimal integer: {}", &caps[2]))
-                })
+                caps[2]
+                    .parse::<u16>()
+                    .map_err(|_| eyre!("Failed to parse decimal integer: {}", &caps[2]))
             }?;
 
             let key = match &caps[1] {
                 "i" => Ok(SignalId::Internal(key)),
                 "e" => Ok(SignalId::External(key)),
                 "s" => Ok(SignalId::State(key)),
-                _ => Err(TaskDefinitionError(format!(
-                    "Unknown signal identifier: {}",
-                    &caps[1]
-                ))),
+                _ => Err(eyre!("Unknown signal identifier: {}", &caps[1])),
             }?;
 
             if !self.params.contains_key(&key) {
@@ -128,7 +119,7 @@ impl Action for Instruction {
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         let mut params_i = HashMap::new();
         let mut params_e = HashMap::new();
         let mut params_s = HashSet::new();
@@ -221,7 +212,7 @@ impl StatefulAction for StatefulInstruction {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         let mut text = self.text.clone();
 
         for (i, v) in self.params_i.iter() {
@@ -295,7 +286,7 @@ impl StatefulAction for StatefulInstruction {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         self.done = true;
         sync_writer.push(SyncSignal::Repaint);
         Ok(())

@@ -31,7 +31,10 @@ impl Server {
         }
 
         if ui.input().key_pressed(egui::Key::Escape) {
-            self.status = Progress::None;
+            if !matches!(self.status, Progress::None) {
+                self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 =
+                    std::mem::replace(&mut self.status, Progress::None);
+            }
         }
     }
 
@@ -101,24 +104,32 @@ impl Server {
                                                             Progress::None => {
                                                                 (Style::TodoButton, None)
                                                             }
-                                                            Progress::Success => (
+                                                            Progress::Success(t) => (
                                                                 Style::DoneButton,
-                                                                Some(tooltip("Completed")),
-                                                            ),
-                                                            Progress::Interrupt => (
-                                                                Style::InterruptedButton,
-                                                                Some(tooltip("Interrupted")),
-                                                            ),
-                                                            Progress::Failure(e) => (
-                                                                Style::FailedButton,
                                                                 Some(tooltip(format!(
-                                                                    "Failed: {e:#?}"
+                                                                    "Completed @ {}",
+                                                                    t.format("%Y-%m-%d %H:%M:%S")
                                                                 ))),
                                                             ),
-                                                            Progress::CleanupError(e) => (
+                                                            Progress::Interrupt(t) => (
+                                                                Style::InterruptedButton,
+                                                                Some(tooltip(format!(
+                                                                    "Interrupted @ {}",
+                                                                    t.format("%Y-%m-%d %H:%M:%S")
+                                                                ))),
+                                                            ),
+                                                            Progress::Failure(t, e) => (
+                                                                Style::FailedButton,
+                                                                Some(tooltip(format!(
+                                                                    "Failed @ {}\n\n{e}",
+                                                                    t.format("%Y-%m-%d %H:%M:%S")
+                                                                ))),
+                                                            ),
+                                                            Progress::CleanupError(t, e) => (
                                                                 Style::SoftFailedButton,
                                                                 Some(tooltip(format!(
-                                                                    "Failed in clean-up: {e:?}"
+                                                                    "Failed in clean-up @ {}\n\n{e}",
+                                                                    t.format("%Y-%m-%d %H:%M:%S")
                                                                 ))),
                                                             ),
                                                             Progress::LastRun(t) => (
@@ -175,7 +186,7 @@ impl Server {
                     thread::spawn(move || {
                         match resource_map.preload_block(resources, tex_manager, &config, &env) {
                             Ok(()) => sync_writer.push(ServerSignal::LoadComplete),
-                            Err(e) => sync_writer.push(ServerSignal::BlockCrashed(e)),
+                            Err(e) => sync_writer.push(ServerSignal::BlockCrashed(e.into())),
                         }
                     });
                 }
@@ -210,13 +221,15 @@ impl Server {
         let header = body(self.active_block.map_or("", |i| &self.blocks[i].0)).strong();
         let content = match &self.status {
             Progress::None => None,
-            Progress::Success => Some(body("Block completed successfully!").color(FOREST_GREEN)),
-            Progress::Interrupt => Some(body("Block was interrupted by user.").color(CUSTOM_BLUE)),
-            Progress::Failure(e) => {
-                Some(body(format!("\nError in block execution: {e:#?}\n")).color(CUSTOM_RED))
+            Progress::Success(_) => Some(body("Block completed successfully!").color(FOREST_GREEN)),
+            Progress::Interrupt(_) => {
+                Some(body("Block was interrupted by user.").color(CUSTOM_BLUE))
             }
-            Progress::CleanupError(e) => Some(
-                body(format!("\nFailed to clean up after block: {e:#?}\n")).color(CUSTOM_ORANGE),
+            Progress::Failure(_, e) => {
+                Some(body(format!("\nError in block execution:\n\n{e}\n")).color(CUSTOM_RED))
+            }
+            Progress::CleanupError(_, e) => Some(
+                body(format!("\nFailed to clean up after block:\n\n{e}\n")).color(CUSTOM_ORANGE),
             ),
             Progress::LastRun(_) => None,
         };
@@ -255,8 +268,9 @@ impl Server {
                 });
 
             if !open {
+                self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 =
+                    std::mem::replace(&mut self.status, Progress::None);
                 self.active_block = None;
-                self.status = Progress::None;
             }
         }
     }

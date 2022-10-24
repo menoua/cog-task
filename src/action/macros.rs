@@ -1,7 +1,7 @@
 macro_rules! include_actions {
     ($($group:ident::$name:ident),* $(,)?) => {
         use crate::action::Action;
-        use crate::error;
+        use eyre::Result;
         use serde::{Deserialize, Serialize};
         use std::any::TypeId;
 
@@ -27,7 +27,7 @@ macro_rules! include_actions {
             }
 
             impl ActionEnum {
-                pub fn unwrap(self) -> Result<Box<dyn Action>, error::Error> {
+                pub fn unwrap(self) -> Result<Box<dyn Action>> {
                     match self {
                         $(
                             Self::[<$name:camel>](inner) => inner.init(),
@@ -110,7 +110,7 @@ macro_rules! stateful {
 
             impl [<Stateful $name>] {
                 #[inline(always)]
-                fn is_over(&self) -> Result<bool, error::Error> {
+                fn is_over(&self) -> Result<bool> {
                     Ok(self.done)
                 }
             }
@@ -122,7 +122,7 @@ macro_rules! stateful_arc {
     ($name:ident { $($field:ident: $ty:ty),* $(,)? }) => {
         paste::paste! {
             pub struct [<Stateful $name>] {
-                done: Arc<Mutex<Result<bool, error::Error>>>,
+                done: Arc<Mutex<Result<bool>>>,
                 $(
                     $field: $ty,
                 )*
@@ -132,8 +132,17 @@ macro_rules! stateful_arc {
 
             impl [<Stateful $name>] {
                 #[inline(always)]
-                fn is_over(&self) -> Result<bool, error::Error> {
-                    self.done.lock().unwrap().clone()
+                fn is_over(&self) -> Result<bool> {
+                    use eyre::{eyre, Context};
+
+                    let mut done = self.done.lock().unwrap();
+                    match &*done {
+                        Ok(c) => Ok(*c),
+                        Err(_) => {
+                            let e = std::mem::replace(&mut *done, Err(eyre!("")));
+                            e.wrap_err("Detected failure while checking `is_over`.")
+                        }
+                    }
                 }
             }
         }
@@ -143,7 +152,7 @@ macro_rules! stateful_arc {
 macro_rules! impl_stateful {
     () => {
         #[inline(always)]
-        fn is_over(&self) -> Result<bool, error::Error> {
+        fn is_over(&self) -> Result<bool> {
             self.is_over()
         }
 

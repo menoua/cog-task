@@ -102,7 +102,7 @@ impl Launcher {
     pub fn window_size(&self) -> Vec2 {
         let count = self.task_paths.len() as u32;
         let width = 580;
-        let height = (185 + count * 75).max(245).min(640);
+        let height = (195 + count * 75).max(255).min(650);
         Vec2::from([width as f32, height as f32])
     }
 
@@ -244,10 +244,10 @@ impl Launcher {
             ui.add_enabled_ui(!self.busy, |ui| {
                 StripBuilder::new(ui)
                     .size(Size::exact(60.0))
-                    .size(Size::exact(40.0))
-                    .size(Size::exact(18.0))
+                    .size(Size::exact(52.0))
+                    .size(Size::exact(14.0))
                     .size(Size::exact(4.0))
-                    .size(Size::exact(18.0))
+                    .size(Size::exact(20.0))
                     .size(Size::remainder())
                     .vertical(|mut strip| {
                         strip.cell(|ui| {

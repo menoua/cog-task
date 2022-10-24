@@ -1,8 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::config::{Config, TimePrecision};
-use crate::error;
-use crate::error::Error;
-use crate::error::Error::{InternalError, InvalidResourceError};
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::audio::{drop_channel, interlace_channels, Trigger};
@@ -12,6 +9,7 @@ use crate::scheduler::State;
 use crate::signal::SignalId;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
+use eyre::{eyre, Context, Result};
 use rodio::{Sink, Source};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
@@ -61,14 +59,14 @@ impl Action for Audio {
         config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         let src = if let ResourceValue::Audio(src) = res.fetch(&self.src)? {
             src
         } else {
-            return Err(InvalidResourceError(format!(
+            return Err(eyre!(
                 "Audio action supplied non-audio resource: `{:?}`",
                 self.src
-            )));
+            ));
         };
 
         let src = match (&self.trigger, config.use_trigger()) {
@@ -76,10 +74,9 @@ impl Action for Audio {
                 let trig = if let ResourceValue::Audio(trig) = res.fetch(trig)? {
                     trig
                 } else {
-                    return Err(InvalidResourceError(format!(
-                        "Audio action supplied non-audio trigger resource: `{:?}`",
-                        trig
-                    )));
+                    return Err(eyre!(
+                        "Audio action supplied non-audio trigger resource: `{trig:?}`"
+                    ));
                 };
 
                 interlace_channels(src, trig)?
@@ -192,18 +189,15 @@ impl StatefulAction for StatefulAudio {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
-        let link = self.link.take().ok_or_else(|| {
-            InternalError(format!(
-                "Link to audio thread could not be acquired for action",
-            ))
-        })?;
+    ) -> Result<()> {
+        let link = self
+            .link
+            .take()
+            .ok_or_else(|| eyre!("Link to audio thread could not be acquired for action."))?;
 
-        link.0.send(()).map_err(|e| {
-            InternalError(format!(
-                "Failed to send start signal to concurrent audio thread:\n{e:#?}"
-            ))
-        })?;
+        link.0
+            .send(())
+            .wrap_err("Failed to send start signal to concurrent audio thread.")?;
 
         if let Ok(true) = *self.done.lock().unwrap() {
             sync_writer.push(SyncSignal::UpdateGraph);
@@ -227,7 +221,7 @@ impl StatefulAction for StatefulAudio {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         let volume_control = match self.volume_control {
             SignalId::Internal(i) => i,
             _ => return Ok(()),
@@ -254,7 +248,7 @@ impl StatefulAction for StatefulAudio {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         Ok(())
     }
 
@@ -264,7 +258,7 @@ impl StatefulAction for StatefulAudio {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         if let Some(sink) = self.sink.lock().unwrap().take() {
             sink.stop();
         }

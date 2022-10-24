@@ -7,7 +7,6 @@ pub mod include;
 pub mod props;
 
 use crate::config::Config;
-use crate::error;
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::ResourceMap;
@@ -15,6 +14,7 @@ use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::scheduler::State;
 use crate::signal::IntSignal;
 use eframe::egui;
+use eyre::Result;
 use itertools::Itertools;
 use std::any::Any;
 use std::collections::HashSet;
@@ -32,7 +32,7 @@ pub trait Action: Debug + Any {
     }
 
     #[inline(always)]
-    fn init(self) -> Result<Box<dyn Action>, error::Error>
+    fn init(self) -> Result<Box<dyn Action>>
     where
         Self: 'static + Sized,
     {
@@ -46,11 +46,11 @@ pub trait Action: Debug + Any {
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error>;
+    ) -> Result<Box<dyn StatefulAction>>;
 }
 
 pub trait StatefulAction: Send {
-    fn is_over(&self) -> Result<bool, error::Error>;
+    fn is_over(&self) -> Result<bool>;
 
     fn type_str(&self) -> String;
 
@@ -61,7 +61,7 @@ pub trait StatefulAction: Send {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error>;
+    ) -> Result<()>;
 
     fn update(
         &mut self,
@@ -69,7 +69,7 @@ pub trait StatefulAction: Send {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error>;
+    ) -> Result<()>;
 
     fn show(
         &mut self,
@@ -77,14 +77,14 @@ pub trait StatefulAction: Send {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error>;
+    ) -> Result<()>;
 
     fn stop(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), error::Error>;
+    ) -> Result<()>;
 
     fn debug(&self) -> Vec<(&str, String)> {
         vec![

@@ -1,6 +1,5 @@
-use crate::error;
-use crate::error::Error::ChecksumError;
 use crate::resource::color::Color;
+use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
@@ -92,14 +91,14 @@ impl Config {
         self.use_trigger
     }
 
-    pub fn verify_checksum(&self, task: String) -> Result<(), error::Error> {
+    pub fn verify_checksum(&self, task: String) -> Result<()> {
         if let Some(checksum) = self.verify_sha2.as_ref() {
             if checksum != &task {
-                return Err(ChecksumError(format!(
+                return Err(eyre!(
                     "Checksum of this task does not match the one on file.\n\
                     Current: {task}\n\
                     On file: {checksum}"
-                )));
+                ));
             }
         }
         Ok(())

@@ -1,13 +1,14 @@
 use crate::assets::Icon;
 use crate::server::{Page, Progress, Server};
+use crate::style;
 use crate::style::text::{body, inactive, tooltip};
 use crate::style::{style_ui, Style};
 use crate::template::header_body_controls;
-use crate::{error, style};
 use chrono::{NaiveDate, NaiveTime};
 use eframe::egui;
 use egui::{ScrollArea, TextEdit, Widget};
 use egui_extras::{Size, StripBuilder};
+use eyre::Result;
 use heck::ToSnakeCase;
 
 impl Server {
@@ -161,7 +162,7 @@ impl Server {
         }
     }
 
-    fn update_history(&mut self, i: usize) -> Result<(), error::Error> {
+    fn update_history(&mut self, i: usize) -> Result<()> {
         let name = self.blocks[i].0.to_snake_case();
         let progress = &mut self.blocks[i].1;
 

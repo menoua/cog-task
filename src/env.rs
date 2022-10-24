@@ -1,5 +1,4 @@
-use crate::error;
-use crate::error::Error::EnvironmentError;
+use eyre::{Context, Result};
 use std::env::current_dir;
 use std::path::PathBuf;
 
@@ -12,18 +11,14 @@ pub struct Env {
 }
 
 impl Env {
-    pub fn new(task_dir: PathBuf) -> Result<Self, error::Error> {
-        let root_dir = current_dir()
-            .map_err(|e| EnvironmentError(format!("Unable to get current directory:\n{e:#?}")))?;
+    pub fn new(task_dir: PathBuf) -> Result<Self> {
+        let root_dir = current_dir().wrap_err("Unable to get current directory.")?;
         let task_name = task_dir.file_name().unwrap().to_str().unwrap().to_owned();
 
         let output_dir = root_dir.join("output").join(&task_name);
         if !output_dir.is_dir() {
-            std::fs::create_dir_all(&output_dir).map_err(|e| {
-                EnvironmentError(format!(
-                    "Unable to create output directory: {output_dir:?}\n{e:#?}"
-                ))
-            })?;
+            std::fs::create_dir_all(&output_dir)
+                .wrap_err_with(|| format!("Unable to create output directory: {output_dir:?}"))?;
         }
 
         let resource_dir = task_dir.join("data");

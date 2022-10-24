@@ -1,7 +1,6 @@
 use crate::action::nil::StatefulNil;
 use crate::action::{Action, ActionSignal};
 use crate::config::Config;
-use crate::error;
 use crate::io::IO;
 use crate::logger::{Logger, LoggerSignal};
 use crate::queue::{QReader, QWriter};
@@ -12,6 +11,7 @@ use crate::server::ServerSignal;
 use crate::signal::Signal;
 use chrono::{DateTime, Local};
 use eframe::egui;
+use eyre::Result;
 use serde_cbor::Value;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
@@ -55,7 +55,7 @@ impl AsyncProcessor {
         info: &Info,
         config: &Config,
         server_writer: &QWriter<ServerSignal>,
-    ) -> Result<QWriter<AsyncSignal>, error::Error> {
+    ) -> Result<QWriter<AsyncSignal>> {
         let async_reader = QReader::new();
         let async_writer = async_reader.writer();
         let mut proc = Self {
@@ -79,8 +79,8 @@ impl AsyncProcessor {
                 }
             }
 
-            let result = proc.logger.finish();
-            proc.server_writer.push(ServerSignal::AsyncComplete(result));
+            proc.server_writer
+                .push(ServerSignal::AsyncComplete(proc.logger.finish()));
         });
 
         Ok(async_writer)
@@ -112,7 +112,7 @@ impl SyncProcessor {
         tree: &dyn Action,
         async_writer: &QWriter<AsyncSignal>,
         server_writer: &QWriter<ServerSignal>,
-    ) -> Result<(QWriter<SyncSignal>, Atomic), error::Error> {
+    ) -> Result<(QWriter<SyncSignal>, Atomic)> {
         let sync_reader = QReader::new();
         let sync_writer = sync_reader.writer();
         let tree = tree.stateful(io, res, config, &sync_writer, async_writer)?;
@@ -213,13 +213,13 @@ impl SyncProcessor {
 
             proc.server_writer.push(ServerSignal::SyncComplete(Ok(())));
             proc.ctx.request_repaint();
-            Result::<(), error::Error>::Ok(())
+            Result::<()>::Ok(())
         });
 
         Ok((sync_writer, atomic))
     }
 
-    fn start(&mut self) -> Result<(), error::Error> {
+    fn start(&mut self) -> Result<()> {
         let (tree, state) = &mut *self.atomic.lock().unwrap();
 
         self.async_writer.push(LoggerSignal::Append(

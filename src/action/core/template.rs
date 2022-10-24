@@ -1,12 +1,11 @@
 use crate::action::{Action, StatefulAction};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error::{InternalError, TaskDefinitionError};
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::task::ROOT_DIR;
+use eyre::{eyre, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -21,17 +20,17 @@ pub struct Template {
 }
 
 impl Action for Template {
-    fn init(self) -> Result<Box<dyn Action>, error::Error> {
+    fn init(self) -> Result<Box<dyn Action>> {
         let path = ROOT_DIR.get().unwrap().join(&self.src);
-        let mut inner =
-            fs::read_to_string(&path).map_err(|e| TaskDefinitionError(format!("{e:?}")))?;
+        let mut inner = fs::read_to_string(&path)
+            .wrap_err_with(|| format!("Failed to read `Template` source: {path:?}"))?;
 
         for (k, v) in self.params.iter() {
             let re = regex::Regex::new(&format!(r"\$\{{{k}\}}")).unwrap();
             inner = re.replace_all(&inner, v).to_string();
         }
 
-        ron::from_str::<Box<dyn Action>>(&inner).map_err(|e| TaskDefinitionError(format!("{e:?}")))
+        ron::from_str::<Box<dyn Action>>(&inner).wrap_err("Failed to deserialize `Template`.")
     }
 
     #[inline]
@@ -42,7 +41,7 @@ impl Action for Template {
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
-        Err(InternalError("Template can not be stateful".to_owned()))
+    ) -> Result<Box<dyn StatefulAction>> {
+        Err(eyre!("Template can not be stateful."))
     }
 }

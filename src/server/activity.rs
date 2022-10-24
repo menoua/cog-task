@@ -1,7 +1,7 @@
 use super::Server;
-use crate::error::Error::InternalError;
 use crate::server::ServerSignal;
 use eframe::egui;
+use eyre::eyre;
 
 impl Server {
     #[inline]
@@ -11,10 +11,9 @@ impl Server {
                 self.sync_reader.push(ServerSignal::BlockCrashed(e));
             }
         } else {
-            self.sync_reader
-                .push(ServerSignal::BlockCrashed(InternalError(
-                    "Unexpected behavior: Scheduler died while a task was active!".to_owned(),
-                )));
+            self.sync_reader.push(ServerSignal::BlockCrashed(
+                eyre!("Scheduler died while a task was active.").into(),
+            ));
         }
     }
 }

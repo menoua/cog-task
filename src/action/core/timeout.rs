@@ -1,8 +1,6 @@
 use crate::action::{Action, StatefulAction};
 use crate::action::{ActionSignal, Props, INFINITE};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error;
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::ResourceMap;
@@ -10,6 +8,7 @@ use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::scheduler::State;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
+use eyre::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -38,7 +37,7 @@ impl Action for Timeout {
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         let inner = self
             .1
             .stateful(io, res, config, sync_writer, async_writer)?;

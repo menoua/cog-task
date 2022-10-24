@@ -1,8 +1,10 @@
+pub mod info;
+pub mod processor;
+
 use crate::action::StatefulAction;
 #[cfg(feature = "benchmark")]
 use crate::benchmark::Profiler;
 use crate::config::Config;
-use crate::error;
 use crate::io::IO;
 use crate::logger::{LoggerSignal, TAG_ACTION, TAG_CONFIG, TAG_INFO};
 use crate::queue::QWriter;
@@ -11,14 +13,11 @@ use crate::scheduler::processor::{AsyncProcessor, AsyncSignal, SyncProcessor, Sy
 use crate::server::{Server, ServerSignal};
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, Frame};
+use eyre::Result;
 use serde_cbor::{ser::to_vec, Value};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
-
-pub mod info;
-pub mod monitor;
-pub mod processor;
 
 pub type State = HashMap<u16, Value>;
 pub type Atomic = Arc<Mutex<(Box<dyn StatefulAction>, State)>>;
@@ -38,7 +37,7 @@ pub struct Scheduler {
 }
 
 impl Scheduler {
-    pub fn new(server: &Server, ctx: &egui::Context) -> Result<Self, error::Error> {
+    pub fn new(server: &Server, ctx: &egui::Context) -> Result<Self> {
         let task = server.task();
         let block = server.active_block().unwrap();
         let info = Info::new(server, task, block);
@@ -120,7 +119,7 @@ impl Scheduler {
         self.ctx.request_repaint();
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui) -> Result<(), error::Error> {
+    pub fn show(&mut self, ui: &mut egui::Ui) -> Result<()> {
         #[cfg(feature = "benchmark")]
         self.profiler.step();
 

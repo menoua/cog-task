@@ -1,8 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, VISUAL};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error;
-use crate::error::Error::InvalidNameError;
 use crate::io::IO;
 use crate::logger::LoggerSignal;
 use crate::queue::QWriter;
@@ -19,6 +16,7 @@ use eframe::egui::{
     Checkbox, Color32, RadioButton, ScrollArea, Slider, Stroke, TextEdit, Vec2, Widget,
 };
 use egui_extras::StripBuilder;
+use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::ops::RangeInclusive;
@@ -72,11 +70,9 @@ impl Action for Question {
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         if self.group.is_empty() {
-            return Err(InvalidNameError(
-                "Question `group` cannot be an empty string".to_owned(),
-            ));
+            return Err(eyre!("Question `group` cannot be an empty string"));
         }
 
         Ok(Box::new(StatefulQuestion {
@@ -100,7 +96,7 @@ impl StatefulAction for StatefulQuestion {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
@@ -111,7 +107,7 @@ impl StatefulAction for StatefulQuestion {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         Ok(())
     }
 
@@ -121,7 +117,7 @@ impl StatefulAction for StatefulQuestion {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         header_body_controls(ui, |strip| {
             strip.empty();
             strip.empty();
@@ -143,7 +139,7 @@ impl StatefulAction for StatefulQuestion {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         self.done = true;
         sync_writer.push(SyncSignal::Repaint);
         Ok(())

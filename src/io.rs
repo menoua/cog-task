@@ -1,5 +1,4 @@
-use crate::error;
-use crate::error::Error::IoAccessError;
+use eyre::{Context, Result};
 use rodio::{OutputStream, OutputStreamHandle, Sink};
 use std::fmt::{Debug, Formatter};
 
@@ -15,9 +14,9 @@ impl Debug for IO {
 }
 
 impl IO {
-    pub fn new() -> Result<Self, error::Error> {
-        let (_audio_stream, audio_stream_handle) = OutputStream::try_default()
-            .map_err(|e| IoAccessError(format!("Failed to obtain audio output stream:\n{e:#?}")))?;
+    pub fn new() -> Result<Self> {
+        let (_audio_stream, audio_stream_handle) =
+            OutputStream::try_default().wrap_err("Failed to obtain audio output stream.")?;
 
         Ok(Self {
             _audio_stream,
@@ -26,8 +25,7 @@ impl IO {
     }
 
     #[inline]
-    pub fn audio(&self) -> Result<Sink, error::Error> {
-        Sink::try_new(&self.audio_stream_handle)
-            .map_err(|e| IoAccessError(format!("Failed to create audio sink:\n{e:#?}")))
+    pub fn audio(&self) -> Result<Sink> {
+        Sink::try_new(&self.audio_stream_handle).wrap_err("Failed to create audio sink.")
     }
 }

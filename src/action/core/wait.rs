@@ -1,7 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error;
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::ResourceMap;
@@ -9,6 +7,7 @@ use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::scheduler::State;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
+use eyre::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -34,7 +33,7 @@ impl Action for Wait {
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         Ok(Box::new(StatefulWait {
             done: Arc::new(Mutex::new(Ok(false))),
             duration: Duration::from_secs_f32(self.0),
@@ -56,7 +55,7 @@ impl StatefulAction for StatefulWait {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         let done = self.done.clone();
         let duration = self.duration;
         let mut sync_writer = sync_writer.clone();
@@ -94,7 +93,7 @@ impl StatefulAction for StatefulWait {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         *self.done.lock().unwrap() = Ok(true);
         Ok(())
     }

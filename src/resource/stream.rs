@@ -1,11 +1,10 @@
 use crate::backend::{ffmpeg, gst, MediaMode, MediaStream};
 use crate::config::{Config, MediaBackend};
-use crate::error;
-use crate::error::Error::{BackendError, ResourceLoadError};
 use crate::resource::FrameBuffer;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{TextureId, Vec2};
 use eframe::epaint::TextureManager;
+use eyre::{eyre, Context, Result};
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::path::Path;
@@ -16,7 +15,7 @@ pub fn stream_from_file(
     tex_manager: Arc<RwLock<TextureManager>>,
     path: &Path,
     config: &Config,
-) -> Result<Stream, error::Error> {
+) -> Result<Stream> {
     Stream::new(tex_manager, path, config)
 }
 
@@ -39,17 +38,15 @@ impl Stream {
         tex_manager: Arc<RwLock<TextureManager>>,
         path: &Path,
         config: &Config,
-    ) -> Result<Self, error::Error> {
+    ) -> Result<Self> {
         {
-            File::open(path).map_err(|e| {
-                ResourceLoadError(format!("Failed to load video file ({path:?}):\n{e:#?}"))
-            })?;
+            File::open(path).wrap_err_with(|| format!("Failed to load video file ({path:?})."))?;
         }
 
         let media_backend = config.media_backend();
         match media_backend {
-            MediaBackend::None => Err(BackendError(
-                "Action type `stream` cannot be used with media backend `None`".to_owned(),
+            MediaBackend::None => Err(eyre!(
+                "`Stream` action cannot be used without a media backend."
             )),
             MediaBackend::Ffmpeg => {
                 ffmpeg::Stream::new(tex_manager, path, config).map(Stream::Ffmpeg)
@@ -158,7 +155,7 @@ impl Stream {
     // }
 
     /// Starts a stream; assumes it is at first frame and unpauses.
-    pub fn start(&mut self) -> Result<(), error::Error> {
+    pub fn start(&mut self) -> Result<()> {
         match self {
             Stream::Gst(stream) => stream.start(),
             Stream::Ffmpeg(stream) => stream.start(),
@@ -166,7 +163,7 @@ impl Stream {
     }
 
     /// Restarts a stream; seeks to the first frame and unpauses, sets the `eos` flag to false.
-    pub fn restart(&mut self) -> Result<(), error::Error> {
+    pub fn restart(&mut self) -> Result<()> {
         match self {
             Stream::Gst(stream) => stream.restart(),
             Stream::Ffmpeg(stream) => stream.restart(),
@@ -174,14 +171,14 @@ impl Stream {
     }
 
     /// Pauses a stream
-    pub fn pause(&mut self) -> Result<(), error::Error> {
+    pub fn pause(&mut self) -> Result<()> {
         match self {
             Stream::Gst(stream) => stream.pause(),
             Stream::Ffmpeg(stream) => stream.pause(),
         }
     }
 
-    pub fn process_bus(&mut self, looping: bool) -> Result<bool, error::Error> {
+    pub fn process_bus(&mut self, looping: bool) -> Result<bool> {
         match self {
             Stream::Gst(stream) => stream.process_bus(looping),
             Stream::Ffmpeg(stream) => stream.process_bus(looping),
@@ -193,14 +190,14 @@ impl Stream {
         frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
         media_mode: MediaMode,
         volume: Option<f32>,
-    ) -> Result<Self, error::Error> {
+    ) -> Result<Self> {
         match self {
             Stream::Gst(stream) => stream.cloned(frame, media_mode, volume).map(Stream::Gst),
             Stream::Ffmpeg(stream) => stream.cloned(frame, media_mode, volume).map(Stream::Ffmpeg),
         }
     }
 
-    pub fn pull_samples(&self) -> Result<(FrameBuffer, f64), error::Error> {
+    pub fn pull_samples(&self) -> Result<(FrameBuffer, f64)> {
         match self {
             Stream::Gst(stream) => stream.pull_samples(),
             Stream::Ffmpeg(stream) => stream.pull_samples(),

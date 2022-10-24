@@ -1,8 +1,7 @@
-use crate::error;
-use crate::error::Error::TaskDefinitionError;
 use crate::style::text::body;
 use eframe::egui::Ui;
 use egui_demo_lib::easy_mark::easy_mark;
+use eyre::{eyre, Result};
 use regex;
 use regex::Regex;
 use std::path::PathBuf;
@@ -19,7 +18,7 @@ pub fn text_or_file(text: &str) -> Option<PathBuf> {
     None
 }
 
-pub fn parse_text(ui: &mut Ui, text: &str) -> Result<(), error::Error> {
+pub fn parse_text(ui: &mut Ui, text: &str) -> Result<()> {
     let re = Regex::new(r"^!!<([[:alpha:]][[:word:]]*)>[ \t]*\n?([ \t]*\n)?").unwrap();
     if let Some(caps) = re.captures(text) {
         match &caps[1] {
@@ -27,9 +26,7 @@ pub fn parse_text(ui: &mut Ui, text: &str) -> Result<(), error::Error> {
                 easy_mark(ui, &re.replace(text, ""));
                 Ok(())
             }
-            parser => Err(TaskDefinitionError(format!(
-                "Unknown text parser ({parser})."
-            ))),
+            parser => Err(eyre!("Unknown text parser ({parser}).")),
         }
     } else {
         ui.label(body(text));

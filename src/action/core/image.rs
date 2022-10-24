@@ -1,8 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error;
-use crate::error::Error::InvalidResourceError;
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::color::Color;
@@ -11,6 +8,7 @@ use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::scheduler::State;
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
+use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -55,15 +53,15 @@ impl Action for Image {
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         let (texture, size) = {
             if let ResourceValue::Image(texture, size) = res.fetch(&self.src)? {
                 (texture, size)
             } else {
-                return Err(InvalidResourceError(format!(
-                    "Image action supplied non-image resource: `{:?}`",
+                return Err(eyre!(
+                    "Image action supplied non-image resource: {:?}",
                     self.src
-                )));
+                ));
             }
         };
 
@@ -111,7 +109,7 @@ impl StatefulAction for StatefulImage {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         ui.output().cursor_icon = CursorIcon::None;
 
         CentralPanel::default()
@@ -136,7 +134,7 @@ impl StatefulAction for StatefulImage {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         self.done = true;
         sync_writer.push(SyncSignal::Repaint);
         Ok(())

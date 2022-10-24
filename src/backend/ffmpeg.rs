@@ -1,12 +1,11 @@
 use crate::backend::{MediaMode, MediaStream};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error::{BackendError, InternalError, InvalidConfigError, StreamDecodingError};
 use crate::resource::FrameBuffer;
 use crate::util::spin_sleeper;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{ColorImage, ImageData, TextureFilter, TextureId, Vec2};
 use eframe::epaint::TextureManager;
+use eyre::{eyre, Context as _, Result};
 use ffmpeg::format::{context::Input, input, Pixel};
 use ffmpeg::media::Type;
 use ffmpeg::software::scaling::{context::Context, flag::Flags};
@@ -43,7 +42,7 @@ impl MediaStream for Stream {
         tex_manager: Arc<RwLock<TextureManager>>,
         path: &Path,
         _config: &Config,
-    ) -> Result<Self, error::Error> {
+    ) -> Result<Self> {
         init()?;
 
         let context = input(&path)?;
@@ -100,23 +99,25 @@ impl MediaStream for Stream {
         frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
         media_mode: MediaMode,
         _volume: Option<f32>,
-    ) -> Result<Self, error::Error> {
+    ) -> Result<Self> {
         let (_media_mode, audio_chan) = match (media_mode, self.audio_chan) {
-            (MediaMode::SansIntTrigger, 0) => Err(InvalidConfigError(format!(
+            (MediaMode::SansIntTrigger, 0) => Err(eyre!(
                 "Cannot assume integrated trigger due to missing audio stream: {:?}",
                 self.path
-            ))),
+            )),
             (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
             (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
-            (MediaMode::SansIntTrigger, _) => Err(InvalidConfigError(format!(
+            (MediaMode::SansIntTrigger, _) => Err(eyre!(
                 "Cannot use integrated trigger with multichannel (n = {} > 2) audio: {:?}",
-                self.audio_chan, self.path
-            ))),
+                self.audio_chan,
+                self.path
+            )),
             (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
-            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(InvalidConfigError(format!(
+            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(eyre!(
                 "Cannot add trigger stream to non-mono (n = {}) audio stream: {:?}",
-                self.audio_chan, self.path
-            ))),
+                self.audio_chan,
+                self.path
+            )),
             (mode, c) => Ok((mode, c)),
         }?;
 
@@ -216,9 +217,7 @@ impl MediaStream for Stream {
                 *is_eos.lock().unwrap() = true;
                 decoder
                     .send_eof()
-                    .map_err(|e| {
-                        StreamDecodingError(format!("Failed to send EOF to decoder: {e:?}"))
-                    })
+                    .wrap_err("Failed to send EOF to decoder.")
                     .unwrap();
             });
         }
@@ -286,7 +285,7 @@ impl MediaStream for Stream {
         self.audio_chan > 0
     }
 
-    fn start(&mut self) -> Result<(), error::Error> {
+    fn start(&mut self) -> Result<()> {
         // self.context
         //     .as_ref()
         //     .unwrap()
@@ -302,20 +301,18 @@ impl MediaStream for Stream {
         self.paused = false;
         if let Some(link) = self.starter.take() {
             link.send(())
-                .map_err(|_| InternalError("Failed to start ffmpeg parallel thread".to_owned()))
+                .wrap_err("Failed to start ffmpeg parallel thread.")
         } else {
-            Err(InternalError(
-                "Tried to start ffmpeg parallel thread twice".to_owned(),
-            ))
+            Err(eyre!("Tried to start ffmpeg parallel thread twice."))
         }
     }
 
-    fn restart(&mut self) -> Result<(), error::Error> {
+    fn restart(&mut self) -> Result<()> {
         // self.context.as_ref().unwrap().lock().unwrap().seek(0);
         Ok(())
     }
 
-    fn pause(&mut self) -> Result<(), error::Error> {
+    fn pause(&mut self) -> Result<()> {
         // self.context
         //     .as_ref()
         //     .unwrap()
@@ -333,13 +330,10 @@ impl MediaStream for Stream {
         Ok(())
     }
 
-    fn pull_samples(&self) -> Result<(FrameBuffer, f64), error::Error> {
-        let index = self.video_index.ok_or_else(|| {
-            InternalError(format!(
-                "Tried to pull samples on non-video stream: {:?}",
-                self.path
-            ))
-        })?;
+    fn pull_samples(&self) -> Result<(FrameBuffer, f64)> {
+        let index = self
+            .video_index
+            .ok_or_else(|| eyre!("Tried to pull samples on non-video stream: {:?}", self.path))?;
 
         let mut context = input(&self.path)?;
         let (mut decoder, mut scaler) = {
@@ -404,12 +398,12 @@ impl MediaStream for Stream {
         Ok((Arc::new(frames), self.frame_rate))
     }
 
-    fn process_bus(&mut self, _looping: bool) -> Result<bool, error::Error> {
+    fn process_bus(&mut self, _looping: bool) -> Result<bool> {
         Ok(self.eos())
     }
 }
 
-pub fn init() -> Result<(), error::Error> {
+pub fn init() -> Result<()> {
     if FFMPEG_INIT.get().is_some() {
         return Ok(());
     }
@@ -419,16 +413,11 @@ pub fn init() -> Result<(), error::Error> {
             FFMPEG_INIT.set(()).expect("Tried to init ffmpeg twice");
             r
         })
-        .map_err(|e| {
-            BackendError(format!(
-                "Failed to initialize ffmpeg: required because there is a stream element \
-                in this block:\n{e:#?}",
-            ))
-        })
+        .wrap_err("Failed to initialize ffmpeg.")
 }
 
-impl From<ffmpeg::Error> for error::Error {
-    fn from(e: ffmpeg::Error) -> Self {
-        StreamDecodingError(format!("{e:#?}"))
-    }
-}
+// impl From<ffmpeg::Error> for Error {
+//     fn from(e: ffmpeg::Error) -> Self {
+//         e.into()
+//     }
+// }

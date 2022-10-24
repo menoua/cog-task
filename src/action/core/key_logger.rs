@@ -1,8 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error;
-use crate::error::Error::InvalidNameError;
 use crate::io::IO;
 use crate::logger::LoggerSignal;
 use crate::queue::QWriter;
@@ -11,6 +8,7 @@ use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::scheduler::State;
 use chrono::Local;
 use eframe::egui::Ui;
+use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::path::PathBuf;
@@ -41,11 +39,9 @@ impl Action for KeyLogger {
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         if self.0.is_empty() {
-            return Err(InvalidNameError(
-                "KeyLogger `group` cannot be an empty string".to_owned(),
-            ));
+            return Err(eyre!("KeyLogger `group` cannot be an empty string"));
         }
 
         Ok(Box::new(StatefulKeyLogger {
@@ -82,7 +78,7 @@ impl StatefulAction for StatefulKeyLogger {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         if let ActionSignal::KeyPress(_, keys) = signal {
             let group = self.group.clone();
             let entry = (
@@ -114,7 +110,7 @@ impl StatefulAction for StatefulKeyLogger {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         async_writer.push(LoggerSignal::Append(
             self.group.clone(),
             ("event".to_owned(), Value::Text("stop".to_owned())),

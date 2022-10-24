@@ -1,12 +1,12 @@
 use crate::action::image::Image;
 use crate::action::{Action, StatefulAction};
 use crate::config::Config;
-use crate::error;
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::color::Color;
 use crate::resource::ResourceMap;
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -27,7 +27,7 @@ impl Action for Fixation {
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         Image::from(self).stateful(io, res, config, sync_writer, async_writer)
     }
 }

@@ -1,8 +1,6 @@
 use crate::action::{Action, StatefulAction, DEFAULT};
 use crate::action::{ActionSignal, Props};
 use crate::config::Config;
-use crate::error;
-use crate::error::Error;
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::ResourceMap;
@@ -10,6 +8,7 @@ use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::scheduler::State;
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
+use eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -39,7 +38,7 @@ impl Action for Delayed {
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         let inner = self
             .1
             .stateful(io, res, config, sync_writer, async_writer)?;
@@ -70,7 +69,7 @@ impl StatefulAction for StatefulDelayed {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if self.done {
             sync_writer.push(SyncSignal::UpdateGraph);
         } else {
@@ -92,7 +91,7 @@ impl StatefulAction for StatefulDelayed {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if *self.wait_over.lock().unwrap() {
             if !self.has_begun {
                 self.inner.start(sync_writer, async_writer, state)?;
@@ -116,7 +115,7 @@ impl StatefulAction for StatefulDelayed {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if self.has_begun {
             self.inner.show(ui, sync_writer, async_writer, state)
         } else {
@@ -129,7 +128,7 @@ impl StatefulAction for StatefulDelayed {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         if *self.wait_over.lock().unwrap() {
             self.inner.stop(sync_writer, async_writer, state)?;
         }

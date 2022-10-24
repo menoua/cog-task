@@ -1,11 +1,10 @@
 use crate::action::Action;
 use crate::config::{Config, LogFormat};
-use crate::error;
-use crate::error::Error::{InternalError, LoggerError};
 use crate::queue::QWriter;
 use crate::scheduler::info::Info;
 use crate::scheduler::processor::AsyncSignal;
 use chrono::{DateTime, Local};
+use eyre::{eyre, Context, Result};
 use itertools::Itertools;
 use ron::ser::PrettyConfig;
 use serde::{Serialize, Serializer};
@@ -56,7 +55,7 @@ impl From<LoggerSignal> for AsyncSignal {
 }
 
 impl Logger {
-    pub fn new(info: &Info, config: &Config) -> Result<Self, error::Error> {
+    pub fn new(info: &Info, config: &Config) -> Result<Self> {
         let block = normalized_name(info.block());
         let date = Local::now().format("%F").to_string();
         let time = Local::now().format("%T").to_string().replace(':', "-");
@@ -66,15 +65,10 @@ impl Logger {
             .join(format!("{date}/{block}/{time}"));
 
         if out_dir.exists() {
-            Err(LoggerError(format!(
-                "Output directory already exists: {out_dir:?}"
-            )))?;
+            return Err(eyre!("Output directory already exists: {out_dir:?}"));
         }
-        create_dir_all(&out_dir).map_err(|e| {
-            LoggerError(format!(
-                "Failed to create output directory: {out_dir:?}\n{e:#?}"
-            ))
-        })?;
+        create_dir_all(&out_dir)
+            .wrap_err_with(|| format!("Failed to create output directory: {out_dir:?}"))?;
 
         Ok(Self {
             out_dir,
@@ -105,15 +99,12 @@ impl Logger {
         self.needs_flush = true;
     }
 
-    fn flush(&mut self) -> Result<(), error::Error> {
+    fn flush(&mut self) -> Result<()> {
         for (group, (vec, flush)) in self.content.iter_mut().filter(|(_, (_, flush))| *flush) {
             let name = format!("{}.log", normalized_name(group));
             let path = self.out_dir.join(name);
-            let mut file = File::create(&path).map_err(|e| {
-                LoggerError(format!(
-                    "Failed to create log file for group `{group}`:\n{e:#?}"
-                ))
-            })?;
+            let mut file = File::create(&path)
+                .wrap_err_with(|| format!("Failed to create log file for group (`{group}`)"))?;
 
             write_vec(&mut file, self.log_format, &vec)?;
             *flush = false;
@@ -130,7 +121,7 @@ impl Logger {
         time: DateTime<Local>,
         signal: LoggerSignal,
         async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         if signal.requires_flush() && !self.needs_flush {
             let mut async_writer = async_writer.clone();
             thread::spawn(move || {
@@ -155,9 +146,9 @@ impl Logger {
         Ok(())
     }
 
-    pub fn finish(&mut self) -> Result<(), error::Error> {
+    pub fn finish(&mut self) -> Result<()> {
         self.flush()
-            .map_err(|e| LoggerError(format!("Failed to graciously close logger:\n{e:#?}")))?;
+            .wrap_err_with(|| format!("Failed to graciously close logger."))?;
 
         self.content.clear();
         Ok(())
@@ -171,37 +162,21 @@ pub fn normalized_name(name: &str) -> String {
         .replace('-', "_")
 }
 
-fn write_vec(
-    file: &mut File,
-    fmt: LogFormat,
-    vec: &Vec<(String, String, Value)>,
-) -> Result<(), error::Error> {
+fn write_vec(file: &mut File, fmt: LogFormat, vec: &Vec<(String, String, Value)>) -> Result<()> {
     let mut vec_t: Vec<(&str, &str, Serializable)> = vec![];
     for (a, b, v) in vec {
         let v = match v {
             Value::Tag(TAG_INFO, v) => Serializable::Info(match v.as_ref() {
                 Value::Bytes(v) => from_slice::<Info>(v).unwrap(),
-                _ => {
-                    return Err(InternalError(
-                        "Failed to deserialize Info struct".to_owned(),
-                    ))
-                }
+                _ => return Err(eyre!("Failed to deserialize Info struct")),
             }),
             Value::Tag(TAG_CONFIG, v) => Serializable::Config(match v.as_ref() {
                 Value::Bytes(v) => from_slice::<Config>(v).unwrap(),
-                _ => {
-                    return Err(InternalError(
-                        "Failed to deserialize Info struct".to_owned(),
-                    ))
-                }
+                _ => return Err(eyre!("Failed to deserialize Info struct",)),
             }),
             Value::Tag(TAG_ACTION, v) => Serializable::Action(match v.as_ref() {
                 Value::Bytes(v) => from_slice::<Box<dyn Action>>(v).unwrap(),
-                _ => {
-                    return Err(InternalError(
-                        "Failed to deserialize Info struct".to_owned(),
-                    ))
-                }
+                _ => return Err(eyre!("Failed to deserialize Info struct",)),
             }),
             v => Serializable::Value(v),
         };
@@ -210,17 +185,19 @@ fn write_vec(
     }
 
     match fmt {
-        LogFormat::JSON => serde_json::to_writer_pretty(file, &vec_t)
-            .map_err(|e| LoggerError(format!("Failed to log JSON to file: {e:#?}"))),
-        LogFormat::YAML => serde_yaml::to_writer(file, &vec_t)
-            .map_err(|e| LoggerError(format!("Failed to log YAML to file: {e:#?}"))),
+        LogFormat::JSON => {
+            serde_json::to_writer_pretty(file, &vec_t).wrap_err("Failed to log JSON to file")
+        }
+        LogFormat::YAML => {
+            serde_yaml::to_writer(file, &vec_t).wrap_err("Failed to log YAML to file")
+        }
         LogFormat::RON => file
             .write_all(
                 ron::ser::to_string_pretty(&vec_t, PrettyConfig::default())
-                    .map_err(|e| LoggerError(format!("Failed to serialize log to RON: {e:#?}")))?
+                    .wrap_err("Failed to serialize log as RON")?
                     .as_bytes(),
             )
-            .map_err(|e| LoggerError(format!("Failed to log RON to file: {e:#?}"))),
+            .wrap_err("Failed to log RON to file"),
     }
 }
 

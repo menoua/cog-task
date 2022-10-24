@@ -1,9 +1,6 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::backend::MediaMode;
 use crate::config::Config;
-use crate::error;
-use crate::error::Error;
-use crate::error::Error::{InternalError, InvalidResourceError, TaskDefinitionError};
 use crate::io::IO;
 use crate::queue::QWriter;
 use crate::resource::audio::Trigger;
@@ -14,6 +11,7 @@ use crate::scheduler::State;
 use crate::util::spin_sleeper;
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
+use eyre::{eyre, Context, Error, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
@@ -45,7 +43,7 @@ stateful_arc!(Stream {
     looping: bool,
     link_start: Sender<()>,
     link_stop: Option<Receiver<()>>,
-    join_handle: Option<JoinHandle<Result<(), error::Error>>>,
+    join_handle: Option<JoinHandle<Result<()>>>,
     background: Color32,
 });
 
@@ -67,11 +65,11 @@ impl Action for Stream {
     }
 
     #[inline]
-    fn init(self) -> Result<Box<dyn Action>, error::Error> {
+    fn init(self) -> Result<Box<dyn Action>> {
         if let Some(v) = self.volume {
             if v < 0.0 || v > 1.0 {
-                return Err(TaskDefinitionError(
-                    "Stream volume should be a float number between 0.0 and 1.0".to_owned(),
+                return Err(eyre!(
+                    "Stream volume should be a float number between 0.0 and 1.0"
                 ));
             }
         }
@@ -86,14 +84,14 @@ impl Action for Stream {
         config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
-    ) -> Result<Box<dyn StatefulAction>, error::Error> {
+    ) -> Result<Box<dyn StatefulAction>> {
         let stream = if let ResourceValue::Stream(stream) = res.fetch(&self.src())? {
             stream
         } else {
-            return Err(InvalidResourceError(format!(
+            return Err(eyre!(
                 "Stream action supplied non-stream resource: `{:?}`",
                 self.src
-            )));
+            ));
         };
 
         let use_trigger = config.use_trigger();
@@ -108,9 +106,9 @@ impl Action for Stream {
         let mut stream = stream.cloned(frame.clone(), media_mode, volume)?;
 
         if !stream.has_video() && self.width.is_some() {
-            return Err(TaskDefinitionError(format!(
+            return Err(eyre!(
                 "Video-less stream `?` should not be supplied a width"
-            )));
+            ));
         }
 
         let framerate = stream.framerate();
@@ -127,7 +125,7 @@ impl Action for Stream {
         let looping = self.looping;
 
         let done_clone = done.clone();
-        let join_handle = thread::spawn(move || -> Result<(), error::Error> {
+        let join_handle = thread::spawn(move || -> Result<()> {
             if rx_start.recv().is_err() {
                 return Ok(());
             }
@@ -190,24 +188,21 @@ impl StatefulAction for StatefulStream {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
-        self.link_start.send(()).map_err(|e| {
-            InternalError(format!(
-                "Failed to send start signal to concurrent stream thread:\n{e:#?}"
-            ))
-        })?;
+    ) -> Result<()> {
+        self.link_start
+            .send(())
+            .wrap_err("Failed to send start signal to concurrent stream thread.")?;
 
-        let rx_stop = self.link_stop.take().ok_or_else(|| {
-            InternalError(format!(
-                "Link to streaming thread could not be acquired for action"
-            ))
-        })?;
+        let rx_stop = self
+            .link_stop
+            .take()
+            .ok_or_else(|| eyre!("Link to streaming thread could not be acquired for action"))?;
 
         let done = self.done.clone();
         let join_handle = self
             .join_handle
             .take()
-            .ok_or_else(|| InternalError(format!("JoinHandle for action has died prematurely")))?;
+            .ok_or_else(|| eyre!("JoinHandle for action has died prematurely"))?;
 
         if let Ok(true) = *self.done.lock().unwrap() {
             sync_writer.push(SyncSignal::UpdateGraph);
@@ -221,10 +216,8 @@ impl StatefulAction for StatefulStream {
                 let _ = rx_stop.recv();
                 *done.lock().unwrap() = match join_handle.join() {
                     Ok(Ok(_)) => Ok(true),
-                    Ok(Err(e)) => Err(e),
-                    Err(e) => Err(InternalError(format!(
-                        "Failed to graciously close stream decoder thread:\n{e:#?}"
-                    ))),
+                    Ok(Err(e)) => Err(e).wrap_err("Stream decoder thread failed with error."),
+                    Err(_) => Err(eyre!("Failed to graciously close stream decoder thread.")),
                 };
                 sync_writer.push(SyncSignal::UpdateGraph);
             });
@@ -250,7 +243,7 @@ impl StatefulAction for StatefulStream {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         let (texture, size) = self
             .frame
             .lock()
@@ -285,7 +278,7 @@ impl StatefulAction for StatefulStream {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), error::Error> {
+    ) -> Result<()> {
         *self.done.lock().unwrap() = Ok(true);
         if self.framerate > 0.0 {
             sync_writer.push(SyncSignal::Repaint);

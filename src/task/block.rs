@@ -1,8 +1,7 @@
 use crate::action::Action;
 use crate::config::{Config, OptionalConfig};
-use crate::error;
-use crate::error::Error::TaskDefinitionError;
 use crate::util::Hash;
+use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::ser::to_vec_packed;
 use std::path::PathBuf;
@@ -16,25 +15,23 @@ pub struct Block {
 }
 
 impl Block {
-    pub fn init(&mut self) -> Result<(), error::Error> {
+    pub fn init(&mut self) -> Result<()> {
         self.verify_name()?;
         Ok(())
     }
 
-    fn verify_name(&self) -> Result<(), error::Error> {
+    fn verify_name(&self) -> Result<()> {
         if self.name.is_empty() {
-            Err(TaskDefinitionError(
-                "Block `name` cannot be the empty string".to_owned(),
-            ))
+            Err(eyre!("Block `name` cannot be the empty string."))
         } else if !self
             .name
             .chars()
             .all(|c| c.is_alphabetic() || c.is_alphanumeric() | "+-_ ".contains(c))
         {
-            Err(TaskDefinitionError(format!(
+            Err(eyre!(
                 "Block `name` characters need to be alphanumeric or one of (+-_ ): '{}'",
                 self.name
-            )))
+            ))
         } else {
             Ok(())
         }
