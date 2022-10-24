@@ -7,6 +7,9 @@ readme = "README.md"
 repository = "https://github.com/menoua/cog-task-rs"
 description = "CogTask: a general-purpose low-latency application to serve cognitive tasks"
 exclude = [".*", "/task"]
+rust-version = "1.64"
+default-run = "cog-launcher"
+autobins = false
 
 [dependencies]
 eyre = "0.6"
@@ -48,6 +51,14 @@ heck = "0.4"
 
 [features]
 benchmark = []
+
+[[bin]]
+name = "cog-launcher"
+path = "src/bin/launcher.rs"
+
+[[bin]]
+name = "cog-server"
+path = "src/bin/server.rs"
 
 #[package.metadata.nix]
 #systems = ["x86_64-linux"]

@@ -109,7 +109,7 @@ impl Launcher {
 
         let curr = current_dir().unwrap();
         let root = current_exe().unwrap().parent().unwrap().to_path_buf();
-        let path = root.join("bin").join("server").to_str().unwrap().to_owned();
+        let path = root.join("cog-server").to_str().unwrap().to_owned();
         let mut sync_writer = self.sync_reader.writer();
         self.busy = true;
         self.active_task = Some(task.file_name().unwrap().to_str().unwrap().to_title_case());
@@ -133,8 +133,7 @@ impl Launcher {
                 }
                 Err(e) => {
                     let status = format!(
-                        "Failed to spawn server. Make sure it is located in \
-                            bin/server relative to the launcher.\n{e:#?}"
+                        "Failed to spawn `cog-server`.\nMake sure it is adjacent to `cog-launcher`.\n\n{e:#?}"
                     );
                     println!("\nEE: {status}");
                     sync_writer.push(LauncherSignal::TaskCrashed(status));
