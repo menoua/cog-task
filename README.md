@@ -53,7 +53,9 @@ Some features depend on certain libraries that might not come preinstalled on yo
 ### audio
 
 On *linux*, requires installing ALSA, e.g.:<br>
-```$ sudo apt install libasound2-dev pkg-config```
+```bash
+$ sudo apt install libasound2-dev pkg-config
+```
 
 ### gstreamer
 
