@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+env:
+  RUSTFLAGS: "-C debuginfo=0 -D warnings"
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.toolchain == 'nightly' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+        toolchain: [stable, beta, nightly]
+        include:
+          - os: macos-latest
+            MACOS: true
+          - os: windows-latest
+          - os: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: install linux deps
+        run: |
+          sudo apt update
+          sudo apt install -y --no-install-recommends libasound2-dev pkg-config
+        if: contains(matrix.os, 'ubuntu')
+
+      - name: install ${{ matrix.toolchain }} toolchain
+        id: install_toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          profile: minimal
+          # Don't use a 'components:' entry--we don't need them with beta/nightly, plus nightly often doesn't have them
+          override: true
+
+      # This block can be uncommented to add clippy to CI, but first the existing clippy warnings need to be fixed!
+      # - name: clippy
+      #   run: |
+      #     rustup component add clippy
+      #     cargo clippy -- -D warnings
+      #   if: matrix.toolchain == 'stable' && matrix.os == 'ubuntu-latest'
+
+      - run: |
+          rustup component add rustfmt
+          cargo fmt --all -- --check
+        if: matrix.toolchain == 'stable' && matrix.os == 'ubuntu-latest'
+      - run: cargo test --all-targets
+      - run: cargo test --features=symphonia-all --all-targets
+  cargo-publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    env:
+      CRATESIO_TOKEN: ${{ secrets.CRATESIO_TOKEN }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Update apt
+        run: sudo apt update
+      - name: Install alsa
+        run: sudo apt install -y --no-install-recommends libasound2-dev pkg-config
+      - name: Run cargo publish for rodio
+        continue-on-error: true
+        run: |
+          RODIO_TMP=$(mktemp /tmp/rodioXXX.txt) || echo "::error::mktemp error"
+          echo "RODIO_TMP=$RODIO_TMP" >> $GITHUB_ENV
+          cargo publish --token $CRATESIO_TOKEN 2> $RODIO_TMP
+      - name: Check if rodio is already published
+        run: |
+          empty=0
+          RODIO_TMP="${{ env.RODIO_TMP }}"
+          grep -q '[^[:space:]]' < $RODIO_TMP || empty=1
+          [ $empty -eq 0 ] && cat $RODIO_TMP
+          [ $empty -eq 1 ] || grep -q "is already uploaded" < $RODIO_TMP
