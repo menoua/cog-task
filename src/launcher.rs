@@ -41,8 +41,7 @@ impl Default for Launcher {
             .expect("Unable to get current directory.")
             .parent()
             .unwrap()
-            .to_path_buf()
-            .join("task");
+            .to_path_buf();
 
         Self::new(root_dir)
     }
@@ -98,7 +97,7 @@ impl Launcher {
     pub fn window_size(&self) -> Vec2 {
         let count = self.task_paths.len() as u32;
         let width = 580;
-        let height = (195 + count * 75).max(255).min(650);
+        let height = (200 + count * 75).max(280).min(650);
         Vec2::from([width as f32, height as f32])
     }
 
@@ -255,13 +254,16 @@ impl Launcher {
 
             ui.add_enabled_ui(!self.busy, |ui| {
                 StripBuilder::new(ui)
-                    .size(Size::exact(60.0))
+                    .size(Size::exact(10.0))
+                    .size(Size::exact(55.0))
                     .size(Size::exact(52.0))
                     .size(Size::exact(14.0))
                     .size(Size::exact(4.0))
                     .size(Size::exact(20.0))
                     .size(Size::remainder())
                     .vertical(|mut strip| {
+                        strip.empty();
+
                         strip.cell(|ui| {
                             ui.centered_and_justified(|ui| {
                                 ui.heading(if self.busy {
@@ -442,6 +444,12 @@ impl Launcher {
             _ => ("", "".to_owned()),
         };
 
+        let (width, height) = if matches!(self.status, Status::Result(_)) {
+            (540.0, 250.0)
+        } else {
+            (540.0, 200.0)
+        };
+
         let mut open = true;
         Window::new(
             RichText::from(title)
@@ -451,8 +459,8 @@ impl Launcher {
         .collapsible(false)
         .open(&mut open)
         .vscroll(true)
-        .min_width(550.0)
-        .default_size(Vec2::new(550.0, 240.0))
+        .min_width(width)
+        .default_size(Vec2::new(width, height))
         .show(ctx, |ui| {
             ui.with_layout(
                 Layout::centered_and_justified(Direction::LeftToRight),

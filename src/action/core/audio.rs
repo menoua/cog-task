@@ -1,3 +1,5 @@
+//! alsa
+
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::config::{Config, TimePrecision};
 use crate::io::IO;

@@ -6,7 +6,7 @@ license = "MIT"
 readme = "README.md"
 repository = "https://github.com/menoua/cog-task-rs"
 description = "CogTask: a general-purpose low-latency application to serve cognitive tasks"
-exclude = [".*", "/task"]
+exclude = [".*", "/example"]
 rust-version = "1.64"
 default-run = "cog-launcher"
 autobins = false
@@ -26,17 +26,17 @@ serde_json = "1.0"
 serde_yaml = "0.9"
 ron = "0.8"
 itertools = "0.10"
-rodio = "0.16"
+rodio = { version = "0.16", optional = true }
 chrono = "0.4"
 heck = "0.4"
 spin_sleep = "1.1"
 sha2 = "0.10"
 hex = "0.4"
 sysinfo = "0.26"
-gstreamer = { version = "0.19" }
-gstreamer-app = { version = "0.19" }
-ffmpeg-next = { version = "5.1", features = ["default"] } # look into "static" feature
-glib = "0.16"
+glib = { version = "0.16", optional = true }
+gstreamer = { version = "0.19", optional = true }
+gstreamer-app = { version = "0.19", optional = true }
+ffmpeg-next = { version = "5.1", features = ["default"], optional = true } # look into "static" feature
 num-rational = "0.4"
 num-traits = "0.2"
 thiserror = "1.0"
@@ -50,6 +50,11 @@ itertools = "0.10"
 heck = "0.4"
 
 [features]
+default = []
+sound = ["dep:rodio"]
+stream = ["sound"]
+gstreamer = ["stream", "dep:gstreamer", "dep:gstreamer-app", "dep:glib"]
+ffmpeg = ["stream", "dep:ffmpeg-next"]
 benchmark = []
 
 [[bin]]
@@ -74,5 +79,4 @@ runtimeLibs = [
     # "xorg.libXrandr",
     # "xorg.libXi", "gst_all_1.gstreamer", "gst_all_1.gstreamermm", "gst_all_1.gst-plugins-bad", "gst_all_1.gst-plugins-ugly", "gst_all_1.gst-plugins-good", "gst_all_1.gst-plugins-base",
 ]
-buildInputs = ["alsa-tools"]
 #buildInputs = ["libxkbcommon", "gst_all_1.gstreamer", "gst_all_1.gstreamermm", "gst_all_1.gst-plugins-bad", "gst_all_1.gst-plugins-ugly", "gst_all_1.gst-plugins-good", "gst_all_1.gst-plugins-base"]

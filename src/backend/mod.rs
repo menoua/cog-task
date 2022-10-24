@@ -8,7 +8,9 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+#[cfg(feature = "ffmpeg")]
 pub mod ffmpeg;
+#[cfg(feature = "gstreamer")]
 pub mod gst;
 
 pub trait MediaStream

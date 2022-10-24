@@ -1,42 +1,52 @@
+#[cfg(feature = "sound")]
 pub mod audio;
 pub mod color;
 pub mod image;
 pub mod key;
+#[cfg(feature = "stream")]
 pub mod stream;
 pub mod text;
+#[cfg(feature = "stream")]
 pub mod video;
 
 use crate::resource::image::{image_from_file, svg_from_bytes, svg_from_file};
+#[cfg(feature = "sound")]
 use audio::audio_from_file;
 use text::text_or_file;
+#[cfg(feature = "stream")]
 use video::video_from_file;
 
 use crate::assets::{IMAGE_FIXATION, IMAGE_RUSTACEAN};
 use crate::config::Config;
 use crate::env::Env;
+#[cfg(feature = "stream")]
 use crate::resource::stream::{stream_from_file, Stream};
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{TextureId, Vec2};
 use eframe::epaint;
 use eyre::{eyre, Result};
-use rodio::buffer::SamplesBuffer;
-use rodio::source::Buffered;
-use rodio::Source;
+#[cfg(feature = "sound")]
+use rodio::{buffer::SamplesBuffer, source::Buffered, Source};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
+#[cfg(feature = "stream")]
 pub type FrameBuffer = Arc<Vec<(TextureId, Vec2)>>;
+#[cfg(feature = "sound")]
 pub type AudioBuffer = Buffered<SamplesBuffer<i16>>;
 
 #[derive(Clone)]
 pub enum ResourceValue {
     Text(Arc<String>),
     Image(TextureId, Vec2),
+    #[cfg(feature = "sound")]
     Audio(AudioBuffer),
+    #[cfg(feature = "stream")]
     Video(FrameBuffer, f64),
+    #[cfg(feature = "stream")]
     Stream(Stream),
 }
 
@@ -49,6 +59,7 @@ impl Debug for ResourceValue {
             ResourceValue::Image(_, size) => {
                 write!(f, "[Image ({} x {})]", size.x, size.y)
             }
+            #[cfg(feature = "sound")]
             ResourceValue::Audio(buffer) => {
                 write!(
                     f,
@@ -57,9 +68,11 @@ impl Debug for ResourceValue {
                     buffer.sample_rate()
                 )
             }
+            #[cfg(feature = "stream")]
             ResourceValue::Video(frames, fps) => {
                 write!(f, "[Cached video ({} frames @ {}fps)]", frames.len(), fps,)
             }
+            #[cfg(feature = "stream")]
             ResourceValue::Stream(stream) => {
                 write!(
                     f,
@@ -90,7 +103,7 @@ impl ResourceMap {
         &mut self,
         resources: Vec<PathBuf>,
         tex_manager: Arc<RwLock<epaint::TextureManager>>,
-        config: &Config,
+        #[allow(unused)] config: &Config,
         env: &Env,
     ) -> Result<()> {
         // Lock map
@@ -168,14 +181,17 @@ impl ResourceMap {
                         let (texture, size) = svg_from_file(tex_manager, &path)?;
                         Ok(ResourceValue::Image(texture, size))
                     }
+                    #[cfg(feature = "sound")]
                     "wav" | "flac" | "ogg" => {
                         Ok(ResourceValue::Audio(audio_from_file(&path, config)?))
                     }
+                    #[cfg(feature = "stream")]
                     "avi" | "gif" | "mkv" | "mov" | "mp4" | "mpg" | "webm" => {
                         let tex_manager = tex_manager.clone();
                         let (frames, framerate) = video_from_file(tex_manager, &path, config)?;
                         Ok(ResourceValue::Video(frames, framerate))
                     }
+                    #[cfg(feature = "stream")]
                     "stream" => {
                         let tex_manager = tex_manager.clone();
                         Ok(ResourceValue::Stream(stream_from_file(

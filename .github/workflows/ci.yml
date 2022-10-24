@@ -15,6 +15,7 @@ jobs:
     name: Tests
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.toolchain == 'nightly' }}
+
     strategy:
       fail-fast: false
       matrix:
@@ -24,21 +25,21 @@ jobs:
           - os: macos-latest
             MACOS: true
           - os: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v2
-      
-      - name: install macos deps
-        run: |
-          brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server
-        if: contains(matrix.os, 'macos')
 
-      - name: install linux deps
-        run: |
-          sudo apt update
-          sudo apt install -y --no-install-recommends libasound2-dev pkg-config
-          sudo apt install -y --no-install-recommends libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
-          sudo apt install -y --no-install-recommends libavfilter-dev libavdevice-dev
-        if: contains(matrix.os, 'ubuntu')
+      - run: |
+          rustup component add rustfmt
+          cargo fmt --all -- --check
+        if: matrix.toolchain == 'stable'
+
+      # This block can be uncommented to add clippy to CI, but first the existing clippy warnings need to be fixed!
+      # - name: clippy
+      #   run: |
+      #     rustup component add clippy
+      #     cargo clippy -- -D warnings
+      #   if: matrix.toolchain == 'stable' && matrix.os == 'ubuntu-latest'
 
       - name: install ${{ matrix.toolchain }} toolchain
         id: install_toolchain
@@ -49,18 +50,30 @@ jobs:
           # Don't use a 'components:' entry--we don't need them with beta/nightly, plus nightly often doesn't have them
           override: true
 
-      # This block can be uncommented to add clippy to CI, but first the existing clippy warnings need to be fixed!
-      # - name: clippy
-      #   run: |
-      #     rustup component add clippy
-      #     cargo clippy -- -D warnings
-      #   if: matrix.toolchain == 'stable' && matrix.os == 'ubuntu-latest'
-
-      # - run: |
-      #     rustup component add rustfmt
-      #     cargo fmt --all -- --check
-      #   if: matrix.toolchain == 'stable' && matrix.os == 'ubuntu-latest'
       - run: cargo test --all-targets
+
+      - name: install linux deps
+        run: |
+          sudo apt update
+          sudo apt install -y --no-install-recommends libasound2-dev pkg-config
+        if: contains(matrix.os, 'ubuntu')
+
+      - run: cargo test --features=sound --all-targets
+
+      - name: install macos deps
+        run: |
+          brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server
+        if: contains(matrix.os, 'macos')
+
+      - name: install linux deps
+        run: |
+          sudo apt update
+          sudo apt install -y --no-install-recommends libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
+          sudo apt install -y --no-install-recommends libavfilter-dev libavdevice-dev
+        if: contains(matrix.os, 'ubuntu')
+
+      - run: cargo test --features=stream --all-targets
+
 #   cargo-publish:
 #     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
 #     env:

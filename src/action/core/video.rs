@@ -1,3 +1,5 @@
+//! stream
+
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
 use crate::config::Config;
 use crate::io::IO;

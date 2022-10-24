@@ -1,6 +1,9 @@
 pub mod action;
 pub mod assets;
+#[cfg(feature = "stream")]
 pub mod backend;
+#[cfg(feature = "benchmark")]
+pub mod benchmark;
 pub mod config;
 pub mod env;
 pub mod io;
@@ -16,6 +19,3 @@ pub mod system;
 pub mod task;
 pub mod template;
 pub mod util;
-
-#[cfg(feature = "benchmark")]
-pub mod benchmark;
