@@ -1,6 +1,10 @@
 ## To-do
 
-- [ ] Add `requires` field to task.ron file as metadata such that it can be read before attempting to deserialize to be able to identify missing features instead of throwing more ambiguous errors.
+- [ ] Add required features for a task to task.ron file as metadata such that it can be read before attempting to deserialize to be able to identify missing features instead of throwing more ambiguous errors. Don't use the (//!) format since it is used for rust docs. Change the one already implemented in action as well. How about like the following, with each feature on a separate line?
+  ```rust
+  //@ audio
+  //@ stream
+  ```
 - [ ] Rename github repo to cog-task to be more succinct and same as the crate name.
 - [ ] Consider relegating compile-time asset management to [rust-embed](https://github.com/pyrossh/rust-embed).
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
