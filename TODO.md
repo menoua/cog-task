@@ -1,6 +1,7 @@
 ## To-do
 
 - [ ] Add `requires` field to task.ron file as metadata such that it can be read before attempting to deserialize to be able to identify missing features instead of throwing more ambiguous errors.
+- [ ] Rename github repo to cog-task to be more succinct and same as the crate name.
 - [ ] Consider relegating compile-time asset management to [rust-embed](https://github.com/pyrossh/rust-embed).
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.
