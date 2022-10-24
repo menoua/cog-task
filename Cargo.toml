@@ -53,7 +53,7 @@ heck = "0.4"
 [features]
 default = []
 sound = ["dep:rodio"]
-stream = ["sound"]
+stream = []
 gstreamer = ["stream", "dep:gstreamer", "dep:gstreamer-app", "dep:glib"]
 ffmpeg = ["stream", "dep:ffmpeg-next"]
 benchmark = []
