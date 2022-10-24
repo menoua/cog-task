@@ -50,7 +50,7 @@ impl Scheduler {
         let mut async_writer = AsyncProcessor::spawn(&info, &config, &server_writer)?;
         let (mut sync_writer, atomic) = SyncProcessor::spawn(
             &io,
-            &resources,
+            resources,
             &config,
             ctx,
             tree,
@@ -131,7 +131,8 @@ impl Scheduler {
                 if time.duration_since(t).unwrap() < Duration::from_millis(300) {
                     #[cfg(feature = "benchmark")]
                     self.profiler.toc(0);
-                    return Ok(self.request_interrupt());
+                    self.request_interrupt();
+                    return Ok(());
                 }
             }
             self.last_esc = Some(time);
@@ -154,7 +155,7 @@ impl Scheduler {
                 .frame(Frame::default().fill(self.config.background().into()))
                 .show_inside(ui, |ui| {
                     if tree.props().visual() {
-                        tree.show(ui, &mut self.sync_writer, &mut self.async_writer, &state)
+                        tree.show(ui, &mut self.sync_writer, &mut self.async_writer, state)
                     } else {
                         ui.output().cursor_icon = CursorIcon::None;
                         Ok(())

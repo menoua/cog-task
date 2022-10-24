@@ -89,9 +89,9 @@ impl Action for Instruction {
                 _ => Err(eyre!("Unknown signal identifier: {}", &caps[1])),
             }?;
 
-            if !self.params.contains_key(&key) {
-                self.params.insert(key, "<UNSET>".to_owned());
-            }
+            self.params
+                .entry(key)
+                .or_insert_with(|| "<UNSET>".to_owned());
         }
 
         self.text = re
@@ -100,7 +100,7 @@ impl Action for Instruction {
                     "#{}({})",
                     &caps[1],
                     if caps[2].starts_with("0x") {
-                        u16::from_str_radix(&caps[2].trim_start_matches("0x"), 16).unwrap()
+                        u16::from_str_radix(caps[2].trim_start_matches("0x"), 16).unwrap()
                     } else {
                         caps[2].parse::<u16>().unwrap()
                     }
@@ -185,10 +185,10 @@ impl StatefulAction for StatefulInstruction {
                 for (k, v) in signal.iter() {
                     if let Some(entry) = self.params_i.get_mut(k) {
                         *entry = match v {
-                            Value::Bool(v) => format!("{v}"),
-                            Value::Integer(v) => format!("{v}"),
+                            Value::Bool(v) => v.to_string(),
+                            Value::Integer(v) => v.to_string(),
                             Value::Float(v) => format!("{v:.4}"),
-                            Value::Text(v) => format!("{v}"),
+                            Value::Text(v) => v.to_string(),
                             Value::Null => "<UNSET>".to_owned(),
                             _ => "<INVALID>".to_owned(),
                         };
@@ -229,10 +229,10 @@ impl StatefulAction for StatefulInstruction {
         }
         for i in self.params_s.iter() {
             let v = match state.get(i).unwrap_or(&Value::Null) {
-                Value::Bool(v) => format!("{v}"),
-                Value::Integer(v) => format!("{v}"),
+                Value::Bool(v) => v.to_string(),
+                Value::Integer(v) => v.to_string(),
                 Value::Float(v) => format!("{v:.4}"),
-                Value::Text(v) => format!("{v}"),
+                Value::Text(v) => v.to_string(),
                 Value::Null => "<UNSET>".to_owned(),
                 _ => "<INVALID>".to_owned(),
             };

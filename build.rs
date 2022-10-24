@@ -16,7 +16,7 @@ fn main() {
         .into_iter()
         .map(|p| p.unwrap().path())
         .filter(|p| p.is_file())
-        .filter(|p| p.extension().unwrap_or(OsStr::new("")).to_str() == Some("rs"))
+        .filter(|p| p.extension().unwrap_or_else(|| OsStr::new("")).to_str() == Some("rs"))
         .map(|p| {
             p.with_extension("")
                 .file_name()
@@ -46,7 +46,7 @@ fn main() {
         .into_iter()
         .map(|p| p.unwrap().path())
         .filter(|p| p.is_file())
-        .filter(|p| p.extension().unwrap_or(OsStr::new("")).to_str() == Some("rs"))
+        .filter(|p| p.extension().unwrap_or_else(|| OsStr::new("")).to_str() == Some("rs"))
         .map(|p| {
             p.with_extension("")
                 .file_name()

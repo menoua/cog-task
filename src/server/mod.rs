@@ -23,7 +23,7 @@ use eyre::{Error, Result};
 use std::path::PathBuf;
 use std::time::Duration;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Page {
     Startup,
     Selection,
@@ -224,13 +224,9 @@ impl Server {
             | (Page::CleanUp, ServerSignal::AsyncComplete(success)) => {
                 self.cleaning_up -= 1;
                 if self.cleaning_up == 0 {
-                    match (&self.status, success) {
-                        (Progress::Success(_), Err(e)) => {
-                            self.status = Progress::CleanupError(Local::now(), e)
-                        }
-                        _ => {}
+                    if let (Progress::Success(_), Err(e)) = (&self.status, success) {
+                        self.status = Progress::CleanupError(Local::now(), e);
                     }
-
                     self.page = Page::Selection;
                 }
             }

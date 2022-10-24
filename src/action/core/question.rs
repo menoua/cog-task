@@ -357,13 +357,13 @@ impl StatefulQItem {
                 choice,
                 columns,
                 ..
-            } => Self::show_single_choice(ui, &options, choice, *columns),
+            } => Self::show_single_choice(ui, options, choice, *columns),
             StatefulQItem::MultiChoice {
                 options,
                 choice,
                 columns,
                 ..
-            } => Self::show_multi_choice(ui, &options, choice, *columns),
+            } => Self::show_multi_choice(ui, options, choice, *columns),
             StatefulQItem::Slider {
                 range,
                 step,
@@ -443,7 +443,7 @@ impl StatefulQItem {
     fn show_multi_choice(
         ui: &mut egui::Ui,
         options: &[String],
-        choice: &mut Vec<bool>,
+        choice: &mut [bool],
         columns: usize,
     ) {
         ui.scope(|ui| {

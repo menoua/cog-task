@@ -30,11 +30,9 @@ impl Server {
             self.show_selection_status(ui.ctx());
         }
 
-        if ui.input().key_pressed(egui::Key::Escape) {
-            if !matches!(self.status, Progress::None) {
-                self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 =
-                    std::mem::replace(&mut self.status, Progress::None);
-            }
+        if ui.input().key_pressed(egui::Key::Escape) && !matches!(self.status, Progress::None) {
+            self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 =
+                std::mem::replace(&mut self.status, Progress::None);
         }
     }
 
@@ -135,9 +133,8 @@ impl Server {
                                                             Progress::LastRun(t) => (
                                                                 Style::TodoButton,
                                                                 Some(tooltip(format!(
-                                                                    "Last run: {}",
+                                                                    "Last run @ {}",
                                                                     t.format("%Y-%m-%d %H:%M:%S")
-                                                                        .to_string()
                                                                 ))),
                                                             ),
                                                         };
@@ -186,7 +183,7 @@ impl Server {
                     thread::spawn(move || {
                         match resource_map.preload_block(resources, tex_manager, &config, &env) {
                             Ok(()) => sync_writer.push(ServerSignal::LoadComplete),
-                            Err(e) => sync_writer.push(ServerSignal::BlockCrashed(e.into())),
+                            Err(e) => sync_writer.push(ServerSignal::BlockCrashed(e)),
                         }
                     });
                 }

@@ -21,17 +21,27 @@ impl SystemInfo {
         Self {
             system: format!(
                 "{} ({}) ({})",
-                sys.name().unwrap_or("".to_owned()).trim(),
-                sys.long_os_version().unwrap_or("?".to_owned()).trim(),
-                sys.kernel_version().unwrap_or("?".to_owned()).trim(),
+                sys.name().unwrap_or_else(|| "".to_owned()).trim(),
+                sys.long_os_version()
+                    .unwrap_or_else(|| "?".to_owned())
+                    .trim(),
+                sys.kernel_version()
+                    .unwrap_or_else(|| "?".to_owned())
+                    .trim(),
             ),
-            cpu_brand: format!("{}", sys.global_cpu_info().brand()),
+            cpu_brand: sys.global_cpu_info().brand().to_string(),
             cpu_cores: sys.cpus().len(),
             memory_total: sys.total_memory(),
             memory_available: sys.available_memory(),
             renderer: "(?)".to_owned(),
             hw_acceleration: "(?)".to_owned(),
         }
+    }
+}
+
+impl Default for SystemInfo {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

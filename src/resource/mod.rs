@@ -169,11 +169,11 @@ impl ResourceMap {
                         Ok(ResourceValue::Image(texture, size))
                     }
                     "wav" | "flac" | "ogg" => {
-                        Ok(ResourceValue::Audio(audio_from_file(&path, &config)?))
+                        Ok(ResourceValue::Audio(audio_from_file(&path, config)?))
                     }
                     "avi" | "gif" | "mkv" | "mov" | "mp4" | "mpg" | "webm" => {
                         let tex_manager = tex_manager.clone();
-                        let (frames, framerate) = video_from_file(tex_manager, &path, &config)?;
+                        let (frames, framerate) = video_from_file(tex_manager, &path, config)?;
                         Ok(ResourceValue::Video(frames, framerate))
                     }
                     "stream" => {
@@ -181,7 +181,7 @@ impl ResourceMap {
                         Ok(ResourceValue::Stream(stream_from_file(
                             tex_manager,
                             &path,
-                            &config,
+                            config,
                         )?))
                     }
                     _ => Err(eyre!(

@@ -144,7 +144,7 @@ impl SyncProcessor {
                                 &ActionSignal::UpdateGraph,
                                 &mut proc.sync_writer,
                                 &mut proc.async_writer,
-                                &state,
+                                state,
                             )
                         }
                         SyncSignal::KeyPress(time, keys) => {
@@ -153,7 +153,7 @@ impl SyncProcessor {
                                 &ActionSignal::KeyPress(time, keys),
                                 &mut proc.sync_writer,
                                 &mut proc.async_writer,
-                                &state,
+                                state,
                             )
                         }
                         SyncSignal::Emit(time, signal) => {
@@ -169,7 +169,7 @@ impl SyncProcessor {
                                     &ActionSignal::StateChanged,
                                     &mut proc.sync_writer,
                                     &mut proc.async_writer,
-                                    &state,
+                                    state,
                                 )?;
                             }
 
@@ -178,7 +178,7 @@ impl SyncProcessor {
                                     &ActionSignal::Internal(time, int_sig),
                                     &mut proc.sync_writer,
                                     &mut proc.async_writer,
-                                    &state,
+                                    state,
                                 )?;
                             }
 
@@ -196,15 +196,17 @@ impl SyncProcessor {
                     });
 
                     let (tree, state) = &mut *proc.atomic.lock().unwrap();
-                    if tree.is_over().unwrap_or_else(|e| {
+                    let is_over = tree.is_over().unwrap_or_else(|e| {
                         proc.server_writer.push(ServerSignal::BlockCrashed(e));
-                        let _ = tree.stop(&mut proc.sync_writer, &mut proc.async_writer, &state);
+                        let _ = tree.stop(&mut proc.sync_writer, &mut proc.async_writer, state);
                         *tree = Box::new(StatefulNil::new());
                         proc.ctx.request_repaint();
                         false
-                    }) {
+                    });
+
+                    if is_over {
                         proc.server_writer.push(ServerSignal::BlockFinished);
-                        tree.stop(&mut proc.sync_writer, &mut proc.async_writer, &state)?;
+                        tree.stop(&mut proc.sync_writer, &mut proc.async_writer, state)?;
                         *tree = Box::new(StatefulNil::new());
                         proc.ctx.request_repaint();
                     }
@@ -227,7 +229,7 @@ impl SyncProcessor {
             ("start".to_owned(), Value::Text("ok".to_owned())),
         ));
 
-        tree.start(&mut self.sync_writer, &mut self.async_writer, &state)?;
+        tree.start(&mut self.sync_writer, &mut self.async_writer, state)?;
 
         if tree.is_over()? {
             self.server_writer.push(ServerSignal::BlockFinished);

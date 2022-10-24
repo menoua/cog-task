@@ -67,7 +67,7 @@ impl Action for Stream {
     #[inline]
     fn init(self) -> Result<Box<dyn Action>> {
         if let Some(v) = self.volume {
-            if v < 0.0 || v > 1.0 {
+            if !(0.0..=1.0).contains(&v) {
                 return Err(eyre!(
                     "Stream volume should be a float number between 0.0 and 1.0"
                 ));
@@ -248,7 +248,6 @@ impl StatefulAction for StatefulStream {
             .frame
             .lock()
             .unwrap()
-            .clone()
             .unwrap_or_else(|| (TextureId::default(), Vec2::splat(1.0)));
 
         ui.output().cursor_icon = CursorIcon::None;

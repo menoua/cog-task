@@ -11,9 +11,9 @@ impl Server {
                 self.sync_reader.push(ServerSignal::BlockCrashed(e));
             }
         } else {
-            self.sync_reader.push(ServerSignal::BlockCrashed(
-                eyre!("Scheduler died while a task was active.").into(),
-            ));
+            self.sync_reader.push(ServerSignal::BlockCrashed(eyre!(
+                "Scheduler died while a task was active."
+            )));
         }
     }
 }

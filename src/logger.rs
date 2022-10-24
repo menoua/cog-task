@@ -106,7 +106,7 @@ impl Logger {
             let mut file = File::create(&path)
                 .wrap_err_with(|| format!("Failed to create log file for group (`{group}`)"))?;
 
-            write_vec(&mut file, self.log_format, &vec)?;
+            write_vec(&mut file, self.log_format, vec)?;
             *flush = false;
 
             #[cfg(debug_assertions)]
@@ -148,7 +148,7 @@ impl Logger {
 
     pub fn finish(&mut self) -> Result<()> {
         self.flush()
-            .wrap_err_with(|| format!("Failed to graciously close logger."))?;
+            .wrap_err("Failed to graciously close logger.")?;
 
         self.content.clear();
         Ok(())

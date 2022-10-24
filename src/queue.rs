@@ -78,6 +78,12 @@ impl<T> QReader<T> {
     }
 }
 
+impl<T> Default for QReader<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> QWriter<T> {
     #[inline(always)]
     pub fn push(&mut self, msg: impl Into<T>) {

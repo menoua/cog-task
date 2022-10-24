@@ -1,6 +1,6 @@
 [package]
 name = "cog-task"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 readme = "README.md"
@@ -9,7 +9,6 @@ description = "CogTask: a general-purpose low-latency application to serve cogni
 exclude = [".*"]
 
 [dependencies]
-anyhow = "1.0"
 eyre = "0.6"
 eframe = "0.19"
 egui_extras = "0.19"

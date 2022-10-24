@@ -52,8 +52,8 @@ impl Action for Seq {
             })
             .collect();
 
-        for i in 0..(children.len() - 1) {
-            if children[i].props().infinite() {
+        for c in children.iter().take(children.len() - 1) {
+            if c.props().infinite() {
                 return Err(eyre!("Only the final action in a `Seq` can be infinite."));
             }
         }

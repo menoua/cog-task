@@ -34,6 +34,12 @@ impl Nil {
     }
 }
 
+impl Default for Nil {
+    fn default() -> Self {
+        Self
+    }
+}
+
 impl StatefulAction for StatefulNil {
     impl_stateful!();
 
@@ -84,6 +90,12 @@ impl StatefulAction for StatefulNil {
 
 impl StatefulNil {
     pub fn new() -> Self {
-        Self { done: true }
+        Self { done: false }
+    }
+}
+
+impl Default for StatefulNil {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -165,7 +165,7 @@ impl MediaStream for Stream {
 
                 let sleeper = spin_sleeper();
 
-                if let Err(_) = rx_start.recv() {
+                if rx_start.recv().is_err() {
                     *is_eos.lock().unwrap() = true;
                     return;
                 }

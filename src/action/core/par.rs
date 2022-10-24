@@ -200,19 +200,9 @@ impl StatefulAction for StatefulPar {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<()> {
-        if let Some(c) = self
-            .primary
-            .iter_mut()
-            .filter(|c| c.props().visual())
-            .next()
-        {
+        if let Some(c) = self.primary.iter_mut().find(|c| c.props().visual()) {
             c.show(ui, sync_writer, async_writer, state)
-        } else if let Some(c) = self
-            .secondary
-            .iter_mut()
-            .filter(|c| c.props().visual())
-            .next()
-        {
+        } else if let Some(c) = self.secondary.iter_mut().find(|c| c.props().visual()) {
             c.show(ui, sync_writer, async_writer, state)
         } else {
             Ok(())
