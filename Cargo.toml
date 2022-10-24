@@ -56,6 +56,7 @@ audio = ["dep:rodio"]
 stream = []
 gstreamer = ["stream", "dep:gstreamer", "dep:gstreamer-app", "dep:glib"]
 ffmpeg = ["stream", "dep:ffmpeg-next"]
+full = ["audio", "gstreamer", "ffmpeg"]
 benchmark = []
 
 [[bin]]

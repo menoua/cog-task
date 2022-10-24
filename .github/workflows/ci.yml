@@ -76,7 +76,7 @@ jobs:
 
       - run: cargo test --features=ffmpeg --all-targets
 
-      - run: cargo test --features=audio,gstreamer,ffmpeg --all-targets
+      - run: cargo test --features=full --all-targets
 
 #   cargo-publish:
 #     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
