@@ -41,7 +41,7 @@ jobs:
       #     cargo clippy -- -D warnings
       #   if: matrix.toolchain == 'stable' && matrix.os == 'ubuntu-latest'
 
-      - name: install ${{ matrix.toolchain }} toolchain
+      - name: Install ${{ matrix.toolchain }} toolchain
         id: install_toolchain
         uses: actions-rs/toolchain@v1
         with:
@@ -52,27 +52,31 @@ jobs:
 
       - run: cargo test --all-targets
 
-      - name: install linux deps
+      - name: Install linux deps -- alsa
         run: |
           sudo apt update
           sudo apt install -y --no-install-recommends libasound2-dev pkg-config
         if: contains(matrix.os, 'ubuntu')
 
-      - run: cargo test --features=sound --all-targets
+      - run: cargo test --features=audio --all-targets
 
-      - name: install macos deps
+      - name: Install macos deps -- gstreamer
         run: |
           brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server
         if: contains(matrix.os, 'macos')
 
-      - name: install linux deps
+      - name: Install linux deps -- gstreamer
         run: |
           sudo apt update
           sudo apt install -y --no-install-recommends libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
           sudo apt install -y --no-install-recommends libavfilter-dev libavdevice-dev
         if: contains(matrix.os, 'ubuntu')
 
-      - run: cargo test --features=stream --all-targets
+      - run: cargo test --features=gstreamer --all-targets
+
+      - run: cargo test --features=ffmpeg --all-targets
+
+      - run: cargo test --features=audio,gstreamer,ffmpeg --all-targets
 
 #   cargo-publish:
 #     if: github.event_name == 'push' && github.ref == 'refs/heads/master'

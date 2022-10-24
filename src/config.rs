@@ -35,7 +35,9 @@ impl Default for TimePrecision {
 #[serde(rename_all = "snake_case")]
 pub enum MediaBackend {
     None,
+    #[cfg(feature = "gstreamer")]
     Gst,
+    #[cfg(feature = "ffmpeg")]
     Ffmpeg,
 }
 

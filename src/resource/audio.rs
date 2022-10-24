@@ -3,10 +3,9 @@ use crate::resource::AudioBuffer;
 use eyre::{eyre, Context, Result};
 use rodio::buffer::SamplesBuffer;
 use rodio::{Decoder, Source};
-use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::BufReader;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 pub fn audio_from_file(path: &Path, _config: &Config) -> Result<AudioBuffer> {
     let decoder = Decoder::new(BufReader::new(
@@ -80,19 +79,4 @@ pub fn drop_channel(src: AudioBuffer) -> Result<AudioBuffer> {
     }
 
     Ok(SamplesBuffer::new(out_channels as u16, sample_rate, samples).buffered())
-}
-
-#[derive(Deserialize, Serialize, Debug, Clone)]
-#[serde(rename_all = "snake_case")]
-pub enum Trigger {
-    Ext(PathBuf),
-    Int,
-    None,
-}
-
-impl Default for Trigger {
-    #[inline(always)]
-    fn default() -> Self {
-        Trigger::None
-    }
 }

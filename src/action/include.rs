@@ -2,7 +2,7 @@
 // DO NOT MODIFY THIS FILE MANUALLY! CHANGES WILL BE REVERTED.
 
 include_actions!(
-    core::audio@("alsa"),
+    core::audio@("audio"),
     core::counter@(),
     core::delayed@(),
     core::event@(),
@@ -25,7 +25,7 @@ include_actions!(
 );
 
 include_stateful_actions!(
-    core::audio@("alsa"),
+    core::audio@("audio"),
     core::counter@(),
     core::delayed@(),
     core::event@(),

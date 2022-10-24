@@ -1,4 +1,4 @@
-#[cfg(feature = "sound")]
+#[cfg(feature = "audio")]
 pub mod audio;
 pub mod color;
 pub mod image;
@@ -6,11 +6,12 @@ pub mod key;
 #[cfg(feature = "stream")]
 pub mod stream;
 pub mod text;
+pub mod trigger;
 #[cfg(feature = "stream")]
 pub mod video;
 
 use crate::resource::image::{image_from_file, svg_from_bytes, svg_from_file};
-#[cfg(feature = "sound")]
+#[cfg(feature = "audio")]
 use audio::audio_from_file;
 use text::text_or_file;
 #[cfg(feature = "stream")]
@@ -25,7 +26,7 @@ use eframe::egui::mutex::RwLock;
 use eframe::egui::{TextureId, Vec2};
 use eframe::epaint;
 use eyre::{eyre, Result};
-#[cfg(feature = "sound")]
+#[cfg(feature = "audio")]
 use rodio::{buffer::SamplesBuffer, source::Buffered, Source};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
@@ -35,14 +36,14 @@ use std::sync::{Arc, Mutex};
 
 #[cfg(feature = "stream")]
 pub type FrameBuffer = Arc<Vec<(TextureId, Vec2)>>;
-#[cfg(feature = "sound")]
+#[cfg(feature = "audio")]
 pub type AudioBuffer = Buffered<SamplesBuffer<i16>>;
 
 #[derive(Clone)]
 pub enum ResourceValue {
     Text(Arc<String>),
     Image(TextureId, Vec2),
-    #[cfg(feature = "sound")]
+    #[cfg(feature = "audio")]
     Audio(AudioBuffer),
     #[cfg(feature = "stream")]
     Video(FrameBuffer, f64),
@@ -59,7 +60,7 @@ impl Debug for ResourceValue {
             ResourceValue::Image(_, size) => {
                 write!(f, "[Image ({} x {})]", size.x, size.y)
             }
-            #[cfg(feature = "sound")]
+            #[cfg(feature = "audio")]
             ResourceValue::Audio(buffer) => {
                 write!(
                     f,
@@ -181,7 +182,7 @@ impl ResourceMap {
                         let (texture, size) = svg_from_file(tex_manager, &path)?;
                         Ok(ResourceValue::Image(texture, size))
                     }
-                    #[cfg(feature = "sound")]
+                    #[cfg(feature = "audio")]
                     "wav" | "flac" | "ogg" => {
                         Ok(ResourceValue::Audio(audio_from_file(&path, config)?))
                     }

@@ -1,4 +1,13 @@
-use crate::backend::{ffmpeg, gst, MediaMode, MediaStream};
+#[cfg(not(any(feature = "gstreamer", feature = "ffmpeg")))]
+compile_error!(
+    "To enable streaming at least one backend should be enabled (\"gstreamer\" or \"ffmpeg\")."
+);
+
+#[cfg(feature = "ffmpeg")]
+use crate::backend::ffmpeg;
+#[cfg(feature = "gstreamer")]
+use crate::backend::gst;
+use crate::backend::{MediaMode, MediaStream};
 use crate::config::{Config, MediaBackend};
 use crate::resource::FrameBuffer;
 use eframe::egui::mutex::RwLock;
@@ -21,7 +30,9 @@ pub fn stream_from_file(
 
 #[derive(Clone)]
 pub enum Stream {
+    #[cfg(feature = "gstreamer")]
     Gst(gst::Stream),
+    #[cfg(feature = "ffmpeg")]
     Ffmpeg(ffmpeg::Stream),
 }
 
@@ -48,9 +59,11 @@ impl Stream {
             MediaBackend::None => Err(eyre!(
                 "`Stream` action cannot be used without a media backend."
             )),
+            #[cfg(feature = "ffmpeg")]
             MediaBackend::Ffmpeg => {
                 ffmpeg::Stream::new(tex_manager, path, config).map(Stream::Ffmpeg)
             }
+            #[cfg(feature = "gstreamer")]
             MediaBackend::Gst => gst::Stream::new(tex_manager, path, config).map(Stream::Gst),
         }
     }
@@ -59,7 +72,9 @@ impl Stream {
     #[inline(always)]
     pub fn eos(&self) -> bool {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.eos(),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.eos(),
         }
     }
@@ -68,7 +83,9 @@ impl Stream {
     #[inline(always)]
     pub fn size(&self) -> [u32; 2] {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.size(),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.size(),
         }
     }
@@ -77,7 +94,9 @@ impl Stream {
     #[inline(always)]
     pub fn framerate(&self) -> f64 {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.framerate(),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.framerate(),
         }
     }
@@ -86,7 +105,9 @@ impl Stream {
     #[inline(always)]
     pub fn channels(&self) -> u16 {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.channels(),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.channels(),
         }
     }
@@ -95,7 +116,9 @@ impl Stream {
     #[inline(always)]
     pub fn duration(&self) -> Duration {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.duration(),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.duration(),
         }
     }
@@ -104,7 +127,9 @@ impl Stream {
     #[inline(always)]
     pub fn has_video(&self) -> bool {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.has_video(),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.has_video(),
         }
     }
@@ -113,7 +138,9 @@ impl Stream {
     #[inline(always)]
     pub fn has_audio(&self) -> bool {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.has_audio(),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.has_audio(),
         }
     }
@@ -157,7 +184,9 @@ impl Stream {
     /// Starts a stream; assumes it is at first frame and unpauses.
     pub fn start(&mut self) -> Result<()> {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.start(),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.start(),
         }
     }
@@ -165,7 +194,9 @@ impl Stream {
     /// Restarts a stream; seeks to the first frame and unpauses, sets the `eos` flag to false.
     pub fn restart(&mut self) -> Result<()> {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.restart(),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.restart(),
         }
     }
@@ -173,14 +204,18 @@ impl Stream {
     /// Pauses a stream
     pub fn pause(&mut self) -> Result<()> {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.pause(),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.pause(),
         }
     }
 
     pub fn process_bus(&mut self, looping: bool) -> Result<bool> {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.process_bus(looping),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.process_bus(looping),
         }
     }
@@ -192,14 +227,18 @@ impl Stream {
         volume: Option<f32>,
     ) -> Result<Self> {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.cloned(frame, media_mode, volume).map(Stream::Gst),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.cloned(frame, media_mode, volume).map(Stream::Ffmpeg),
         }
     }
 
     pub fn pull_samples(&self) -> Result<(FrameBuffer, f64)> {
         match self {
+            #[cfg(feature = "gstreamer")]
             Stream::Gst(stream) => stream.pull_samples(),
+            #[cfg(feature = "ffmpeg")]
             Stream::Ffmpeg(stream) => stream.pull_samples(),
         }
     }

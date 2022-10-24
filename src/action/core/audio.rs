@@ -1,10 +1,11 @@
-//! alsa
+//! audio
 
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::config::{Config, TimePrecision};
 use crate::io::IO;
 use crate::queue::QWriter;
-use crate::resource::audio::{drop_channel, interlace_channels, Trigger};
+use crate::resource::audio::{drop_channel, interlace_channels};
+use crate::resource::trigger::Trigger;
 use crate::resource::{ResourceMap, ResourceValue};
 use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::scheduler::State;
