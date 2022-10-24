@@ -10,11 +10,31 @@ A general-purpose low-latency application to serve cognitive tasks, built with [
 
 The most reliable way to install CogTask is by installing Cargo through [rustup](https://rustup.rs/) and compiling the binaries locally.
 
-Install cargo: ```curl https://sh.rustup.rs -sSf | sh```
+1. Install Cargo:<br>
+```$ curl https://sh.rustup.rs -sSf | sh```
 
-Build stable binaries from [crates.io](https://crates.io/crates/cog-task): ```cargo install cog-task```
+2. Build binaries (choose one):
+   - Build stable binaries from [crates.io](https://crates.io/crates/cog-task):<br>
+   ```$ cargo install cog-task [--features=...]```
+   
+   - Build nightly binaries from [github](https://github.com/menoua/cog-task-rs):<br>
+   ```$ cargo install --git https://github.com/menoua/cog-task-rs [--features=...]```
 
-**OR** Build unstable binaries from [github](https://github.com/menoua/cog-task-rs): ```cargo install --git https://github.com/menoua/cog-task-rs```
+## Features
+
+By default (no features), this package should compile and run out-of-the-box on a reasonably recent macOS or Linux distribution. Some types of actions however depend on features that can be enabled during installation. These features are not enabled by default because they rely on system libraries that might not be installed on the OS out-of-the-box.
+
+Currently, there are 4 main features that can be enabled:
+1. `audio` -- enables the `Audio` action via the ALSA sound library.
+2. `gstreamer` -- enables the `Stream` and `Video` actions via the gstreamer backend.
+3. `ffmpeg` -- enables the `Stream` and `Video` actions via the ffmpeg backend.
+4. `full` -- a shorthand to enable the previous three features.
+
+For example:
+- Stable binaries with full support:<br>
+```$ cargo install cog-task --features=full```
+- Nightly binaries with audio and gstreamer support:<br>
+```$ cargo install --git https://github.com/menoua/cog-task-rs --features=audio,gstreamer```
 
 ## Usage
 
