@@ -1,0 +1,692 @@
+(
+    name: "Dummy",
+    version: "0.1",
+
+    config: (
+        use_trigger: true,
+        base_volume: Some(0.75),
+        blocks_per_row: 3,
+    ),
+
+    blocks: [
+        (
+            name: "Basic",
+            config: (
+                background: Some(rgba(0, 80, 240, 64)),
+            ),
+            tree: seq(([
+                par(([
+                    seq(([
+                        timeout((1, instruction((text: "3", static: true)))),
+                        timeout((1, instruction((text: "2", static: true)))),
+                        timeout((1, instruction((text: "1", static: true)))),
+                    ]))
+                ], [
+                    event(("countdown")),
+                ])),
+                par(([
+                    audio((src: "sample-6s.wav")),
+                    instruction((
+                        text: "Either wait until the end of the audio or press \"Next\".",
+                    )),
+                ], [
+                    event(("one_audio")),
+                    key_logger(("section1")),
+                    key_logger(("all_keys")),
+                    fixation(()),
+                ],
+                    any
+                )),
+                par(([
+                    seq(([
+                        audio((src: "sample-6s.wav", volume: Some(1.0))),
+                        audio((src: "sample-6s.wav", volume: Some(0.25))),
+                        audio((src: "sample-6s.wav", volume: Some(2.0))),
+                    ]))
+                ], [
+                    event(("three_audios")),
+                    key_logger(("section2")),
+                    key_logger(("all_keys")),
+                    instruction((
+                        text: "Key presses will be logged until the end of this audio",
+                        static: true
+                    )),
+                ])),
+                instruction((
+                    text: "Press a key when you see \"Now\".\nYour accuracy will determine the volume of the audio that will play afterwards.",
+                )),
+                par(([
+                    seq(([
+                        wait((2.0)),
+                        timeout((0.2, instruction((text: "Now", static: true)))),
+                        wait((1.8)),
+                        timeout((0.2, instruction((text: "Now", static: true)))),
+                        wait((1.8)),
+                    ]))
+                ], [
+                    event(("quiz")),
+                    reaction((
+                        times: [2, 4],
+                        tol: 1,
+                        group: "quizes",
+                        sig_accuracy: s(0x01),
+                        sig_recall: s(0x02),
+                        sig_mean_rt: s(0x03),
+                    )),
+                ])),
+                instruction((
+                    text: "Accuracy: #s(0x01)\nRecall: #s(0x02)\nMean RT: #s(0x03)",
+                )),
+            ]))
+        ),
+
+        (
+            name: "Scaling",
+            tree: seq(([
+                timeout((1.0, fixation(()))),
+                timeout((1.0, fixation((width: Some(50.0))))),
+                timeout((1.0, fixation((width: Some(150.0))))),
+                timeout((1.0, fixation((width: Some(600.0))))),
+                timeout((1.0, image((src: "rustacean.svg", background: transparent)))),
+                timeout((1.0, image((src: "rustacean.svg", background: yellow, width: Some(50.0))))),
+                timeout((1.0, image((src: "rustacean.svg", background: green, width: Some(150.0))))),
+                timeout((1.0, image((src: "rustacean.svg", background: blue, width: Some(600.0))))),
+            ]))
+        ),
+
+        (
+            name: "Stylized text",
+            tree: seq(([
+                instruction((text: "!![instruction-1.txt]", header: "From file")),
+                timeout((
+                    1.5,
+                    instruction((
+                        text: "1. First\n2. Second\n3. Third and last",
+                        static: true
+                    )),
+                )),
+                par(([
+                    audio((src: "sample-6s.wav"))
+                ], [
+                    image((src: "rustacean.svg", width: Some(400.0)))
+                ])),
+                par(([
+                    audio((src: "sample-6s.wav")),
+                    counter((4)),
+                ])),
+            ]))
+        ),
+
+        (
+            name: "Lazy start",
+            tree: delayed((
+                3.0,
+                instruction((text: "This text should have appeared 3 seconds after block start")),
+            ))
+        ),
+
+        (
+            name: "Separate trigger",
+            config: (
+                use_trigger: Some(true),
+                log_format: Some(yaml),
+            ),
+            tree: par(([
+                audio((src: "sample-6s+.wav"))
+            ], [
+                instruction((
+                    text:  "You should be hearing audio from the right speaker only.",
+                    static: true
+                ))
+            ]))
+        ),
+
+        (
+            name: "Embedded trigger",
+            config: (
+                use_trigger: Some(true),
+                log_format: Some(ron),
+            ),
+            tree: par(([
+                audio((src: "sample-6s-with-silence1.wav"))
+                ], [
+                instruction((
+                    text:  "You should be hearing audio from the right speaker only.",
+                    static: true,
+                ))
+            ]))
+        ),
+
+        (
+            name: "Nested actions",
+            tree: seq(([
+                template((src: "question-1.ron", params: {"group": "first"})),
+                template((src: "question-1.ron", params: {"group": "second"})),
+            ]))
+        ),
+
+        (
+            name: "Empty Block",
+            tree: nil(())
+        ),
+
+        (
+            name: "Flow error",
+            tree: seq(([
+                fixation(()),
+                instruction((text: "This action is unreachable.")),
+            ]))
+        ),
+
+        (
+            name: "Delay overhead",
+            tree: seq(([
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+            ]))
+        ),
+
+        (
+            name: "Non-overlapping audio",
+            config: (
+                time_precision: Some(respect_boundaries)
+            ),
+            tree: par(([
+                seq(([
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                    par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                ])),
+                seq(([
+                    wait((1.5)),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                    audio((src: "sample-6s.wav")),
+                ])),
+            ]))
+        ),
+
+        (
+            name: "Overlapping audio",
+            config: (
+                time_precision: Some(respect_intervals)
+            ),
+            tree: seq(([
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+                audio((src: "sample-6s.wav")),
+                par(([audio((src: "sample-6s.wav"))], [fixation(())])),
+            ]))
+        ),
+
+        (
+            name: "Cached Video",
+            config: (
+                media_backend: Some(gst)
+            ),
+            tree: seq(([
+                video((src: "earth-4sec.mp4")),
+                video((src: "earth-4sec.mp4", width: Some(200))),
+                video((src: "earth-4sec.mp4", width: Some(300))),
+                video((src: "earth-4sec.mp4", width: Some(600))),
+                timeout((15, video((src: "giphy.gif", width: Some(600), looping: true)))),
+            ]))
+        ),
+
+        (
+            name: "Short Video",
+            config: (
+                media_backend: Some(gst)
+            ),
+            tree: seq(([
+                stream((src: "earth-4sec.mp4", width: Some(200))),
+                stream((src: "earth-4sec.mp4", width: Some(300))),
+                stream((src: "earth-4sec.mp4", width: Some(600))),
+            ]))
+        ),
+
+        (
+            name: "Medium Video",
+            config: (
+                media_backend: Some(ffmpeg)
+            ),
+            tree: seq(([
+                instruction((text: "This is a 2-minute video...")),
+                stream((src: "video.webm", background: black)),
+                instruction((
+                    text: "This is the same video, but cached. Note that cached videos don't have sound.",
+                )),
+                video((src: "video.mpg")),
+            ]))
+        ),
+
+        (
+            name: "Long Video",
+            config: (
+                media_backend: Some(gst)
+            ),
+            tree: seq(([
+                instruction((
+                    text: "What comes next is a static video repeated #{0x01} times.\nQuickly press Escape twice to cancel the experiment block.",
+                    params: {}
+                )),
+                stream((src: "big_buck_bunny_720_stereo-720p.mp4", width: Some(1920))),
+                stream((src: "big_buck_bunny_720_stereo-720p.mp4")),
+                stream((src: "big_buck_bunny_720_stereo-720p.mp4")),
+                stream((src: "big_buck_bunny_720_stereo-720p.mp4")),
+            ]))
+        ),
+
+        (
+            name: "Medium Video with Trigger",
+            config: (
+                media_backend: Some(gst),
+                use_trigger: Some(true),
+            ),
+            tree: seq(([
+                instruction((
+                    text: "What comes next is a static video repeated 4 times.\nQuickly press Escape twice to cancel the experiment block.",
+                )),
+                stream((src: "video.mono.mov")),
+                stream((src: "video.mono.mov")),
+                stream((src: "video.mono.mov")),
+                stream((src: "video.mono.mov")),
+            ]))
+        ),
+
+        (
+            name: "Looping Video",
+            config: (
+                media_backend: Some(gst)
+            ),
+            tree: timeout((
+                12.0,
+                video((src: "earth-4sec.mp4", looping: true))
+            ))
+        ),
+
+        (
+            name: "Streamed Audio",
+            config: (
+                media_backend: Some(gst),
+                use_trigger: Some(true),
+            ),
+            tree: seq(([
+                stream((src: "sample-6s.wav")),
+                stream((src: "sample-6s.wav", volume: Some(0.75))),
+                stream((src: "sample-6s.wav", volume: Some(0.5))),
+                stream((src: "sample-6s.wav", volume: Some(0.25))),
+            ]))
+        ),
+
+        (
+            name: "Looping Audio",
+            tree: timeout((
+                15.0,
+                audio((src: "sample-6s.wav", looping: true)),
+            ))
+        ),
+
+        (
+            name: "Backend error",
+            tree: timeout((
+                15.0,
+                video((src: "earth-4sec.mp4", looping: true)),
+            ))
+        ),
+
+        (
+            name: "Looping Streams",
+            config: (
+                media_backend: Some(gst)
+            ),
+            tree: timeout((
+                15.0,
+                par(([
+                    stream((src: "sample-6s.wav", looping: true)),
+                    stream((src: "earth-4sec.mp4", looping: true)),
+                ])),
+            ))
+        ),
+    ]
+)

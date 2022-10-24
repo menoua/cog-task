@@ -56,11 +56,7 @@ impl Launcher {
                 .filter_map(|e| {
                     if let Ok(e) = e {
                         if let Ok(t) = e.file_type() {
-                            if t.is_dir()
-                                && ["json", "yml"]
-                                    .into_iter()
-                                    .any(|ext| e.path().join(format!("task.{ext}")).exists())
-                            {
+                            if t.is_dir() && e.path().join("task.ron").exists() {
                                 return Some(e.path());
                             }
                         }
