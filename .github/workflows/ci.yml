@@ -18,12 +18,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest, ubuntu-latest]
-        toolchain: [stable, beta, nightly]
+        os: [macos-latest, ubuntu-latest]
+        toolchain: [stable]
         include:
           - os: macos-latest
             MACOS: true
-          - os: windows-latest
           - os: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -56,27 +55,27 @@ jobs:
         if: matrix.toolchain == 'stable' && matrix.os == 'ubuntu-latest'
       - run: cargo test --all-targets
       - run: cargo test --features=symphonia-all --all-targets
-  cargo-publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    env:
-      CRATESIO_TOKEN: ${{ secrets.CRATESIO_TOKEN }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Update apt
-        run: sudo apt update
-      - name: Install alsa
-        run: sudo apt install -y --no-install-recommends libasound2-dev pkg-config
-      - name: Run cargo publish for rodio
-        continue-on-error: true
-        run: |
-          RODIO_TMP=$(mktemp /tmp/rodioXXX.txt) || echo "::error::mktemp error"
-          echo "RODIO_TMP=$RODIO_TMP" >> $GITHUB_ENV
-          cargo publish --token $CRATESIO_TOKEN 2> $RODIO_TMP
-      - name: Check if rodio is already published
-        run: |
-          empty=0
-          RODIO_TMP="${{ env.RODIO_TMP }}"
-          grep -q '[^[:space:]]' < $RODIO_TMP || empty=1
-          [ $empty -eq 0 ] && cat $RODIO_TMP
-          [ $empty -eq 1 ] || grep -q "is already uploaded" < $RODIO_TMP
+#   cargo-publish:
+#     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+#     env:
+#       CRATESIO_TOKEN: ${{ secrets.CRATESIO_TOKEN }}
+#     runs-on: ubuntu-latest
+#     steps:
+#       - uses: actions/checkout@v2
+#       - name: Update apt
+#         run: sudo apt update
+#       - name: Install alsa
+#         run: sudo apt install -y --no-install-recommends libasound2-dev pkg-config
+#       - name: Run cargo publish for crate
+#         continue-on-error: true
+#         run: |
+#           COG_TASK_TMP=$(mktemp /tmp/cog_taskXXX.txt) || echo "::error::mktemp error"
+#           echo "COG_TASK_TMP=$COG_TASK_TMP" >> $GITHUB_ENV
+#           cargo publish --token $CRATESIO_TOKEN 2> $COG_TASK_TMP
+#       - name: Check if crate is already published
+#         run: |
+#           empty=0
+#           COG_TASK_TMP="${{ env.COG_TASK_TMP }}"
+#           grep -q '[^[:space:]]' < $COG_TASK_TMP || empty=1
+#           [ $empty -eq 0 ] && cat $COG_TASK_TMP
+#           [ $empty -eq 1 ] || grep -q "is already uploaded" < $COG_TASK_TMP
