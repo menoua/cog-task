@@ -1,9 +1,9 @@
 /target
 /task
 /output
-/launcher
+/cog-launcher
+/cog-server
 /bin
 Cargo.lock
 .DS_Store
 .idea
-
