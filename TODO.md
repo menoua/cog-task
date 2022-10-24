@@ -18,6 +18,7 @@
 - [ ] Add option for audio cross-fade just in case.
 - [ ] A persistent (across `Server` instantiation) channel to external programs will be needed to handle communication with recording devices, etc.
 - [ ] Add `Direction` task: show virtual head with Left/Right/Front marked on screen. Two modes: Continuous and Quantized(n: u32). If continuous, do math and draw line wherever mouse is pointing. If quantized, divide space into n equal sized slices. Pointer selects slice. Allow for limiting the range of angles? At least front-only (180°) and front-and-back (360°).
+- [ ] Fix CI so that it can compile the code on macOS and Linux (at least Ubuntu). Currently failing due to missing `alsa` and `gstreamer-1.0` libs.
 
 ## Waiting on upstream
 
