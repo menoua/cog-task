@@ -36,7 +36,8 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y --no-install-recommends libasound2-dev pkg-config
-          sudo apt install -y --no-install-recommends libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio libavfilter-dev
+          sudo apt install -y --no-install-recommends libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
+          sudo apt install -y --no-install-recommends libavfilter-dev libavdevice-dev
         if: contains(matrix.os, 'ubuntu')
 
       - name: install ${{ matrix.toolchain }} toolchain
