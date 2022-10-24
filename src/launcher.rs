@@ -176,7 +176,7 @@ impl Launcher {
         self.sys_info.hw_acceleration = format!("{:#?}", options.hardware_acceleration);
 
         eframe::run_native(
-            "A1829",
+            Self::title(),
             options,
             Box::new(|cc| {
                 style::init(&cc.egui_ctx);
