@@ -51,7 +51,7 @@ impl Task {
         }
 
         if self.description.is_empty() {
-            let path = root_dir.join("description.text");
+            let path = root_dir.join("description.txt");
             let description = fs::read_to_string(&path)
                 .wrap_err_with(|| format!("Unable to open task description file ({path:?})."))?;
             self.description = description;

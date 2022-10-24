@@ -1,0 +1,178 @@
+(
+    name: "Basic",
+    version: "0.1",
+
+    config: (
+        blocks_per_row: 3,
+    ),
+
+    blocks: [
+        (
+            name: "Basic",
+            config: (
+                background: Some(rgba(0, 80, 240, 64)),
+            ),
+            tree: seq(([
+                par(([
+                    seq(([
+                        timeout((1, instruction((text: "3", static: true)))),
+                        timeout((1, instruction((text: "2", static: true)))),
+                        timeout((1, instruction((text: "1", static: true)))),
+                    ]))
+                ], [
+                    event(("countdown")),
+                ])),
+                par(([
+                    instruction((
+                        text: "Key presses will be logged until you click \"Next\".",
+                    )),
+                ], [
+                    event(("some_event")),
+                    key_logger(("section1")),
+                    key_logger(("all_keys")),
+                    fixation(()),
+                ],
+                    any
+                )),
+                instruction((
+                    text: "Press a key when you see \"Now\".\nYour reaction time will be measured and reported afterwards.",
+                )),
+                par(([
+                    seq(([
+                        wait((2.0)),
+                        timeout((0.2, instruction((text: "Now", static: true)))),
+                        wait((1.8)),
+                        timeout((0.2, instruction((text: "Now", static: true)))),
+                        wait((1.8)),
+                    ]))
+                ], [
+                    event(("quiz")),
+                    reaction((
+                        times: [2, 4],
+                        tol: 1,
+                        group: "quizes",
+                        sig_accuracy: s(0x01),
+                        sig_recall: s(0x02),
+                        sig_mean_rt: s(0x03),
+                    )),
+                ])),
+                instruction((
+                    text: "Accuracy: #s(0x01)\nRecall: #s(0x02)\nMean RT: #s(0x03)",
+                )),
+            ]))
+        ),
+
+        (
+            name: "Scaling",
+            tree: seq(([
+                timeout((1.0, fixation(()))),
+                timeout((1.0, fixation((width: Some(50.0))))),
+                timeout((1.0, fixation((width: Some(150.0))))),
+                timeout((1.0, fixation((width: Some(600.0))))),
+                timeout((1.0, image((src: "rustacean.svg", background: transparent)))),
+                timeout((1.0, image((src: "rustacean.svg", background: yellow, width: Some(50.0))))),
+                timeout((1.0, image((src: "rustacean.svg", background: green, width: Some(150.0))))),
+                timeout((1.0, image((src: "rustacean.svg", background: blue, width: Some(600.0))))),
+            ]))
+        ),
+
+        (
+            name: "Stylized text",
+            tree: seq(([
+                instruction((text: "!![instruction-1.txt]", header: "From file")),
+                timeout((
+                    1.5,
+                    instruction((
+                        text: "1. First\n2. Second\n3. Third and last",
+                        static: true
+                    )),
+                )),
+            ]))
+        ),
+
+        (
+            name: "Lazy start",
+            tree: delayed((
+                3.0,
+                instruction((text: "This text should have appeared 3 seconds after block start")),
+            ))
+        ),
+
+        (
+            name: "Nested actions",
+            tree: seq(([
+                template((src: "question-1.ron", params: {"group": "first"})),
+                template((src: "question-1.ron", params: {"group": "second"})),
+            ]))
+        ),
+
+        (
+            name: "Empty block",
+            tree: nil(())
+        ),
+
+        (
+            name: "Unreachable actions",
+            tree: seq(([
+                fixation(()),
+                instruction((text: "This action is unreachable.")),
+            ]))
+        ),
+
+        (
+            name: "Delay overhead",
+            tree: seq(([
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+                wait((0.5)), timeout((0.5, fixation((background: red)))),
+                wait((0.5)), timeout((0.5, fixation((background: white)))),
+                wait((0.5)), timeout((0.5, fixation((background: blue)))),
+                wait((0.5)), timeout((0.5, fixation((background: rgb(180, 180, 0))))),
+                wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
+            ]))
+        ),
+    ]
+)

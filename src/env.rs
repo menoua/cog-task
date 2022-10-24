@@ -21,7 +21,11 @@ impl Env {
                 .wrap_err_with(|| format!("Unable to create output directory: {output_dir:?}"))?;
         }
 
-        let resource_dir = task_dir.join("data");
+        let resource_dir = if task_dir.join("data").exists() {
+            task_dir.join("data")
+        } else {
+            task_dir.clone()
+        };
 
         Ok(Self {
             root_dir,

@@ -1,0 +1,6 @@
+This is a superset of the other tasks, involving all three features.
+
+All streams in this task are using the gstreamer backend, except in the block labeled ffmpeg.
+This is because the ffmpeg functionality is very limited at the moment.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc sed tellus sodales, cursus leo nec, varius metus. Aliquam erat volutpat. Maecenas tincidunt urna ac dolor facilisis lacinia. Suspendisse potenti. Curabitur quis eros mi. Nunc finibus arcu ipsum, sit amet rutrum felis convallis et. Sed ultricies eu augue non bibendum. Pellentesque lorem ipsum, euismod in placerat in, sollicitudin sit amet velit. Aliquam iaculis velit orci, eget cursus lacus maximus sed.

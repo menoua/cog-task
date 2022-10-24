@@ -1,5 +1,5 @@
 (
-    name: "Dummy",
+    name: "Full",
     version: "0.1",
 
     config: (
@@ -586,7 +586,7 @@
         ),
 
         (
-            name: "Medium Video",
+            name: "Ffmpeg",
             config: (
                 media_backend: Some(ffmpeg)
             ),

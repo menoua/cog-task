@@ -1,0 +1,118 @@
+(
+    name: "Using Gstreamer backend",
+    version: "0.1",
+
+    config: (
+        use_trigger: true,
+        base_volume: Some(0.75),
+        blocks_per_row: 3,
+        media_backend: gst,
+    ),
+
+    blocks: [
+        (
+            name: "Cached Video",
+            tree: seq(([
+                video((src: "../full/data/earth-4sec.mp4")),
+                video((src: "../full/data/earth-4sec.mp4", width: Some(200))),
+                video((src: "../full/data/earth-4sec.mp4", width: Some(300))),
+                video((src: "../full/data/earth-4sec.mp4", width: Some(600))),
+                timeout((15, video((src: "../full/data/giphy.gif", width: Some(600), looping: true)))),
+            ]))
+        ),
+
+        (
+            name: "Short Video",
+            tree: seq(([
+                stream((src: "../full/data/earth-4sec.mp4", width: Some(200))),
+                stream((src: "../full/data/earth-4sec.mp4", width: Some(300))),
+                stream((src: "../full/data/earth-4sec.mp4", width: Some(600))),
+            ]))
+        ),
+
+        (
+            name: "Medium Video",
+            tree: seq(([
+                instruction((text: "This is a 2-minute video...")),
+                stream((src: "../full/data/video.webm", background: black)),
+                instruction((
+                    text: "This is the same video, but cached. Note that cached videos don't have sound.",
+                )),
+                video((src: "../full/data/video.mpg")),
+            ]))
+        ),
+
+        (
+            name: "Long Video",
+            tree: seq(([
+                instruction((
+                    text: "What comes next is a static video repeated #{0x01} times.\nQuickly press Escape twice to cancel the experiment block.",
+                    params: {}
+                )),
+                stream((src: "../full/data/big_buck_bunny_720_stereo-720p.mp4", width: Some(1920))),
+                stream((src: "../full/data/big_buck_bunny_720_stereo-720p.mp4")),
+                stream((src: "../full/data/big_buck_bunny_720_stereo-720p.mp4")),
+                stream((src: "../full/data/big_buck_bunny_720_stereo-720p.mp4")),
+            ]))
+        ),
+
+        (
+            name: "Medium Video with Trigger",
+            config: (
+                use_trigger: Some(true),
+            ),
+            tree: seq(([
+                instruction((
+                    text: "What comes next is a static video repeated 4 times.\nQuickly press Escape twice to cancel the experiment block.",
+                )),
+                stream((src: "../full/data/video.mono.mov")),
+                stream((src: "../full/data/video.mono.mov")),
+                stream((src: "../full/data/video.mono.mov")),
+                stream((src: "../full/data/video.mono.mov")),
+            ]))
+        ),
+
+        (
+            name: "Looping Video",
+            tree: timeout((
+                12.0,
+                video((src: "../full/data/earth-4sec.mp4", looping: true))
+            ))
+        ),
+
+        (
+            name: "Streamed Audio",
+            config: (
+                use_trigger: Some(true),
+            ),
+            tree: seq(([
+                stream((src: "../full/data/sample-6s.wav")),
+                stream((src: "../full/data/sample-6s.wav", volume: Some(0.75))),
+                stream((src: "../full/data/sample-6s.wav", volume: Some(0.5))),
+                stream((src: "../full/data/sample-6s.wav", volume: Some(0.25))),
+            ]))
+        ),
+
+        (
+            name: "Backend error",
+            config: (
+                media_backend: Some(none)
+            ),
+            tree: timeout((
+                15.0,
+                video((src: "../full/data/earth-4sec.mp4", looping: true)),
+            ))
+        ),
+
+        (
+            name: "Looping Streams",
+            tree: timeout((
+                15.0,
+                par(([
+                    stream((src: "../full/data/sample-6s.wav", looping: true)),
+                    stream((src: "../full/data/earth-4sec.mp4", looping: true)),
+                ])),
+            ))
+        ),
+    ]
+)
