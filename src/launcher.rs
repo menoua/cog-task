@@ -4,9 +4,9 @@ use crate::style;
 use crate::style::text::{button1, tooltip};
 use crate::style::{style_ui, Style, TEXT_SIZE_DIALOGUE_BODY, TEXT_SIZE_DIALOGUE_TITLE};
 use crate::system::SystemInfo;
-use eframe::egui;
 use eframe::egui::{CursorIcon, Direction, Layout, Vec2, Window};
 use eframe::glow::HasContext;
+use eframe::{egui, App, Storage};
 use egui::widget_text::RichText;
 use egui_extras::{Size, StripBuilder};
 use heck::ToTitleCase;
@@ -25,7 +25,7 @@ enum Status {
 }
 
 pub struct Launcher {
-    _root_dir: PathBuf,
+    root_dir: PathBuf,
     task_paths: Vec<PathBuf>,
     task_labels: Vec<String>,
     busy: bool,
@@ -72,7 +72,7 @@ impl Launcher {
                 .collect();
 
             Self {
-                _root_dir: root_dir,
+                root_dir,
                 task_paths,
                 task_labels,
                 busy: false,
@@ -83,7 +83,7 @@ impl Launcher {
             }
         } else {
             Self {
-                _root_dir: root_dir,
+                root_dir,
                 task_paths: vec![],
                 task_labels: vec![],
                 busy: false,
@@ -176,7 +176,7 @@ impl Launcher {
         self.sys_info.hw_acceleration = format!("{:#?}", options.hardware_acceleration);
 
         eframe::run_native(
-            Self::title(),
+            "A1829",
             options,
             Box::new(|cc| {
                 style::init(&cc.egui_ctx);
@@ -185,6 +185,15 @@ impl Launcher {
                         .renderer
                         .push_str(&format!(" ({:?})", gl.version()))
                 }
+
+                if let Some(storage) = cc.storage {
+                    if let Some(root_dir) = storage.get_string("root_dir") {
+                        let sys_info = self.sys_info.clone();
+                        self = Self::new(PathBuf::from(root_dir));
+                        self.sys_info = sys_info;
+                    }
+                }
+
                 Box::new(self)
             }),
         );
@@ -210,7 +219,7 @@ pub enum LauncherSignal {
     TaskClosed,
 }
 
-impl eframe::App for Launcher {
+impl App for Launcher {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         while let Some(message) = self.sync_reader.try_pop() {
             self.process(message);
@@ -222,6 +231,14 @@ impl eframe::App for Launcher {
 
         ctx.set_pixels_per_point(2.0);
         ctx.request_repaint_after(Duration::from_millis(250));
+    }
+
+    fn save(&mut self, storage: &mut dyn Storage) {
+        if let Ok(root_dir) = self.root_dir.canonicalize() {
+            storage.set_string("root_dir", root_dir.to_str().unwrap().to_string());
+        }
+        storage.flush();
+        thread::sleep(Duration::from_secs_f32(0.5));
     }
 }
 

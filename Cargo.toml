@@ -13,9 +13,9 @@ autobins = false
 
 [dependencies]
 eyre = "0.6"
-eframe = "0.19"
-egui_extras = "0.19"
-egui_demo_lib = "0.19"
+eframe = { version = "0.19", features = ["persistence"] }
+egui_extras = { version = "0.19", features = ["serde"] }
+egui_demo_lib = { version = "0.19", features = ["serde"] }
 resvg = "0.24"
 usvg = "0.24"
 tiny-skia = "0.8"
