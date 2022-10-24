@@ -1,5 +1,9 @@
 # CogTask
 
+[![Crates.io Version](https://img.shields.io/crates/v/cog-task.svg)](https://crates.io/crates/cog-task)
+[![Crates.io Downloads](https://img.shields.io/crates/d/cog-task.svg)](https://crates.io/crates/cog-task)
+[![Build Status](https://github.com/menoua/cog-task-rs/workflows/CI/badge.svg)](https://github.com/menoua/cog-task-rs/actions)
+
 A general-purpose low-latency application to serve cognitive tasks, built with [egui](https://github.com/emilk/egui).
 
 ## Installation
