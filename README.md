@@ -1,2 +1,5 @@
 # CogTask
-A general-purpose low-latency application to serve cognitive tasks, built with [iced-rs](https://github.com/iced-rs/iced).
+A general-purpose low-latency application to serve cognitive tasks, built with [egui](https://github.com/emilk/egui).
+
+# Changelog
+Version 0.2.0 has gone through a massive overhaul, transitioning from the GUI framework of `iced` to `egui`. The transition was done to solve a screen update skipping issue (which it did). There have been other pros and cons too. Text and widget styling is (much) more difficult in `egui`. `egui`'s Glow backend supports image/SVG. Separating the `view` and `update` calls allowed redesigning block architecture (the dependency graph) into an action tree. This change makes it very difficult to design a buggy task, and significantly simplifies task definition style. It slightly limits the task design flexibility, but it's worth it. This change also comes with an increased overhead since `update`/`view` calls traverse the entire active subset of the tree, instead of jumping to the end nodes. However, the tree overhead is generally low compared to action-specific overheads, so that's not a huge deal.
