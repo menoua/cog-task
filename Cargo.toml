@@ -1,11 +1,13 @@
 [package]
 name = "cog-task"
 version = "0.2.3"
+authors = ["Menoua Keshishian <menoua.keshishian@gmail.com>"]
 edition = "2021"
+description = "A general-purpose low-latency application to run cognitive tasks"
 license = "MIT"
-readme = "README.md"
 repository = "https://github.com/menoua/cog-task"
-description = "CogTask: a general-purpose low-latency application to serve cognitive tasks"
+documentation = "https://docs.rs/cog-task"
+readme = "README.md"
 exclude = [".*", "/example"]
 rust-version = "1.64"
 default-run = "cog-launcher"
