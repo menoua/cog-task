@@ -1,10 +1,7 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
-use crate::config::Config;
-use crate::io::IO;
-use crate::queue::QWriter;
+use crate::comm::QWriter;
 use crate::resource::ResourceMap;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
+use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui::Ui;
 use eyre::Result;
 use serde::{Deserialize, Serialize};

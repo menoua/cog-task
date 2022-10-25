@@ -6,7 +6,7 @@
 
     config: (
         use_trigger: true,
-        base_volume: Some(0.75),
+        base_volume: 0.75,
         blocks_per_row: 3,
         media_backend: ffmpeg,
     ),
@@ -89,9 +89,9 @@
             ),
             tree: seq(([
                 stream((src: "../full/data/sample-6s.wav")),
-                stream((src: "../full/data/sample-6s.wav", volume: Some(0.75))),
-                stream((src: "../full/data/sample-6s.wav", volume: Some(0.5))),
-                stream((src: "../full/data/sample-6s.wav", volume: Some(0.25))),
+                stream((src: "../full/data/sample-6s.wav", volume: 0.75)),
+                stream((src: "../full/data/sample-6s.wav", volume: 0.5)),
+                stream((src: "../full/data/sample-6s.wav", volume: 0.25)),
             ]))
         ),
 

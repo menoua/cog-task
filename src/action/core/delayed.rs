@@ -1,16 +1,11 @@
-use crate::action::{Action, StatefulAction, DEFAULT};
-use crate::action::{ActionSignal, Props};
-use crate::config::Config;
-use crate::io::IO;
-use crate::queue::QWriter;
-use crate::resource::ResourceMap;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
+use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
+use crate::comm::QWriter;
+use crate::resource::{ResourceAddr, ResourceMap};
+use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -27,7 +22,7 @@ stateful!(Delayed {
 
 impl Action for Delayed {
     #[inline(always)]
-    fn resources(&self, config: &Config) -> Vec<PathBuf> {
+    fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         self.1.resources(config)
     }
 

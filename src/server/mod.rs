@@ -1,36 +1,30 @@
-mod activity;
-mod cleanup;
-mod loading;
-mod selection;
-mod startup;
+pub mod env;
+pub mod info;
+pub mod io;
+pub mod page;
+pub mod scheduler;
+pub mod task;
 
-#[cfg(feature = "benchmark")]
-use crate::benchmark::Profiler;
-use crate::config::Config;
-use crate::env::Env;
-use crate::queue::{QReader, QWriter};
+pub use env::Env;
+pub use info::*;
+pub use io::*;
+pub use page::*;
+pub use scheduler::*;
+pub use task::*;
+
+use crate::comm::{QReader, QWriter};
+use crate::gui;
 use crate::resource::ResourceMap;
-use crate::scheduler::Scheduler;
-use crate::style;
-use crate::system::SystemInfo;
-use crate::task::block::Block;
-use crate::task::Task;
+#[cfg(feature = "benchmark")]
+use crate::util::Profiler;
+use crate::util::SystemInfo;
 use chrono::{DateTime, Local, NaiveDateTime};
-use eframe::egui;
 use eframe::egui::CentralPanel;
 use eframe::glow::HasContext;
+use eframe::{egui, App};
 use eyre::{Error, Result};
 use std::path::PathBuf;
 use std::time::Duration;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Page {
-    Startup,
-    Selection,
-    Loading,
-    Activity,
-    CleanUp,
-}
 
 #[derive(Debug)]
 pub enum Progress {
@@ -133,7 +127,7 @@ impl Server {
             &self.title(),
             options,
             Box::new(|cc| {
-                style::init(&cc.egui_ctx);
+                gui::init(&cc.egui_ctx);
                 if let Some(gl) = &cc.gl {
                     self.sys_info
                         .renderer
@@ -276,7 +270,7 @@ pub enum ServerSignal {
     AsyncComplete(Result<()>),
 }
 
-impl eframe::App for Server {
+impl App for Server {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         #[cfg(feature = "benchmark")]
         self.profiler.step();
@@ -314,7 +308,7 @@ impl eframe::App for Server {
         self.profiler.toc(2);
 
         if !self.hold_on_rescale {
-            style::set_fullscreen_scale(ctx, self.scale_factor);
+            gui::set_fullscreen_scale(ctx, self.scale_factor);
         }
         if !matches!(self.page, Page::Activity) {
             ctx.request_repaint_after(Duration::from_millis(250));

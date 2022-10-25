@@ -1,15 +1,8 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
-use crate::config::Config;
-use crate::io::IO;
-use crate::queue::QWriter;
-use crate::resource::text::parse_text;
-use crate::resource::{text::text_or_file, ResourceMap};
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
-use crate::signal::SignalId;
-use crate::style::text::button1;
-use crate::style::{style_ui, Style};
-use crate::template::{center_x, header_body_controls};
+use crate::comm::{QWriter, SignalId};
+use crate::gui::{center_x, header_body_controls, style_ui, text::button1, Style};
+use crate::resource::{parse_text, text_or_file, ResourceAddr, ResourceMap};
+use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
 use eframe::egui::{CursorIcon, ScrollArea};
 use egui_extras::{Size, StripBuilder};
@@ -18,7 +11,6 @@ use regex::{Captures, Regex};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -62,9 +54,9 @@ impl From<&str> for Instruction {
 
 impl Action for Instruction {
     #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<PathBuf> {
+    fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
         if let Some(path) = text_or_file(&self.text) {
-            vec![path]
+            vec![ResourceAddr::Text(path)]
         } else {
             vec![]
         }

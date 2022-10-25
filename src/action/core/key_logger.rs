@@ -1,17 +1,12 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
-use crate::config::Config;
-use crate::io::IO;
-use crate::logger::LoggerSignal;
-use crate::queue::QWriter;
+use crate::comm::QWriter;
 use crate::resource::ResourceMap;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
+use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
 use chrono::Local;
 use eframe::egui::Ui;
 use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
-use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -27,11 +22,6 @@ mod defaults {
 }
 
 impl Action for KeyLogger {
-    #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<PathBuf> {
-        vec![]
-    }
-
     fn stateful(
         &self,
         _io: &IO,

@@ -1,15 +1,11 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, VISUAL};
-use crate::config::Config;
-use crate::io::IO;
-use crate::logger::LoggerSignal;
-use crate::queue::QWriter;
-use crate::resource::text::parse_text;
-use crate::resource::ResourceMap;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
-use crate::style::text::{body, button1, inactive};
-use crate::style::{style_ui, Style, TEXT_SIZE_BODY};
-use crate::template::{center_x, header_body_controls};
+use crate::comm::QWriter;
+use crate::gui::{
+    center_x, header_body_controls, style_ui, text::body, text::button1, text::inactive, Style,
+    TEXT_SIZE_BODY,
+};
+use crate::resource::{parse_text, ResourceMap};
+use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
 use crate::util::{f32_with_precision, f64_with_precision};
 use eframe::egui;
 use eframe::egui::{
@@ -20,7 +16,6 @@ use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::ops::RangeInclusive;
-use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -58,11 +53,6 @@ mod defaults {
 }
 
 impl Action for Question {
-    #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<PathBuf> {
-        vec![]
-    }
-
     fn stateful(
         &self,
         _io: &IO,

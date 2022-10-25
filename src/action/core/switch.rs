@@ -1,17 +1,12 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
-use crate::config::Config;
-use crate::io::IO;
-use crate::queue::QWriter;
-use crate::resource::ResourceMap;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
-use crate::signal::SignalId;
+use crate::comm::{QWriter, SignalId};
+use crate::resource::{ResourceAddr, ResourceMap};
+use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
 use eyre::{eyre, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
-use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Switch(SignalId, usize, Vec<Box<dyn Action>>);
@@ -29,7 +24,7 @@ stateful!(Switch {
 
 impl Action for Switch {
     #[inline]
-    fn resources(&self, config: &Config) -> Vec<PathBuf> {
+    fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         self.2
             .iter()
             .flat_map(|c| c.resources(config))

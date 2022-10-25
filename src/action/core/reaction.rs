@@ -1,20 +1,13 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
-use crate::config::Config;
-use crate::io::IO;
-use crate::logger::LoggerSignal;
-use crate::queue::QWriter;
-use crate::resource::key::Key;
-use crate::resource::ResourceMap;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
-use crate::signal::SignalId;
+use crate::comm::{QWriter, SignalId};
+use crate::resource::{Key, ResourceMap};
+use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
 use eframe::egui;
 use eframe::egui::Ui;
 use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::collections::HashSet;
-use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -51,7 +44,7 @@ stateful!(Reaction {
 });
 
 mod defaults {
-    use crate::resource::key::Key;
+    use crate::resource::Key;
     use std::collections::HashSet;
 
     #[inline(always)]
@@ -71,11 +64,6 @@ mod defaults {
 }
 
 impl Action for Reaction {
-    #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<PathBuf> {
-        vec![]
-    }
-
     #[inline(always)]
     fn init(mut self) -> Result<Box<dyn Action>, Error>
     where

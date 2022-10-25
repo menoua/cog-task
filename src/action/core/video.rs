@@ -1,13 +1,9 @@
 //@ stream
 
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
-use crate::config::Config;
-use crate::io::IO;
-use crate::queue::QWriter;
-use crate::resource::color::Color;
-use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
+use crate::comm::QWriter;
+use crate::resource::{Color, ResourceAddr, ResourceMap, ResourceValue};
+use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
@@ -42,17 +38,10 @@ stateful_arc!(Video {
     background: Color32,
 });
 
-impl Video {
-    #[inline(always)]
-    fn src(&self) -> PathBuf {
-        PathBuf::from(self.src.to_str().unwrap())
-    }
-}
-
 impl Action for Video {
     #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<PathBuf> {
-        vec![self.src()]
+    fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
+        vec![ResourceAddr::Video(self.src.clone())]
     }
 
     fn stateful(
@@ -63,7 +52,8 @@ impl Action for Video {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        match res.fetch(&self.src())? {
+        let src = ResourceAddr::Video(self.src.clone());
+        match res.fetch(&src)? {
             ResourceValue::Video(frames, framerate) => {
                 let done = Arc::new(Mutex::new(Ok(frames.is_empty())));
                 let position = Arc::new(Mutex::new(0));

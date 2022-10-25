@@ -5,29 +5,25 @@ pub mod de;
 pub mod extra;
 pub mod include;
 pub mod props;
-
-use crate::config::Config;
-use crate::io::IO;
-use crate::queue::QWriter;
-use crate::resource::ResourceMap;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
-use crate::signal::IntSignal;
-use eframe::egui;
-use eyre::Result;
-use itertools::Itertools;
-use std::any::Any;
-use std::collections::HashSet;
-use std::fmt::{Debug, Formatter};
-use std::path::PathBuf;
-use std::time::Instant;
+pub mod resource;
 
 pub use include::*;
 pub use props::*;
 
+use crate::comm::{IntSignal, QWriter};
+use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
+use eframe::egui;
+use eyre::Result;
+use itertools::Itertools;
+use resource::{ResourceAddr, ResourceMap};
+use std::any::Any;
+use std::collections::HashSet;
+use std::fmt::{Debug, Formatter};
+use std::time::Instant;
+
 pub trait Action: Debug + Any {
     #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<PathBuf> {
+    fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
         vec![]
     }
 

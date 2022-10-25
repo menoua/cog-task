@@ -1,16 +1,12 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
-use crate::config::Config;
-use crate::io::IO;
-use crate::queue::QWriter;
-use crate::resource::ResourceMap;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
+use crate::comm::QWriter;
+use crate::resource::{ResourceAddr, ResourceMap};
+use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
 use eyre::{eyre, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
-use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Seq(Vec<Box<dyn Action>>);
@@ -27,7 +23,7 @@ impl Seq {
 
 impl Action for Seq {
     #[inline]
-    fn resources(&self, config: &Config) -> Vec<PathBuf> {
+    fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         self.0
             .iter()
             .flat_map(|c| c.resources(config))

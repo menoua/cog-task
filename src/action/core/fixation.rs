@@ -1,11 +1,8 @@
 use crate::action::image::Image;
 use crate::action::{Action, StatefulAction};
-use crate::config::Config;
-use crate::io::IO;
-use crate::queue::QWriter;
-use crate::resource::color::Color;
-use crate::resource::ResourceMap;
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
+use crate::comm::QWriter;
+use crate::resource::{Color, ResourceMap};
+use crate::server::{AsyncSignal, Config, SyncSignal, IO};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

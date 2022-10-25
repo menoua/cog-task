@@ -1,15 +1,11 @@
 //@ audio
 
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
-use crate::config::{Config, TimePrecision};
-use crate::io::IO;
-use crate::queue::QWriter;
-use crate::resource::audio::{drop_channel, interlace_channels};
-use crate::resource::trigger::Trigger;
-use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
-use crate::signal::SignalId;
+use crate::comm::{QWriter, SignalId};
+use crate::resource::{
+    drop_channel, interlace_channels, ResourceAddr, ResourceMap, ResourceValue, Trigger,
+};
+use crate::server::{config::TimePrecision, AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use eyre::{eyre, Context, Result};
@@ -28,7 +24,7 @@ use std::time::{Duration, Instant};
 pub struct Audio {
     src: PathBuf,
     #[serde(default)]
-    volume: Option<f32>,
+    volume: f32,
     #[serde(default)]
     looping: bool,
     #[serde(default)]
@@ -47,11 +43,14 @@ stateful_arc!(Audio {
 
 impl Action for Audio {
     #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<PathBuf> {
+    fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
         if let Trigger::Ext(trig) = &self.trigger {
-            vec![self.src.to_owned(), trig.clone()]
+            vec![
+                ResourceAddr::Audio(self.src.to_owned()),
+                ResourceAddr::Audio(trig.clone()),
+            ]
         } else {
-            vec![self.src.to_owned()]
+            vec![ResourceAddr::Audio(self.src.to_owned())]
         }
     }
 
@@ -63,7 +62,8 @@ impl Action for Audio {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        let src = if let ResourceValue::Audio(src) = res.fetch(&self.src)? {
+        let src = ResourceAddr::Audio(self.src.clone());
+        let src = if let ResourceValue::Audio(src) = res.fetch(&src)? {
             src
         } else {
             return Err(eyre!(
@@ -74,7 +74,8 @@ impl Action for Audio {
 
         let src = match (&self.trigger, config.use_trigger()) {
             (Trigger::Ext(trig), true) => {
-                let trig = if let ResourceValue::Audio(trig) = res.fetch(trig)? {
+                let trig = ResourceAddr::Audio(trig.clone());
+                let trig = if let ResourceValue::Audio(trig) = res.fetch(&trig)? {
                     trig
                 } else {
                     return Err(eyre!(
@@ -92,9 +93,7 @@ impl Action for Audio {
         let sink = io.audio()?;
 
         sink.pause();
-        if let Some(volume) = config.volume(self.volume) {
-            sink.set_volume(volume);
-        }
+        sink.set_volume(self.volume * config.base_volume());
         if self.looping {
             sink.append(src.repeat_infinite())
         } else {

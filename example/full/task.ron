@@ -8,7 +8,7 @@
 
     config: (
         use_trigger: true,
-        base_volume: Some(0.75),
+        base_volume: 0.75,
         blocks_per_row: 3,
     ),
 
@@ -43,9 +43,9 @@
                 )),
                 par(([
                     seq(([
-                        audio((src: "sample-6s.wav", volume: Some(1.0))),
-                        audio((src: "sample-6s.wav", volume: Some(0.25))),
-                        audio((src: "sample-6s.wav", volume: Some(2.0))),
+                        audio((src: "sample-6s.wav", volume: 1.0)),
+                        audio((src: "sample-6s.wav", volume: 0.25)),
+                        audio((src: "sample-6s.wav", volume: 2.0)),
                     ]))
                 ], [
                     event(("three_audios")),
@@ -657,9 +657,9 @@
             ),
             tree: seq(([
                 stream((src: "sample-6s.wav")),
-                stream((src: "sample-6s.wav", volume: Some(0.75))),
-                stream((src: "sample-6s.wav", volume: Some(0.5))),
-                stream((src: "sample-6s.wav", volume: Some(0.25))),
+                stream((src: "sample-6s.wav", volume: 0.75)),
+                stream((src: "sample-6s.wav", volume: 0.5)),
+                stream((src: "sample-6s.wav", volume: 0.25)),
             ]))
         ),
 

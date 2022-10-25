@@ -1,15 +1,9 @@
 //@ stream
 
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
-use crate::backend::MediaMode;
-use crate::config::Config;
-use crate::io::IO;
-use crate::queue::QWriter;
-use crate::resource::color::Color;
-use crate::resource::trigger::Trigger;
-use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
+use crate::comm::QWriter;
+use crate::resource::{Color, MediaMode, ResourceAddr, ResourceMap, ResourceValue, Trigger};
+use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
@@ -29,7 +23,7 @@ pub struct Stream {
     #[serde(default)]
     width: Option<u16>,
     #[serde(default)]
-    volume: Option<f32>,
+    volume: f32,
     #[serde(default)]
     looping: bool,
     #[serde(default)]
@@ -49,31 +43,25 @@ stateful_arc!(Stream {
     background: Color32,
 });
 
-impl Stream {
-    #[inline(always)]
-    fn src(&self) -> PathBuf {
-        PathBuf::from(format!("{}#stream", self.src.to_str().unwrap()))
-    }
-}
-
 impl Action for Stream {
     #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<PathBuf> {
+    fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
         if let Trigger::Ext(trig) = &self.trigger {
-            vec![self.src(), trig.clone()]
+            vec![
+                ResourceAddr::Stream(self.src.clone()),
+                ResourceAddr::Audio(trig.clone()),
+            ]
         } else {
-            vec![self.src()]
+            vec![ResourceAddr::Stream(self.src.clone())]
         }
     }
 
     #[inline]
     fn init(self) -> Result<Box<dyn Action>> {
-        if let Some(v) = self.volume {
-            if !(0.0..=1.0).contains(&v) {
-                return Err(eyre!(
-                    "Stream volume should be a float number between 0.0 and 1.0"
-                ));
-            }
+        if !(0.0..=1.0).contains(&self.volume) {
+            return Err(eyre!(
+                "Stream volume should be a float number between 0.0 and 1.0"
+            ));
         }
 
         Ok(Box::new(self))
@@ -87,7 +75,8 @@ impl Action for Stream {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        let stream = if let ResourceValue::Stream(stream) = res.fetch(&self.src())? {
+        let src = ResourceAddr::Stream(self.src.clone());
+        let stream = if let ResourceValue::Stream(stream) = res.fetch(&src)? {
             stream
         } else {
             return Err(eyre!(
@@ -104,7 +93,7 @@ impl Action for Stream {
         };
 
         let frame = Arc::new(Mutex::new(None));
-        let volume = config.volume(self.volume);
+        let volume = self.volume * config.base_volume();
         let mut stream = stream.cloned(frame.clone(), media_mode, volume)?;
 
         if !stream.has_video() && self.width.is_some() {

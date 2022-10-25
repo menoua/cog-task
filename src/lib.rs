@@ -1,21 +1,9 @@
 pub mod action;
 pub mod assets;
-#[cfg(feature = "stream")]
-pub mod backend;
-#[cfg(feature = "benchmark")]
-pub mod benchmark;
-pub mod config;
-pub mod env;
-pub mod io;
+pub mod comm;
+pub mod gui;
 pub mod launcher;
-pub mod logger;
-pub mod queue;
-pub mod resource;
-pub mod scheduler;
 pub mod server;
-pub mod signal;
-pub mod style;
-pub mod system;
-pub mod task;
-pub mod template;
 pub mod util;
+
+pub use action::resource;

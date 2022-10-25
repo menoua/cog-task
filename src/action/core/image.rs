@@ -1,11 +1,7 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
-use crate::config::Config;
-use crate::io::IO;
-use crate::queue::QWriter;
-use crate::resource::color::Color;
-use crate::resource::{ResourceMap, ResourceValue};
-use crate::scheduler::processor::{AsyncSignal, SyncSignal};
-use crate::scheduler::State;
+use crate::comm::QWriter;
+use crate::resource::{Color, ResourceAddr, ResourceMap, ResourceValue};
+use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
 use eyre::{eyre, Error, Result};
@@ -42,8 +38,8 @@ impl Image {
 
 impl Action for Image {
     #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<PathBuf> {
-        vec![self.src.to_owned()]
+    fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
+        vec![ResourceAddr::Image(self.src.to_owned())]
     }
 
     fn stateful(
@@ -54,8 +50,9 @@ impl Action for Image {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
+        let src = ResourceAddr::Image(self.src.clone());
         let (texture, size) = {
-            if let ResourceValue::Image(texture, size) = res.fetch(&self.src)? {
+            if let ResourceValue::Image(texture, size) = res.fetch(&src)? {
                 (texture, size)
             } else {
                 return Err(eyre!(
