@@ -32,18 +32,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
-
-      - run: |
-          rustup component add rustfmt
-          cargo fmt --all -- --check
-        if: matrix.toolchain == 'stable'
-
-      - name: clippy
-        run: |
-          rustup component add clippy
-          cargo clippy -- -D warnings
-        if: matrix.toolchain == 'stable'
-
       - name: Install ${{ matrix.toolchain }} toolchain
         id: install_toolchain
         uses: actions-rs/toolchain@v1
@@ -51,10 +39,19 @@ jobs:
           toolchain: ${{ matrix.toolchain }}
           profile: minimal
           override: true
+          components: rustfmt, clippy
+
+      - name: Cargo check
+        run: |
+          cargo fmt --all -- --check
+
+      - name: Cargo clippy
+        run: |
+          cargo clippy -- -D warnings
 
       - run: cargo test --all-targets
 
-      - name: Install linux deps -- alsa
+      - name: Install linux deps (ALSA)
         run: |
           sudo apt update
           sudo apt install -y --no-install-recommends libasound2-dev pkg-config
@@ -62,12 +59,12 @@ jobs:
 
       - run: cargo test --features=audio --all-targets
 
-      - name: Install macos deps -- gstreamer
+      - name: Install macOS deps (gstreamer)
         run: |
           brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server
         if: contains(matrix.os, 'macos')
 
-      - name: Install linux deps -- gstreamer
+      - name: Install linux deps (gstreamer)
         run: |
           sudo apt update
           sudo apt install -y --no-install-recommends libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
