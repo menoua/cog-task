@@ -23,7 +23,7 @@ use std::time::{Duration, Instant};
 #[serde(deny_unknown_fields)]
 pub struct Audio {
     src: PathBuf,
-    #[serde(default)]
+    #[serde(default = "defaults::volume")]
     volume: f32,
     #[serde(default)]
     looping: bool,
@@ -40,6 +40,12 @@ stateful_arc!(Audio {
     link: Option<(Sender<()>, Receiver<()>)>,
     volume_control: SignalId,
 });
+
+mod defaults {
+    pub fn volume() -> f32 {
+        1.0
+    }
+}
 
 impl Action for Audio {
     #[inline(always)]

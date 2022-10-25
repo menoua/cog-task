@@ -22,7 +22,7 @@ pub struct Stream {
     src: PathBuf,
     #[serde(default)]
     width: Option<u16>,
-    #[serde(default)]
+    #[serde(default = "defaults::volume")]
     volume: f32,
     #[serde(default)]
     looping: bool,
@@ -42,6 +42,12 @@ stateful_arc!(Stream {
     join_handle: Option<JoinHandle<Result<()>>>,
     background: Color32,
 });
+
+mod defaults {
+    pub fn volume() -> f32 {
+        1.0
+    }
+}
 
 impl Action for Stream {
     #[inline(always)]
