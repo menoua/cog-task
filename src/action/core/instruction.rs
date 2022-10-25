@@ -63,7 +63,7 @@ impl Action for Instruction {
     }
 
     fn init(mut self) -> Result<Box<dyn Action>, Error> {
-        let re = Regex::new(r"#([ies])\(((0x)?\d+)\)").unwrap();
+        let re = Regex::new(r"#([ies])\(((0x[\da-fA-F]+)|(\d+))\)").unwrap();
         for caps in re.captures_iter(&self.text) {
             let key = if caps[2].starts_with("0x") {
                 u16::from_str_radix(caps[2].trim_start_matches("0x"), 16)

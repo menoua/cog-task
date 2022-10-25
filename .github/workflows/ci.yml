@@ -61,9 +61,13 @@ jobs:
       - name: Cargo test (audio)
         run: cargo test --features=audio --all-targets
 
+      - name: Install macOS deps (ffmpeg)
+        run: |
+          brew install ffmpeg
+        if: contains(matrix.os, 'macos')
       - name: Install linux deps (ffmpeg)
         run: |
-          sudo apt install -y --no-install-recommends libavfilter-dev libavdevice-dev
+          sudo apt install -y --no-install-recommends ffmpeg
         if: contains(matrix.os, 'ubuntu')
 
       - name: Cargo clippy (ffmpeg)

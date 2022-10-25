@@ -20,6 +20,7 @@ pub mod stream;
 pub mod switch;
 pub mod template;
 pub mod timeout;
+pub mod timer;
 #[cfg(feature = "stream")]
 pub mod video;
 pub mod view;
