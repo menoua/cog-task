@@ -2,7 +2,7 @@
 
 [![Crates.io Version](https://img.shields.io/crates/v/cog-task.svg)](https://crates.io/crates/cog-task)
 [![Crates.io Downloads](https://img.shields.io/crates/d/cog-task.svg)](https://crates.io/crates/cog-task)
-[![Build Status](https://github.com/menoua/cog-task-rs/workflows/CI/badge.svg)](https://github.com/menoua/cog-task-rs/actions)
+[![Build Status](https://github.com/menoua/cog-task/workflows/CI/badge.svg)](https://github.com/menoua/cog-task/actions)
 [![License](https://img.shields.io/crates/l/cog-task.svg)](https://opensource.org/licenses/MIT)
 
 A general-purpose low-latency application to serve cognitive tasks, built with [egui](https://github.com/emilk/egui).
@@ -21,9 +21,9 @@ Build binaries (choose one):
   ```
   $ cargo install cog-task [--features=...]
   ```
-- Nightly binaries from [github](https://github.com/menoua/cog-task-rs):<br>
+- Nightly binaries from [github](https://github.com/menoua/cog-task):<br>
   ```
-  $ cargo install --git https://github.com/menoua/cog-task-rs [--features=...]
+  $ cargo install --git https://github.com/menoua/cog-task [--features=...]
   ```
 
 ## Features
@@ -43,7 +43,7 @@ Examples:
   ```
 - Nightly binaries with **audio** and **gstreamer** support:<br>
   ```
-  $ cargo install --git https://github.com/menoua/cog-task-rs --features=audio,gstreamer
+  $ cargo install --git https://github.com/menoua/cog-task --features=audio,gstreamer
   ```
 
 ## Requirements:
@@ -77,17 +77,17 @@ This crate installs two binaries -- `cog-launcher` and `cog-server`.
 
 `cog-server /path/to/task`: Used to run a specific task by providing the path to its directory. `cog-launcher` runs this binary when starting a task, so make sure both binaries are in the same directory.
 
-For example, to run the [**Basic**](https://github.com/menoua/cog-task-rs/tree/master/example/basic/) task in this repo, you would do the following:
+For example, to run the [**Basic**](https://github.com/menoua/cog-task/tree/master/example/basic/) task in this repo, you would do the following:
 ```bash
-$ git clone https://github.com/menoua/cog-task-rs
-$ cog-server cog-task-rs/example/basic
+$ git clone https://github.com/menoua/cog-task
+$ cog-server cog-task/example/basic
 ```
 
 Alternatively, you can run:
 ```bash
 $ cog-launcher
 ```
-Then use the leftmost control icon to load the [*example/basic/*](https://github.com/menoua/cog-task-rs/tree/master/example/basic/) directory. Or, you can use the second button to open the parent [*example/*](https://github.com/menoua/cog-task-rs/tree/master/example/) directory which contains all the example tasks within. The former, directly runs `cog-server` on the chosen task. The latter, displays a list of all tasks located in the chosen directory, which can be started by clicking the corresponding button.
+Then use the leftmost control icon to load the [*example/basic/*](https://github.com/menoua/cog-task/tree/master/example/basic/) directory. Or, you can use the second button to open the parent [*example/*](https://github.com/menoua/cog-task/tree/master/example/) directory which contains all the example tasks within. The former, directly runs `cog-server` on the chosen task. The latter, displays a list of all tasks located in the chosen directory, which can be started by clicking the corresponding button.
 
 ## Changelog
 
