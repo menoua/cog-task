@@ -374,6 +374,7 @@ impl StatefulQItem {
         }
     }
 
+    #[allow(clippy::ptr_arg)]
     fn show_single_line(ui: &mut egui::Ui, input: &mut String) {
         ui.vertical_centered_justified(|ui| {
             TextEdit::singleline(input)
@@ -382,6 +383,7 @@ impl StatefulQItem {
         });
     }
 
+    #[allow(clippy::ptr_arg)]
     fn show_multi_line(ui: &mut egui::Ui, input: &mut String, lines: usize) {
         ui.vertical_centered_justified(|ui| {
             TextEdit::multiline(input)
