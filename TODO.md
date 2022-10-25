@@ -1,5 +1,6 @@
 ## To-do
 
+- [ ] Hash of `Task` is not consistent. Look into that.
 - [ ] Add required features for a task to task.ron file as metadata such that it can be read before attempting to deserialize to be able to identify missing features instead of throwing more ambiguous errors. Don't use the (//!) format since it is used for rust docs. Change the one already implemented in action as well. How about like the following, with each feature on a separate line?
   ```rust
   //@ audio
