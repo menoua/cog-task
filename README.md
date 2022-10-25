@@ -13,17 +13,17 @@ A general-purpose low-latency application to serve cognitive tasks, built with [
 The most reliable way to install CogTask is by installing Cargo through [rustup](https://rustup.rs/) and compiling the binaries locally.
 
 Install Cargo:<br>
-```
+```bash
 $ curl https://sh.rustup.rs -sSf | sh
 ```
 
 Build binaries (choose one):
 - Stable binaries from [crates.io](https://crates.io/crates/cog-task):<br>
-  ```
+  ```bash
   $ cargo install cog-task [--features=...]
   ```
 - Nightly binaries from [github](https://github.com/menoua/cog-task):<br>
-  ```
+  ```bash
   $ cargo install --git https://github.com/menoua/cog-task [--features=...]
   ```
 
@@ -39,11 +39,11 @@ Currently, there are 4 main features that can be enabled:
 
 Examples:
 - Stable binaries with full support:<br>
-  ```
+  ```bash
   $ cargo install cog-task --features=full
   ```
 - Nightly binaries with **audio** and **gstreamer** support:<br>
-  ```
+  ```bash
   $ cargo install --git https://github.com/menoua/cog-task --features=audio,gstreamer
   ```
 
