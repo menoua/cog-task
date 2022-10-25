@@ -1,5 +1,6 @@
 use heck::ToUpperCamelCase;
 use itertools::Itertools;
+use regex::Regex;
 use std::collections::HashMap;
 use std::ffi::OsStr;
 use std::fs;
@@ -72,54 +73,37 @@ fn main() {
         })
         .collect_vec();
 
+    let re = Regex::new(r"^//@[ \t]*([[:alpha:]][[:word:]]*)[ \t]*$").unwrap();
     let mut features: HashMap<String, Vec<String>> = HashMap::new();
 
     for action in core.iter() {
-        let line = fs::read_to_string(
+        fs::read_to_string(
             Path::new("src/action/core/").join(Path::new(action).with_extension("rs")),
         )
         .unwrap()
         .lines()
-        .next()
-        .unwrap_or("")
-        .to_owned();
-
-        if line.starts_with("//!") {
-            line.strip_prefix("//!")
-                .unwrap()
-                .trim()
-                .split(" *, *")
-                .for_each(|f| {
-                    features
-                        .entry(action.clone())
-                        .or_default()
-                        .push(f.to_owned());
-                });
-        }
+        .map_while(|p| re.captures(p).map(|c| c[1].to_string()))
+        .for_each(|f| {
+            features
+                .entry(action.clone())
+                .or_default()
+                .push(f.to_owned());
+        });
     }
 
     for action in extra.iter() {
-        let line = fs::read_to_string(
+        fs::read_to_string(
             Path::new("src/action/extra/").join(Path::new(action).with_extension("rs")),
         )
         .unwrap()
         .lines()
-        .next()
-        .unwrap_or("")
-        .to_owned();
-
-        if line.starts_with("//!") {
-            line.strip_prefix("//!")
-                .unwrap()
-                .trim()
-                .split(" *, *")
-                .for_each(|f| {
-                    features
-                        .entry(action.clone())
-                        .or_default()
-                        .push(f.to_owned());
-                });
-        }
+        .map_while(|p| re.captures(p).map(|c| c[1].to_string()))
+        .for_each(|f| {
+            features
+                .entry(action.clone())
+                .or_default()
+                .push(f.to_owned());
+        });
     }
 
     for (_, v) in features.iter_mut() {

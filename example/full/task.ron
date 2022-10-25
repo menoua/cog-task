@@ -1,3 +1,7 @@
+//@ audio
+//@ ffmpeg
+//@ gstreamer
+
 (
     name: "Full",
     version: "0.1",

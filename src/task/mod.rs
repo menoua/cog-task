@@ -6,6 +6,7 @@ use block::Block;
 use eyre::{eyre, Context, Result};
 use itertools::Itertools;
 use once_cell::sync::OnceCell;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -31,6 +32,7 @@ impl Task {
 
         let path = root_dir.join("task.ron");
         let content = fs::read_to_string(path).wrap_err("Failed to read task description file.")?;
+        verify_features(&content)?;
 
         ron::from_str::<Task>(&content)
             .wrap_err("Failed to deserialize task description file.")?
@@ -100,3 +102,37 @@ impl Task {
 }
 
 impl Hash for Task {}
+
+fn verify_features(content: &str) -> Result<()> {
+    let re = Regex::new(r"^//@[ \t]*([[:alpha:]][[:word:]]*)[ \t]*$").unwrap();
+    let features: Vec<_> = content
+        .lines()
+        .map_while(|p| re.captures(p).map(|c| c[1].to_string()))
+        .collect();
+
+    for f in features {
+        match f.as_str() {
+            "audio" => {
+                #[cfg(not(feature = "audio"))]
+                Err(eyre!("Task requires missing feature (audio)."))?;
+            }
+            "ffmpeg" => {
+                #[cfg(not(feature = "ffmpeg"))]
+                Err(eyre!("Task requires missing feature (ffmpeg)."))?;
+            }
+            "gstreamer" => {
+                #[cfg(not(feature = "gstreamer"))]
+                Err(eyre!("Task requires missing feature (gstreamer)."))?;
+            }
+            "stream" => {
+                #[cfg(not(feature = "stream"))]
+                Err(eyre!("Task requires missing feature (stream)."))?;
+            }
+            f => {
+                Err(eyre!("Task requires unknown feature: {f}"))?;
+            }
+        }
+    }
+
+    Ok(())
+}

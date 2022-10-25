@@ -1,4 +1,4 @@
-//! audio
+//@ audio
 
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::config::{Config, TimePrecision};

@@ -1,3 +1,5 @@
+//@ ffmpeg
+
 (
     name: "Using ffmpeg backend",
     version: "0.1",

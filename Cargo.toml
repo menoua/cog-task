@@ -48,6 +48,7 @@ rustybuzz = "0.5, <0.5.3" # 0.5.3 leads to compilation error in usvg
 
 [build-dependencies]
 itertools = "0.10"
+regex = "1.6"
 heck = "0.4"
 
 [features]

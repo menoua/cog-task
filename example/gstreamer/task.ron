@@ -1,3 +1,5 @@
+//@ gstreamer
+
 (
     name: "Using Gstreamer backend",
     version: "0.1",

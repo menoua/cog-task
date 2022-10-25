@@ -1,4 +1,4 @@
-//! stream
+//@ stream
 
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::backend::MediaMode;
