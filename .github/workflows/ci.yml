@@ -43,45 +43,52 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cargo check
-        run: |
-          cargo fmt --all -- --check
+        run: cargo fmt --all -- --check
 
-      - name: Cargo clippy
-        run: |
-          cargo clippy -- -D warnings
-      - run: cargo test --all-targets
+      - name: Cargo clippy (default)
+        run: cargo clippy -- -D warnings
+      - name: Cargo test (default)
+        run: cargo test --all-targets
 
-      - name: Install linux deps (ALSA)
+      - name: Install linux deps (audio)
         run: |
           sudo apt update
           sudo apt install -y --no-install-recommends libasound2-dev pkg-config
         if: contains(matrix.os, 'ubuntu')
+      
+      - name: Cargo clippy (audio)
+        run: cargo clippy --features=audio -- -D warnings
+      - name: Cargo test (audio)
+        run: cargo test --features=audio --all-targets
 
-      - name: Cargo clippy
+      - name: Install linux deps (ffmpeg)
         run: |
-          cargo clippy --features=audio -- -D warnings
-          cargo clippy --features=ffmpeg -- -D warnings
-      - run: cargo test --features=audio --all-targets
-      - run: cargo test --features=ffmpeg --all-targets
+          sudo apt install -y --no-install-recommends libavfilter-dev libavdevice-dev
+        if: contains(matrix.os, 'ubuntu')
+
+      - name: Cargo clippy (ffmpeg)
+        run: cargo clippy --features=ffmpeg -- -D warnings
+      - name: Cargo test (ffmpeg)
+        run: cargo test --features=ffmpeg --all-targets
 
       - name: Install macOS deps (gstreamer)
         run: |
           brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server
         if: contains(matrix.os, 'macos')
-
       - name: Install linux deps (gstreamer)
         run: |
-          sudo apt update
           sudo apt install -y --no-install-recommends libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
-          sudo apt install -y --no-install-recommends libavfilter-dev libavdevice-dev
         if: contains(matrix.os, 'ubuntu')
 
-      - name: Cargo clippy
-        run: |
-          cargo clippy --features=gstreamer -- -D warnings
-          cargo clippy --features=full -- -D warnings
-      - run: cargo test --features=gstreamer --all-targets
-      - run: cargo test --features=full --all-targets
+      - name: Cargo clippy (gstreamer)
+        run: cargo clippy --features=gstreamer -- -D warnings
+      - name: Cargo test (gstreamer)
+        run: cargo test --features=gstreamer --all-targets
+
+      - name: Cargo clippy (full)
+        run: cargo clippy --features=full -- -D warnings
+      - name: Cargo test (full)
+        run: cargo test --features=full --all-targets
 
 #   cargo-publish:
 #     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
