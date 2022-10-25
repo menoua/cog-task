@@ -1,6 +1,5 @@
 ## To-do
 
-- [ ] Add ResourceType enum which is a phantom ResourceValue, so that instead of relying on extensions to identify resource type, the burden is put on the action how a resource file should be decoded.
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.
 - [ ] Consider relegating compile-time asset management to [rust-embed](https://github.com/pyrossh/rust-embed).
