@@ -49,7 +49,7 @@ Examples:
 
 ## Requirements:
 
-Some features depend on certain libraries that might not come preinstalled on your OS. In these cases, before building the binaries with that features enabled, you need to first install the requirements:
+Some features depend on certain libraries that might not come preinstalled on your OS. In these cases, before building the binaries with said features enabled, you need to first install the requirements:
 
 ### audio
 
@@ -65,7 +65,7 @@ On *macOS*, requires installing gstreamer, e.g.:<br>
 $ brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server
 ```
 
-On *linux*, requires installing gstreamer, e.g.:<br>
+On *linux*, requires installing libgstreamer, e.g.:<br>
 ```bash
 $ sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio libavfilter-dev libavdevice-dev
 ```
