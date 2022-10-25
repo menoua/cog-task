@@ -8,6 +8,8 @@ use std::path::PathBuf;
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct Info {
+    subject: String,
+    output: PathBuf,
     server: ServerInfo,
     task: TaskInfo,
     block: BlockInfo,
@@ -28,8 +30,6 @@ pub struct BlockInfo {
 
 #[derive(Debug, Default, Deserialize, Serialize)]
 pub struct ServerInfo {
-    subject: String,
-    output: PathBuf,
     version: String,
     hash: String,
 }
@@ -37,9 +37,9 @@ pub struct ServerInfo {
 impl Info {
     pub fn new(server: &Server, task: &Task, block: &Block) -> Self {
         Self {
+            subject: server.subject().to_owned(),
+            output: server.env().output().to_owned(),
             server: ServerInfo {
-                subject: server.subject().to_owned(),
-                output: server.env().output().to_owned(),
                 version: VERSION.to_owned(),
                 hash: server.hash(),
             },
@@ -57,7 +57,7 @@ impl Info {
 
     #[inline(always)]
     pub fn subject(&self) -> &String {
-        &self.server.subject
+        &self.subject
     }
 
     #[inline(always)]
@@ -67,6 +67,6 @@ impl Info {
 
     #[inline(always)]
     pub fn output(&self) -> &PathBuf {
-        &self.server.output
+        &self.output
     }
 }
