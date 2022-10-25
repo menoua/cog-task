@@ -70,6 +70,9 @@ path = "src/bin/launcher.rs"
 name = "cog-server"
 path = "src/bin/server.rs"
 
+[package.metadata.docs.rs]
+features = ["full"]
+
 [package.metadata.nix]
 systems = ["x86_64-linux"]
 app = true

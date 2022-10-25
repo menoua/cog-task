@@ -7,18 +7,14 @@ macro_rules! include_actions {
 
         paste::paste! {
             $(
-                $(
-                    #[cfg(feature = $feature)]
-                )*
+                #[cfg(all($(feature = $feature,)*))]
                 pub use crate::action::$group::$name;
             )*
         }
 
         paste::paste! {
             $(
-                $(
-                    #[cfg(feature = $feature)]
-                )*
+                #[cfg(all($(feature = $feature,)*))]
                 pub use crate::action::$group::$name::[<$name:camel>];
             )*
         }
@@ -28,9 +24,7 @@ macro_rules! include_actions {
             #[serde(rename_all = "snake_case")]
             pub enum ActionEnum {
                 $(
-                    $(
-                        #[cfg(feature = $feature)]
-                    )*
+                    #[cfg(all($(feature = $feature,)*))]
                     [<$name:camel>]([<$name:camel>]),
                 )*
             }
@@ -39,9 +33,7 @@ macro_rules! include_actions {
                 pub fn unwrap(self) -> Result<Box<dyn Action>> {
                     match self {
                         $(
-                            $(
-                                #[cfg(feature = $feature)]
-                            )*
+                            #[cfg(all($(feature = $feature,)*))]
                             Self::[<$name:camel>](inner) => inner.init(),
                         )*
                     }
@@ -50,9 +42,7 @@ macro_rules! include_actions {
                 pub fn as_ref(&self) -> ActionEnumAsRef {
                     match self {
                         $(
-                            $(
-                                #[cfg(feature = $feature)]
-                            )*
+                            #[cfg(all($(feature = $feature,)*))]
                             Self::[<$name:camel>](inner) => ActionEnumAsRef::[<$name:camel>](inner),
                         )*
                     }
@@ -63,9 +53,7 @@ macro_rules! include_actions {
             #[serde(rename_all = "snake_case")]
             pub enum ActionEnumAsRef<'a> {
                 $(
-                    $(
-                        #[cfg(feature = $feature)]
-                    )*
+                    #[cfg(all($(feature = $feature,)*))]
                     [<$name:camel>](&'a [<$name:camel>]),
                 )*
             }
@@ -74,9 +62,7 @@ macro_rules! include_actions {
                 fn from(f: &dyn Action) -> ActionEnumAsRef {
                     match f.type_id() {
                         $(
-                            $(
-                                #[cfg(feature = $feature)]
-                            )*
+                            #[cfg(all($(feature = $feature,)*))]
                             t if t == TypeId::of::<[<$name:camel>]>() => unsafe {
                                 ActionEnumAsRef::[<$name:camel>](
                                     &*(f as *const dyn Action as *const [<$name:camel>])
@@ -95,9 +81,7 @@ macro_rules! include_stateful_actions {
     ($($group:ident::$name:ident@($($feature:literal),* $(,)?)),* $(,)?) => {
         paste::paste!(
             $(
-                $(
-                    #[cfg(feature = $feature)]
-                )*
+                #[cfg(all($(feature = $feature,)*))]
                 pub use crate::action::$group::$name::[<Stateful $name:camel>];
             )*
         );
