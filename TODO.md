@@ -1,6 +1,5 @@
 ## To-do
 
-- [ ] Add `#[cfg(doc)]` to all important things that should be documented.
 - [ ] Consider relegating compile-time asset management to [rust-embed](https://github.com/pyrossh/rust-embed).
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.
