@@ -53,7 +53,7 @@ Some features depend on certain libraries that might not come preinstalled on yo
 
 ### audio
 
-On *linux*, requires installing ALSA, e.g.:<br>
+On *linux*, requires installing ALSA and pkg-config, e.g.:<br>
 ```bash
 $ sudo apt install libasound2-dev pkg-config
 ```
@@ -69,6 +69,14 @@ On *linux*, requires installing libgstreamer, e.g.:<br>
 ```bash
 $ sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio libavfilter-dev libavdevice-dev
 ```
+
+### ffmpeg
+
+On *linux*, requires installing pkg-config, e.g.:<br>
+```bash
+$ sudo apt install pkg-config
+```
+  - *NOTE: Although it is not a requirement at compile time, to be able to use the ffmpeg backend, you need to have the ffmpeg library installed on the system during runtime.*
 
 ## Usage
 
