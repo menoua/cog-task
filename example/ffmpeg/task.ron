@@ -67,10 +67,22 @@
                 instruction((
                     text: "What comes next is a static video repeated 4 times.\nQuickly press Escape twice to cancel the experiment block.",
                 )),
-                stream((src: "../full/data/video.mono.mov")),
-                stream((src: "../full/data/video.mono.mov")),
-                stream((src: "../full/data/video.mono.mov")),
-                stream((src: "../full/data/video.mono.mov")),
+                stream((
+                    src: "video.mono.mov",
+                    trigger: ext("../full/data/video.mono.trig.wav")
+                )),
+                stream((
+                    src: "video.mono.mov",
+                    trigger: ext("../full/data/video.mono.trig.wav")
+                )),
+                stream((
+                    src: "video.mono.mov",
+                    trigger: ext("../full/data/video.mono.trig.wav")
+                )),
+                stream((
+                    src: "video.mono.mov",
+                    trigger: ext("../full/data/video.mono.trig.wav")
+                )),
             ]))
         ),
 

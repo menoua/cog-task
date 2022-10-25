@@ -48,6 +48,10 @@ jobs:
       - name: Cargo clippy
         run: |
           cargo clippy -- -D warnings
+          cargo clippy --features=audio -- -D warnings
+          cargo clippy --features=ffmpeg -- -D warnings
+          cargo clippy --features=gstreamer -- -D warnings
+          cargo clippy --features=full -- -D warnings
 
       - run: cargo test --all-targets
 
@@ -58,6 +62,7 @@ jobs:
         if: contains(matrix.os, 'ubuntu')
 
       - run: cargo test --features=audio --all-targets
+      - run: cargo test --features=ffmpeg --all-targets
 
       - name: Install macOS deps (gstreamer)
         run: |
@@ -72,9 +77,6 @@ jobs:
         if: contains(matrix.os, 'ubuntu')
 
       - run: cargo test --features=gstreamer --all-targets
-
-      - run: cargo test --features=ffmpeg --all-targets
-
       - run: cargo test --features=full --all-targets
 
 #   cargo-publish:

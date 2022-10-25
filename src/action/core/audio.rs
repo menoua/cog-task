@@ -72,10 +72,7 @@ impl Action for Audio {
         let src = if let ResourceValue::Audio(src) = res.fetch(&src)? {
             src
         } else {
-            return Err(eyre!(
-                "Audio action supplied non-audio resource: `{:?}`",
-                self.src
-            ));
+            return Err(eyre!("Resource value and address types don't match."));
         };
 
         let src = match (&self.trigger, config.use_trigger()) {
@@ -84,9 +81,7 @@ impl Action for Audio {
                 let trig = if let ResourceValue::Audio(trig) = res.fetch(&trig)? {
                     trig
                 } else {
-                    return Err(eyre!(
-                        "Audio action supplied non-audio trigger resource: `{trig:?}`"
-                    ));
+                    return Err(eyre!("Resource value and address types don't match."));
                 };
 
                 interlace_channels(src, trig)?

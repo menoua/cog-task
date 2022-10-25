@@ -55,10 +55,7 @@ impl Action for Image {
             if let ResourceValue::Image(texture, size) = res.fetch(&src)? {
                 (texture, size)
             } else {
-                return Err(eyre!(
-                    "Image action supplied non-image resource: {:?}",
-                    self.src
-                ));
+                return Err(eyre!("Resource value and address types don't match."));
             }
         };
 

@@ -64,7 +64,10 @@
                 log_format: Some(yaml),
             ),
             tree: par(([
-                audio((src: "../../full/data/sample-6s+.wav"))
+                audio((
+                    src: "../../full/data/sample-6s+.wav",
+                    trigger: ext("../../full/data/sample-6s+.trig.wav"),
+                ))
             ], [
                 instruction((
                     text:  "You should be hearing audio from the right speaker only.",
@@ -80,7 +83,7 @@
                 log_format: Some(ron),
             ),
             tree: par(([
-                audio((src: "../../full/data/sample-6s-with-silence1.wav"))
+                audio((src: "../../full/data/sample-6s-with-silence1.wav", trigger: int))
                 ], [
                 instruction((
                     text:  "You should be hearing audio from the right speaker only.",

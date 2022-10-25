@@ -22,6 +22,7 @@ pub use audio::*;
 pub use backend::*;
 pub use color::*;
 pub use key::*;
+#[cfg(feature = "stream")]
 pub use stream::*;
 pub use text::*;
 pub use trigger::Trigger;
@@ -31,11 +32,9 @@ pub use video::*;
 
 use crate::assets::{IMAGE_FIXATION, IMAGE_RUSTACEAN};
 use crate::server::{Config, Env};
-#[cfg(feature = "stream")]
 use eframe::egui::mutex::RwLock;
 use eframe::epaint;
 use eyre::{eyre, Result};
-#[cfg(feature = "audio")]
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
@@ -109,7 +108,8 @@ impl ResourceMap {
             }
 
             if is_new {
-                let data = match &src.prefix(env.resource()) {
+                let data = match src.prefix(env.resource()) {
+                    ResourceAddr::Ref(path) => ResourceValue::Ref(path),
                     ResourceAddr::Text(path) => {
                         let text = std::fs::read_to_string(path)?;
                         ResourceValue::Text(Arc::new(text))
@@ -117,25 +117,25 @@ impl ResourceMap {
                     ResourceAddr::Image(path) => {
                         let tex_manager = tex_manager.clone();
                         let (texture, size) = match src.extension().as_deref() {
-                            Some("svg") => svg_from_file(tex_manager, path)?,
-                            _ => image_from_file(tex_manager, path)?,
+                            Some("svg") => svg_from_file(tex_manager, &path)?,
+                            _ => image_from_file(tex_manager, &path)?,
                         };
                         ResourceValue::Image(texture, size)
                     }
                     #[cfg(feature = "audio")]
                     ResourceAddr::Audio(path) => {
-                        ResourceValue::Audio(audio_from_file(path, config)?)
+                        ResourceValue::Audio(audio_from_file(&path, config)?)
                     }
                     #[cfg(feature = "stream")]
                     ResourceAddr::Video(path) => {
                         let tex_manager = tex_manager.clone();
-                        let (frames, framerate) = video_from_file(tex_manager, path, config)?;
+                        let (frames, framerate) = video_from_file(tex_manager, &path, config)?;
                         ResourceValue::Video(frames, framerate)
                     }
                     #[cfg(feature = "stream")]
                     ResourceAddr::Stream(path) => {
                         let tex_manager = tex_manager.clone();
-                        ResourceValue::Stream(stream_from_file(tex_manager, path, config)?)
+                        ResourceValue::Stream(stream_from_file(tex_manager, &path, config)?)
                     }
                 };
                 println!("+ {src:?} : {data:?}");

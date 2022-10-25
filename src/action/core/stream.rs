@@ -55,7 +55,7 @@ impl Action for Stream {
         if let Trigger::Ext(trig) = &self.trigger {
             vec![
                 ResourceAddr::Stream(self.src.clone()),
-                ResourceAddr::Audio(trig.clone()),
+                ResourceAddr::Ref(trig.clone()),
             ]
         } else {
             vec![ResourceAddr::Stream(self.src.clone())]
@@ -85,15 +85,20 @@ impl Action for Stream {
         let stream = if let ResourceValue::Stream(stream) = res.fetch(&src)? {
             stream
         } else {
-            return Err(eyre!(
-                "Stream action supplied non-stream resource: `{:?}`",
-                self.src
-            ));
+            return Err(eyre!("Resource value and address types don't match."));
         };
 
         let use_trigger = config.use_trigger();
         let media_mode = match (&self.trigger, use_trigger) {
-            (Trigger::Ext(trig), true) => MediaMode::WithExtTrigger(trig.to_owned()),
+            (Trigger::Ext(trig), true) => {
+                let trig = ResourceAddr::Ref(trig.clone());
+                let trig = if let ResourceValue::Ref(trig) = res.fetch(&trig)? {
+                    trig
+                } else {
+                    return Err(eyre!("Resource value and address types don't match."));
+                };
+                MediaMode::WithExtTrigger(trig)
+            }
             (Trigger::Int, false) => MediaMode::SansIntTrigger,
             _ => MediaMode::Normal,
         };

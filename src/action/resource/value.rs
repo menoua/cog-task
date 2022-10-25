@@ -1,9 +1,10 @@
+#[cfg(feature = "stream")]
 use crate::resource::stream::Stream;
 use eframe::egui::{TextureId, Vec2};
-use rodio::buffer::SamplesBuffer;
-use rodio::source::Buffered;
-use rodio::Source;
+#[cfg(feature = "audio")]
+use rodio::{buffer::SamplesBuffer, source::Buffered, Source};
 use std::fmt::{Debug, Formatter};
+use std::path::PathBuf;
 use std::sync::Arc;
 
 #[cfg(feature = "stream")]
@@ -13,6 +14,7 @@ pub type AudioBuffer = Buffered<SamplesBuffer<i16>>;
 
 #[derive(Clone)]
 pub enum ResourceValue {
+    Ref(PathBuf),
     Text(Arc<String>),
     Image(TextureId, Vec2),
     #[cfg(feature = "audio")]
@@ -26,6 +28,9 @@ pub enum ResourceValue {
 impl Debug for ResourceValue {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            ResourceValue::Ref(path) => {
+                write!(f, "{path:?}")
+            }
             ResourceValue::Text(_) => {
                 write!(f, "[Text]")
             }

@@ -415,9 +415,7 @@ fn pipeline(path: &Path, mode: &MediaMode) -> Result<String> {
             uridecodebin uri=\"file://{}\" ! audioconvert ! audiopanorama panorama=1 ! playsink",
             trigger
                 .canonicalize()
-                .wrap_err_with(|| format!(
-                        "Failed to canonicalize trigger path: {trigger:?}"
-                ))?
+                .wrap_err_with(|| format!("Could not find trigger: {trigger:?}"))?
                 .to_str()
                 .unwrap()
         ).unwrap(),

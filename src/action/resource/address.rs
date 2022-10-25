@@ -2,6 +2,7 @@ use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ResourceAddr {
+    Ref(PathBuf),
     Text(PathBuf),
     Image(PathBuf),
     #[cfg(feature = "audio")]
@@ -16,21 +17,29 @@ impl ResourceAddr {
     #[inline]
     pub fn path(&self) -> &Path {
         match self {
-            ResourceAddr::Text(p)
-            | ResourceAddr::Image(p)
-            | ResourceAddr::Audio(p)
-            | ResourceAddr::Video(p)
-            | ResourceAddr::Stream(p) => p,
+            ResourceAddr::Ref(p) => p,
+            ResourceAddr::Text(p) => p,
+            ResourceAddr::Image(p) => p,
+            #[cfg(feature = "audio")]
+            ResourceAddr::Audio(p) => p,
+            #[cfg(feature = "stream")]
+            ResourceAddr::Video(p) => p,
+            #[cfg(feature = "stream")]
+            ResourceAddr::Stream(p) => p,
         }
     }
 
     #[inline]
     pub fn prefix(&self, parent: &Path) -> Self {
         match self {
+            ResourceAddr::Ref(p) => ResourceAddr::Ref(parent.join(p)),
             ResourceAddr::Text(p) => ResourceAddr::Text(parent.join(p)),
             ResourceAddr::Image(p) => ResourceAddr::Image(parent.join(p)),
+            #[cfg(feature = "audio")]
             ResourceAddr::Audio(p) => ResourceAddr::Audio(parent.join(p)),
+            #[cfg(feature = "stream")]
             ResourceAddr::Video(p) => ResourceAddr::Video(parent.join(p)),
+            #[cfg(feature = "stream")]
             ResourceAddr::Stream(p) => ResourceAddr::Stream(parent.join(p)),
         }
     }
