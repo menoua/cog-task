@@ -1,10 +1,10 @@
 # CogTask
 
-[![Documentation](https://docs.rs/cog-task/badge.svg)][documentation]
-[![Crates.io Version](https://img.shields.io/crates/v/cog-task.svg)](https://crates.io/crates/cog-task)
-[![Crates.io Downloads](https://img.shields.io/crates/d/cog-task.svg)](https://crates.io/crates/cog-task)
+[![Crates.io](https://img.shields.io/crates/v/cog-task.svg)](https://crates.io/crates/cog-task)
+[![Documentation](https://docs.rs/cog-task/badge.svg)](https://docs.rs/cog-task)
 [![License](https://img.shields.io/crates/l/cog-task.svg)](https://opensource.org/licenses/MIT)
 [![Build Status](https://github.com/menoua/cog-task/workflows/CI/badge.svg)](https://github.com/menoua/cog-task/actions)
+[![Crates.io Downloads](https://img.shields.io/crates/d/cog-task.svg)](https://crates.io/crates/cog-task)
 
 A general-purpose low-latency application to serve cognitive tasks, built with [egui](https://github.com/emilk/egui).
 
