@@ -34,7 +34,7 @@ By default (no features), this package should compile and run out-of-the-box on 
 Currently, there are 4 main features that can be enabled:
 1. **audio** -- enables the `Audio` action via the ALSA sound library.
 2. **gstreamer** -- enables the `Stream` and `Video` actions via the gstreamer backend.
-3. **ffmpeg** -- enables the `Stream` and `Video` actions via the ffmpeg backend.
+3. **ffmpeg** (_incomplete_) -- enables the `Stream` and `Video` actions via the ffmpeg backend.
 4. **full** -- a shorthand to enable the previous three features.
 
 Examples:
@@ -53,9 +53,9 @@ Some features depend on certain libraries that might not come preinstalled on yo
 
 ### audio
 
-On *linux*, requires installing ALSA and pkg-config, e.g.:<br>
+On *linux*, requires installing pkg-config and ALSA, e.g.:<br>
 ```bash
-$ sudo apt install libasound2-dev pkg-config
+$ sudo apt install pkg-config libasound2-dev
 ```
 
 ### gstreamer
@@ -72,9 +72,9 @@ $ sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstre
 
 ### ffmpeg
 
-On *linux*, requires installing pkg-config, e.g.:<br>
+On *linux*, requires installing pkg-config and libavutil, e.g.:<br>
 ```bash
-$ sudo apt install pkg-config
+$ sudo apt install pkg-config libavfilter-dev libavdevice-dev
 ```
   - *NOTE: Although it is not a requirement at compile time, to be able to use the ffmpeg backend, you need to have the ffmpeg library installed on the system during runtime.*
 
