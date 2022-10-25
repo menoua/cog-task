@@ -101,7 +101,15 @@ impl Task {
     }
 }
 
-impl Hash for Task {}
+impl Hash for Task {
+    fn hash(&self) -> String {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::default();
+        let blocks: Vec<_> = self.blocks.iter().map(|b| b.hash()).collect();
+        hasher.update(&serde_cbor::to_vec(&blocks).unwrap());
+        hex::encode(hasher.finalize())
+    }
+}
 
 fn verify_features(content: &str) -> Result<()> {
     let re = Regex::new(r"^//@[ \t]*([[:alpha:]][[:word:]]*)[ \t]*$").unwrap();

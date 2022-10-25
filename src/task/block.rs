@@ -62,4 +62,11 @@ impl Block {
     }
 }
 
-impl Hash for Block {}
+impl Hash for Block {
+    fn hash(&self) -> String {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::default();
+        hasher.update(&serde_cbor::to_vec(&(&self.tree, &self.config)).unwrap());
+        hex::encode(hasher.finalize())
+    }
+}

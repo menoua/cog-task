@@ -84,10 +84,7 @@ fn main() {
         .lines()
         .map_while(|p| re.captures(p).map(|c| c[1].to_string()))
         .for_each(|f| {
-            features
-                .entry(action.clone())
-                .or_default()
-                .push(f.to_owned());
+            features.entry(action.clone()).or_default().push(f);
         });
     }
 
@@ -99,10 +96,7 @@ fn main() {
         .lines()
         .map_while(|p| re.captures(p).map(|c| c[1].to_string()))
         .for_each(|f| {
-            features
-                .entry(action.clone())
-                .or_default()
-                .push(f.to_owned());
+            features.entry(action.clone()).or_default().push(f);
         });
     }
 

@@ -7,7 +7,7 @@ use crate::scheduler::processor::{AsyncSignal, SyncSignal};
 use crate::task::ROOT_DIR;
 use eyre::{eyre, Context, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::PathBuf;
 
@@ -16,7 +16,7 @@ use std::path::PathBuf;
 pub struct Template {
     src: PathBuf,
     #[serde(default)]
-    params: HashMap<String, String>,
+    params: BTreeMap<String, String>,
 }
 
 impl Action for Template {

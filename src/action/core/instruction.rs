@@ -17,7 +17,7 @@ use eyre::{eyre, Error, Result};
 use regex::{Captures, Regex};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -27,7 +27,7 @@ pub struct Instruction {
     #[serde(default)]
     header: String,
     #[serde(default)]
-    params: HashMap<SignalId, String>,
+    params: BTreeMap<SignalId, String>,
     #[serde(default = "defaults::persistent")]
     #[serde(rename = "static")]
     persistent: bool,
@@ -36,9 +36,9 @@ pub struct Instruction {
 stateful!(Instruction {
     text: String,
     header: String,
-    params_i: HashMap<u16, String>,
-    params_e: HashMap<u16, String>,
-    params_s: HashSet<u16>,
+    params_i: BTreeMap<u16, String>,
+    params_e: BTreeMap<u16, String>,
+    params_s: BTreeSet<u16>,
     persistent: bool,
 });
 
@@ -54,7 +54,7 @@ impl From<&str> for Instruction {
         Self {
             text: text.to_owned(),
             header: "".to_owned(),
-            params: HashMap::new(),
+            params: BTreeMap::new(),
             persistent: defaults::persistent(),
         }
     }
@@ -120,9 +120,9 @@ impl Action for Instruction {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        let mut params_i = HashMap::new();
-        let mut params_e = HashMap::new();
-        let mut params_s = HashSet::new();
+        let mut params_i = BTreeMap::new();
+        let mut params_e = BTreeMap::new();
+        let mut params_s = BTreeSet::new();
         for (k, v) in self.params.iter() {
             match k {
                 SignalId::None => {}

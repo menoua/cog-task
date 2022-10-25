@@ -6,7 +6,7 @@ use std::collections::hash_map::Iter;
 use std::collections::HashMap;
 use std::time::Instant;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
 pub enum SignalId {
     None,
     #[serde(rename = "i")]
