@@ -118,16 +118,15 @@ impl StatefulAction for StatefulSwitch {
         state: &State,
     ) -> Result<()> {
         match self.decision {
-            Decision::Temporary(_) => match signal {
-                ActionSignal::StateChanged(_, signal) => {
+            Decision::Temporary(_) => {
+                if let ActionSignal::StateChanged(_, signal) = signal {
                     if signal.contains(&self.in_control) {
                         if let Some(Value::Bool(c)) = state.get(&self.in_control) {
                             self.decision = Decision::Temporary(*c);
                         }
                     }
                 }
-                _ => {}
-            },
+            }
             Decision::Final(true) => {
                 self.if_true
                     .update(signal, sync_writer, async_writer, state)?;

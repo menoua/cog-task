@@ -96,21 +96,16 @@ impl StatefulAction for StatefulView {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<()> {
-        match signal {
-            ActionSignal::StateChanged(_, signal) => {
-                if signal.contains(&self.in_control) {
-                    match state.get(&self.in_control) {
-                        Some(Value::Integer(i)) if *i < self.children.len() as i128 => {
-                            self.decision = *i as usize
-                        }
-                        Some(Value::Integer(_)) => {
-                            return Err(eyre!("View request is out of bounds."))
-                        }
-                        _ => {}
+        if let ActionSignal::StateChanged(_, signal) = signal {
+            if signal.contains(&self.in_control) {
+                match state.get(&self.in_control) {
+                    Some(Value::Integer(i)) if *i < self.children.len() as i128 => {
+                        self.decision = *i as usize;
                     }
+                    Some(Value::Integer(_)) => return Err(eyre!("View request is out of bounds.")),
+                    _ => {}
                 }
             }
-            _ => {}
         }
 
         for c in self.children.iter_mut() {

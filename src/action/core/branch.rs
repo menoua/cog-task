@@ -126,8 +126,8 @@ impl StatefulAction for StatefulBranch {
         state: &State,
     ) -> Result<()> {
         match self.decision {
-            Decision::Temporary(_) => match signal {
-                ActionSignal::StateChanged(_, signal) => {
+            Decision::Temporary(_) => {
+                if let ActionSignal::StateChanged(_, signal) = signal {
                     if signal.contains(&self.in_control) {
                         match state.get(&self.in_control) {
                             Some(Value::Integer(i)) if *i < self.children.len() as i128 => {
@@ -140,8 +140,7 @@ impl StatefulAction for StatefulBranch {
                         }
                     }
                 }
-                _ => {}
-            },
+            }
             Decision::Final(i) => {
                 self.children[i].update(signal, sync_writer, async_writer, state)?;
                 if self.children[i].is_over()? {
