@@ -1,5 +1,6 @@
 ## To-do
 
+- [ ] Rename `sig_*` fields to `in_*` or `out_*` depending on direction.
 - [ ] Change signal notation to `$[0x01]`.
 - [ ] Unify all SignalId into a single state-updating signal. External communication will be handled by dedicated thread.
 - [ ] Add button press count metric (`sig_count`) to `Reaction`.
