@@ -1,5 +1,10 @@
 ## To-do
 
+- [ ] Unify all SignalId into a single state-updating signal. External communication will be handled by dedicated thread.
+- [ ] Add button press count metric (`sig_count`) to `Reaction`.
+- [ ] Each time a button is pressed that is captured by `Reaction`, emit. Only log once.
+- [ ] Add `Counter` action which starts from an initial value and counts each time it receives a signal.
+- [ ] Add `Math` action which takes in variables and logs/signals at start and every time the result changes.
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.
 - [ ] Consider relegating compile-time asset management to [rust-embed](https://github.com/pyrossh/rust-embed).
