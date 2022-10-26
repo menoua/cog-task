@@ -1,5 +1,6 @@
 ## To-do
 
+- [ ] Set a limit on signal queue (e.g., 256). If we get there, it's very likely something is wrong.
 - [ ] Unify logging. Introduce two fields -- `log_name` (group chosen by action) and `log_group`.
 - [ ] Rename `sig_*` fields to `in_*` or `out_*` depending on direction.
 - [ ] Change signal notation to `$[0x01]`.
