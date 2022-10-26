@@ -1,5 +1,6 @@
 ## To-do
 
+- [ ] Change signal notation to `$[0x01]`.
 - [ ] Unify all SignalId into a single state-updating signal. External communication will be handled by dedicated thread.
 - [ ] Add button press count metric (`sig_count`) to `Reaction`.
 - [ ] Each time a button is pressed that is captured by `Reaction`, emit. Only log once.
