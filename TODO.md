@@ -1,5 +1,6 @@
 ## To-do
 
+- [ ] Unify logging. Introduce two fields -- `log_name` (group chosen by action) and `log_group`.
 - [ ] Rename `sig_*` fields to `in_*` or `out_*` depending on direction.
 - [ ] Change signal notation to `$[0x01]`.
 - [ ] Unify all SignalId into a single state-updating signal. External communication will be handled by dedicated thread.
