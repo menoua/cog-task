@@ -16,7 +16,6 @@ pub enum SyncSignal {
     UpdateGraph,
     KeyPress(Instant, HashSet<egui::Key>),
     Emit(Instant, Signal),
-    // External(Instant, Signal),
     Repaint,
     Finish,
 }
@@ -36,7 +35,6 @@ impl PartialEq for SyncSignal {
             (SyncSignal::UpdateGraph, SyncSignal::UpdateGraph) => true,
             (SyncSignal::KeyPress(t1, _), SyncSignal::KeyPress(t2, _)) => t1 == t2,
             (SyncSignal::Emit(_, _), SyncSignal::Emit(_, _)) => false,
-            // External(Instant, Signal),
             (SyncSignal::Repaint, SyncSignal::Repaint) => true,
             (SyncSignal::Finish, SyncSignal::Finish) => true,
             _ => false,
@@ -84,7 +82,7 @@ impl SyncProcessor {
                 proc.server_writer.push(ServerSignal::BlockCrashed(e));
             });
 
-            'mainloop: while let Some(signals) = proc.sync_reader.poll() {
+            'mainloop: while let Ok(signals) = proc.sync_reader.poll() {
                 for signal in signals {
                     match signal {
                         SyncSignal::UpdateGraph => {
@@ -106,30 +104,22 @@ impl SyncProcessor {
                             )
                         }
                         SyncSignal::Emit(time, signal) => {
-                            let (int_sig, _ext_sig, state_sig) = signal.split();
                             let (tree, state) = &mut *proc.atomic.lock().unwrap();
 
-                            if !state_sig.is_empty() {
-                                for (k, v) in state_sig.into_iter() {
+                            let mut changed = HashSet::new();
+                            if !signal.is_empty() {
+                                for (k, v) in signal.into_iter() {
                                     state.insert(k, v);
+                                    changed.insert(k);
                                 }
-
-                                tree.update(
-                                    &ActionSignal::StateChanged,
-                                    &mut proc.sync_writer,
-                                    &mut proc.async_writer,
-                                    state,
-                                )?;
                             }
 
-                            if !int_sig.is_empty() {
-                                tree.update(
-                                    &ActionSignal::Internal(time, int_sig),
-                                    &mut proc.sync_writer,
-                                    &mut proc.async_writer,
-                                    state,
-                                )?;
-                            }
+                            tree.update(
+                                &ActionSignal::StateChanged(time, changed),
+                                &mut proc.sync_writer,
+                                &mut proc.async_writer,
+                                state,
+                            )?;
 
                             Ok(())
                         }

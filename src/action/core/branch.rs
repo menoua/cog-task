@@ -3,42 +3,50 @@ use crate::comm::{QWriter, SignalId};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
-use eyre::Result;
+use eyre::{eyre, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Switch {
+pub struct Branch {
     #[serde(default)]
-    default: bool,
-    #[serde(rename = "true")]
-    if_true: Box<dyn Action>,
-    #[serde(rename = "false")]
-    if_false: Box<dyn Action>,
+    default: usize,
+    children: Vec<Box<dyn Action>>,
     in_control: SignalId,
 }
 
 enum Decision {
-    Temporary(bool),
-    Final(bool),
+    Temporary(usize),
+    Final(usize),
 }
 
-stateful!(Switch {
-    if_true: Box<dyn StatefulAction>,
-    if_false: Box<dyn StatefulAction>,
+stateful!(Branch {
+    children: Vec<Box<dyn StatefulAction>>,
     in_control: SignalId,
     decision: Decision,
 });
 
-impl Action for Switch {
+impl Action for Branch {
     #[inline]
     fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
-        [&self.if_true, &self.if_false]
+        self.children
             .iter()
             .flat_map(|c| c.resources(config))
             .unique()
             .collect()
+    }
+
+    fn init(self) -> Result<Box<dyn Action>> {
+        if self.children.is_empty() {
+            Err(eyre!("Branch should have at least one child."))
+        } else if self.default >= self.children.len() {
+            Err(eyre!(
+                "Branch default value should be less than the number of its children."
+            ))
+        } else {
+            Ok(Box::new(self))
+        }
     }
 
     fn stateful(
@@ -49,31 +57,29 @@ impl Action for Switch {
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        Ok(Box::new(StatefulSwitch {
+        let mut children = vec![];
+        for c in self.children.iter() {
+            children.push(c.stateful(io, res, config, sync_writer, async_writer)?);
+        }
+
+        Ok(Box::new(StatefulBranch {
             done: false,
-            if_true: self
-                .if_true
-                .stateful(io, res, config, sync_writer, async_writer)?,
-            if_false: self
-                .if_false
-                .stateful(io, res, config, sync_writer, async_writer)?,
+            children,
             in_control: self.in_control,
             decision: Decision::Temporary(self.default),
         }))
     }
 }
 
-impl StatefulAction for StatefulSwitch {
+impl StatefulAction for StatefulBranch {
     impl_stateful!();
 
     #[inline]
     fn props(&self) -> Props {
-        if let Decision::Final(true) = self.decision {
-            self.if_true.props()
-        } else if let Decision::Final(false) = self.decision {
-            self.if_false.props()
+        if let Decision::Final(i) = self.decision {
+            self.children[i].props()
         } else {
-            [&self.if_true, &self.if_false]
+            self.children
                 .iter()
                 .fold(DEFAULT, |mut state, c| {
                     let c = c.props();
@@ -97,16 +103,18 @@ impl StatefulAction for StatefulSwitch {
         state: &State,
     ) -> Result<()> {
         let decision = match self.decision {
-            Decision::Temporary(c) => c,
+            Decision::Temporary(i) => i,
             _ => return Ok(()),
         };
 
-        self.decision = Decision::Final(decision);
-        if decision {
-            self.if_true.start(sync_writer, async_writer, state)
-        } else {
-            self.if_false.start(sync_writer, async_writer, state)
+        if !(0..self.children.len()).contains(&decision) {
+            return Err(eyre!(
+                "Switch ended up with a decision outside allowed boundary."
+            ));
         }
+
+        self.decision = Decision::Final(decision);
+        self.children[decision].start(sync_writer, async_writer, state)
     }
 
     #[inline]
@@ -121,24 +129,22 @@ impl StatefulAction for StatefulSwitch {
             Decision::Temporary(_) => match signal {
                 ActionSignal::StateChanged(_, signal) => {
                     if signal.contains(&self.in_control) {
-                        if let Some(Value::Bool(c)) = state.get(&self.in_control) {
-                            self.decision = Decision::Temporary(*c);
+                        match state.get(&self.in_control) {
+                            Some(Value::Integer(i)) if *i < self.children.len() as i128 => {
+                                self.decision = Decision::Temporary(*i as usize);
+                            }
+                            Some(Value::Integer(_)) => {
+                                return Err(eyre!("Branch request is out of bounds."));
+                            }
+                            _ => {}
                         }
                     }
                 }
                 _ => {}
             },
-            Decision::Final(true) => {
-                self.if_true
-                    .update(signal, sync_writer, async_writer, state)?;
-                if self.if_true.is_over()? {
-                    self.done = true;
-                }
-            }
-            Decision::Final(false) => {
-                self.if_false
-                    .update(signal, sync_writer, async_writer, state)?;
-                if self.if_false.is_over()? {
+            Decision::Final(i) => {
+                self.children[i].update(signal, sync_writer, async_writer, state)?;
+                if self.children[i].is_over()? {
                     self.done = true;
                 }
             }
@@ -154,10 +160,10 @@ impl StatefulAction for StatefulSwitch {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<()> {
-        match self.decision {
-            Decision::Final(true) => self.if_true.show(ui, sync_writer, async_writer, state),
-            Decision::Final(false) => self.if_false.show(ui, sync_writer, async_writer, state),
-            Decision::Temporary(_) => Ok(()),
+        if let Decision::Final(i) = self.decision {
+            self.children[i].show(ui, sync_writer, async_writer, state)
+        } else {
+            Ok(())
         }
     }
 
@@ -168,12 +174,9 @@ impl StatefulAction for StatefulSwitch {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<()> {
-        match self.decision {
-            Decision::Final(true) => self.if_true.stop(sync_writer, async_writer, state)?,
-            Decision::Final(false) => self.if_true.stop(sync_writer, async_writer, state)?,
-            Decision::Temporary(_) => {}
+        if let Decision::Final(i) = self.decision {
+            self.children[i].stop(sync_writer, async_writer, state)?;
         }
-
         self.done = true;
         Ok(())
     }

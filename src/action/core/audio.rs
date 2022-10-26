@@ -30,7 +30,7 @@ pub struct Audio {
     #[serde(default)]
     trigger: Trigger,
     #[serde(default)]
-    volume_control: SignalId,
+    in_volume: SignalId,
 }
 
 stateful_arc!(Audio {
@@ -38,7 +38,7 @@ stateful_arc!(Audio {
     looping: bool,
     sink: Arc<Mutex<Option<Sink>>>,
     link: Option<(Sender<()>, Receiver<()>)>,
-    volume_control: SignalId,
+    in_volume: SignalId,
 });
 
 mod defaults {
@@ -174,7 +174,7 @@ impl Action for Audio {
             looping: self.looping,
             sink,
             link: Some((tx_start, rx_stop)),
-            volume_control: self.volume_control,
+            in_volume: self.in_volume,
         }))
     }
 }
@@ -223,19 +223,14 @@ impl StatefulAction for StatefulAudio {
         signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
+        state: &State,
     ) -> Result<()> {
-        let volume_control = match self.volume_control {
-            SignalId::Internal(i) => i,
+        match signal {
+            ActionSignal::StateChanged(_, signal) if signal.contains(&self.in_volume) => {}
             _ => return Ok(()),
         };
 
-        let signal = match signal {
-            ActionSignal::Internal(_, signal) => signal,
-            _ => return Ok(()),
-        };
-
-        if let Some(Value::Float(vol)) = signal.get(&volume_control) {
+        if let Some(Value::Float(vol)) = state.get(&self.in_volume) {
             let vol = vol.clamp(0.0, 1.0) as f32;
             if let Some(sink) = self.sink.lock().unwrap().as_mut() {
                 sink.set_volume(vol);

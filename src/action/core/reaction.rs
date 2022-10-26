@@ -21,11 +21,13 @@ pub struct Reaction {
     #[serde(default = "defaults::tol")]
     tol: f32,
     #[serde(default)]
-    sig_accuracy: SignalId,
+    out_rt: SignalId,
     #[serde(default)]
-    sig_recall: SignalId,
+    out_accuracy: SignalId,
     #[serde(default)]
-    sig_mean_rt: SignalId,
+    out_mean_rt: SignalId,
+    #[serde(default)]
+    out_recall: SignalId,
 }
 
 stateful!(Reaction {
@@ -38,9 +40,10 @@ stateful!(Reaction {
     reaction_correct: Vec<bool>,
     reaction_times: Vec<f32>,
     reaction_rts: Vec<f32>,
-    sig_accuracy: SignalId,
-    sig_recall: SignalId,
-    sig_mean_rt: SignalId,
+    out_rt: SignalId,
+    out_accuracy: SignalId,
+    out_mean_rt: SignalId,
+    out_recall: SignalId,
 });
 
 mod defaults {
@@ -69,6 +72,10 @@ impl Action for Reaction {
     where
         Self: 'static + Sized,
     {
+        if self.group.is_empty() {
+            return Err(eyre!("Reaction `group` cannot be an empty string"));
+        }
+
         self.times.sort_by(|a, b| a.partial_cmp(b).unwrap());
         Ok(Box::new(self))
     }
@@ -81,10 +88,6 @@ impl Action for Reaction {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        if self.group.is_empty() {
-            return Err(eyre!("Reaction `group` cannot be an empty string"));
-        }
-
         Ok(Box::new(StatefulReaction {
             done: false,
             group: self.group.clone(),
@@ -100,9 +103,10 @@ impl Action for Reaction {
             reaction_correct: vec![],
             reaction_times: vec![],
             reaction_rts: vec![],
-            sig_accuracy: self.sig_accuracy,
-            sig_recall: self.sig_recall,
-            sig_mean_rt: self.sig_mean_rt,
+            out_rt: self.out_rt,
+            out_accuracy: self.out_accuracy,
+            out_recall: self.out_recall,
+            out_mean_rt: self.out_mean_rt,
         }))
     }
 }
@@ -132,7 +136,7 @@ impl StatefulAction for StatefulReaction {
     fn update(
         &mut self,
         signal: &ActionSignal,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
     ) -> Result<()> {
@@ -158,12 +162,19 @@ impl StatefulAction for StatefulReaction {
                     break;
                 } else if time <= target + self.tol {
                     correct = true;
+                    let rt = (time - target).as_secs_f32();
                     self.reaction_correct.push(true);
-                    self.reaction_rts.push((time - target).as_secs_f32());
+                    self.reaction_rts.push(rt);
                     if i < self.times.len() - 1 {
                         self.next = Some(i + 1);
                     } else {
                         self.next = None;
+                    }
+                    if self.out_rt > 0 {
+                        sync_writer.push(SyncSignal::Emit(
+                            Instant::now(),
+                            vec![(self.out_rt, Value::Float(rt as f64))].into(),
+                        ))
                     }
                     break;
                 } else if i < self.times.len() - 1 {
@@ -215,28 +226,28 @@ impl StatefulAction for StatefulReaction {
         _state: &State,
     ) -> Result<()> {
         let accuracy = self.accuracy();
-        let recall = self.recall();
         let mean_rt = self.mean_rt();
+        let recall = self.recall();
 
         async_writer.push(LoggerSignal::Extend(
             self.group.clone(),
             vec![
                 ("event".to_owned(), Value::Text("stop".to_owned())),
                 ("accuracy".to_owned(), Value::Float(accuracy)),
-                ("recall".to_owned(), Value::Float(recall)),
                 ("mean_rt".to_owned(), Value::Float(mean_rt)),
+                ("recall".to_owned(), Value::Float(recall)),
             ],
         ));
 
         let mut signals = vec![];
-        if !self.sig_accuracy.is_none() {
-            signals.push((self.sig_accuracy, Value::Float(accuracy)))
+        if self.out_accuracy > 0 {
+            signals.push((self.out_accuracy, Value::Float(accuracy)))
         }
-        if !self.sig_recall.is_none() {
-            signals.push((self.sig_recall, Value::Float(recall)))
+        if self.out_mean_rt > 0 {
+            signals.push((self.out_mean_rt, Value::Float(mean_rt)))
         }
-        if !self.sig_mean_rt.is_none() {
-            signals.push((self.sig_mean_rt, Value::Float(mean_rt)))
+        if self.out_recall > 0 {
+            signals.push((self.out_recall, Value::Float(recall)))
         }
         if !signals.is_empty() {
             sync_writer.push(SyncSignal::Emit(Instant::now(), signals.into()));

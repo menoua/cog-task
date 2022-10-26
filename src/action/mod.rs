@@ -10,7 +10,7 @@ pub mod resource;
 pub use include::*;
 pub use props::*;
 
-use crate::comm::{IntSignal, QWriter};
+use crate::comm::{QWriter, SignalId};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
 use eyre::Result;
@@ -111,7 +111,5 @@ pub trait ImplStatefulAction: StatefulAction {}
 pub enum ActionSignal {
     UpdateGraph,
     KeyPress(Instant, HashSet<egui::Key>),
-    Internal(Instant, IntSignal),
-    // External(Instant, ExtSignal),
-    StateChanged,
+    StateChanged(Instant, HashSet<SignalId>),
 }

@@ -33,11 +33,13 @@ impl Task {
         ROOT_DIR.set(root_dir.to_owned()).unwrap();
 
         let path = root_dir.join("task.ron");
-        let content = fs::read_to_string(path).wrap_err("Failed to read task description file.")?;
+        let content =
+            fs::read_to_string(&path).wrap_err("Failed to read task description file.")?;
+
         verify_features(&content)?;
 
         ron::from_str::<Task>(&content)
-            .wrap_err("Failed to deserialize task description file.")?
+            .wrap_err_with(|| eyre!("Failed to deserialize task file ({path:?})."))?
             .init(root_dir)
     }
 

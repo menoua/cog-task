@@ -1,12 +1,13 @@
+use eyre::{eyre, Result};
 use std::collections::VecDeque;
 use std::sync::mpsc::{Receiver, Sender};
 use std::sync::{mpsc, Arc, Mutex};
 
 pub const QUEUE_SIZE: usize = 64;
+pub const MAX_QUEUE_SIZE: usize = 256;
+
 pub type Queue<T> = Arc<Mutex<VecDeque<T>>>;
-
 pub struct QReader<T>(Queue<T>, Sender<()>, Receiver<()>);
-
 pub struct QWriter<T>(Queue<T>, Sender<()>);
 
 impl<T> QReader<T> {
@@ -43,7 +44,7 @@ impl<T> QReader<T> {
     }
 
     #[inline(always)]
-    pub fn poll(&mut self) -> Option<Vec<T>>
+    pub fn poll(&mut self) -> Result<Vec<T>>
     where
         T: Eq,
     {
@@ -58,12 +59,14 @@ impl<T> QReader<T> {
                 if self.2.try_recv().is_err() {
                     break;
                 }
+                if signals.len() > MAX_QUEUE_SIZE {
+                    return Err(eyre!("Signal queue exceeded MAX_QUEUE_SIZE."));
+                }
             }
 
-            Some(signals)
+            Ok(signals)
         } else {
-            println!("Failed to poll. Ending sync queue.");
-            None
+            Err(eyre!("Failed to poll. Ending sync queue."))
         }
     }
 

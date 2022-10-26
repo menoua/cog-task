@@ -73,13 +73,14 @@
                         times: [2, 4],
                         tol: 1,
                         group: "quizes",
-                        sig_accuracy: s(0x01),
-                        sig_recall: s(0x02),
-                        sig_mean_rt: s(0x03),
+                        out_accuracy: 1,
+                        out_recall: 2,
+                        out_mean_rt: 3,
                     )),
                 ])),
                 instruction((
-                    text: "Accuracy: #s(0x01)\nRecall: #s(0x02)\nMean RT: #s(0x03)",
+                    text: "Accuracy: ${acc}\nRecall: ${rec}\nMean RT: ${mean_rt}",
+                    in_mapping: { 1: "acc", 2: "rec", 3: "mean_rt" }
                 )),
             ]))
         ),

@@ -1,37 +1,11 @@
-use crate::server::State;
-use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
-use std::collections::hash_map::Iter;
+use std::collections::hash_map::{IntoIter, Iter};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize, Hash)]
-pub enum SignalId {
-    None,
-    #[serde(rename = "i")]
-    Internal(u16),
-    #[serde(rename = "e")]
-    External(u16),
-    #[serde(rename = "s")]
-    State(u16),
-}
-
-impl Default for SignalId {
-    fn default() -> Self {
-        SignalId::None
-    }
-}
-
-impl SignalId {
-    pub fn is_none(&self) -> bool {
-        matches!(self, SignalId::None)
-    }
-}
+pub type SignalId = u16;
 
 #[derive(Debug, Clone)]
 pub struct Signal(HashMap<SignalId, Value>);
-
-pub type IntSignal = HashMap<u16, Value>;
-pub type ExtSignal = HashMap<u16, Value>;
 
 impl Signal {
     pub fn new(signals: HashMap<SignalId, Value>) -> Self {
@@ -46,20 +20,12 @@ impl Signal {
         self.0.iter()
     }
 
-    pub fn split(self) -> (IntSignal, ExtSignal, State) {
-        let mut ints = HashMap::new();
-        let mut exts = HashMap::new();
-        let mut state = HashMap::new();
-        for (k, v) in self.0.into_iter() {
-            match k {
-                SignalId::None => None,
-                SignalId::Internal(i) => ints.insert(i, v),
-                SignalId::External(i) => exts.insert(i, v),
-                SignalId::State(i) => state.insert(i, v),
-            };
-        }
+    pub fn into_iter(self) -> IntoIter<SignalId, Value> {
+        self.0.into_iter()
+    }
 
-        (ints, exts, state)
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
     }
 }
 

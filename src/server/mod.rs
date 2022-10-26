@@ -22,7 +22,7 @@ use chrono::{DateTime, Local, NaiveDateTime};
 use eframe::egui::CentralPanel;
 use eframe::glow::HasContext;
 use eframe::{egui, App};
-use eyre::{Error, Result};
+use eyre::{Context, Error, Result};
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -60,7 +60,8 @@ pub struct Server {
 impl Server {
     pub fn new(path: PathBuf, bin_hash: String) -> Result<Self> {
         let env = Env::new(path)?;
-        let task = Task::new(env.task())?;
+        let task = Task::new(env.task())
+            .wrap_err_with(|| format!("Failed to start task ({:?}).", env.task()))?;
         let blocks = task
             .block_labels()
             .into_iter()

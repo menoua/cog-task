@@ -7,10 +7,10 @@ use eframe::egui;
 use eframe::egui::{CursorIcon, ScrollArea};
 use egui_extras::{Size, StripBuilder};
 use eyre::{eyre, Error, Result};
-use regex::{Captures, Regex};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -19,7 +19,9 @@ pub struct Instruction {
     #[serde(default)]
     header: String,
     #[serde(default)]
-    params: BTreeMap<SignalId, String>,
+    params: BTreeMap<String, String>,
+    #[serde(default)]
+    in_mapping: BTreeMap<SignalId, String>,
     #[serde(default = "defaults::persistent")]
     #[serde(rename = "static")]
     persistent: bool,
@@ -28,10 +30,9 @@ pub struct Instruction {
 stateful!(Instruction {
     text: String,
     header: String,
-    params_i: BTreeMap<u16, String>,
-    params_e: BTreeMap<u16, String>,
-    params_s: BTreeSet<u16>,
+    params: BTreeMap<String, String>,
     persistent: bool,
+    in_mapping: BTreeMap<SignalId, String>,
 });
 
 mod defaults {
@@ -48,6 +49,7 @@ impl From<&str> for Instruction {
             header: "".to_owned(),
             params: BTreeMap::new(),
             persistent: defaults::persistent(),
+            in_mapping: BTreeMap::new(),
         }
     }
 }
@@ -63,43 +65,18 @@ impl Action for Instruction {
     }
 
     fn init(mut self) -> Result<Box<dyn Action>, Error> {
-        let re = Regex::new(r"#([ies])\(((0x[\da-fA-F]+)|(\d+))\)").unwrap();
+        let re = Regex::new(r"\$\{([[:alpha:]][[:word:]]*)\}").unwrap();
         for caps in re.captures_iter(&self.text) {
-            let key = if caps[2].starts_with("0x") {
-                u16::from_str_radix(caps[2].trim_start_matches("0x"), 16)
-                    .map_err(|_| eyre!("Failed to parse hexadecimal integer: {}", &caps[2]))
-            } else {
-                caps[2]
-                    .parse::<u16>()
-                    .map_err(|_| eyre!("Failed to parse decimal integer: {}", &caps[2]))
-            }?;
-
-            let key = match &caps[1] {
-                "i" => Ok(SignalId::Internal(key)),
-                "e" => Ok(SignalId::External(key)),
-                "s" => Ok(SignalId::State(key)),
-                _ => Err(eyre!("Unknown signal identifier: {}", &caps[1])),
-            }?;
-
             self.params
-                .entry(key)
+                .entry(caps[1].to_owned())
                 .or_insert_with(|| "<UNSET>".to_owned());
         }
 
-        self.text = re
-            .replace_all(&self.text, |caps: &Captures| {
-                format!(
-                    "#{}({})",
-                    &caps[1],
-                    if caps[2].starts_with("0x") {
-                        u16::from_str_radix(caps[2].trim_start_matches("0x"), 16).unwrap()
-                    } else {
-                        caps[2].parse::<u16>().unwrap()
-                    }
-                )
-            })
-            .parse()
-            .unwrap();
+        for (_, v) in self.in_mapping.iter() {
+            if !self.params.contains_key(v) {
+                return Err(eyre!("Undefined parameter `{v}` in `in_mapping`."));
+            }
+        }
 
         Ok(Box::new(self))
     }
@@ -112,32 +89,13 @@ impl Action for Instruction {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        let mut params_i = BTreeMap::new();
-        let mut params_e = BTreeMap::new();
-        let mut params_s = BTreeSet::new();
-        for (k, v) in self.params.iter() {
-            match k {
-                SignalId::None => {}
-                SignalId::Internal(i) => {
-                    params_i.insert(*i, v.clone());
-                }
-                SignalId::External(i) => {
-                    params_e.insert(*i, v.clone());
-                }
-                SignalId::State(i) => {
-                    params_s.insert(*i);
-                }
-            };
-        }
-
         Ok(Box::new(StatefulInstruction {
             done: false,
             text: res.fetch_text(&self.text)?,
             header: self.header.clone(),
-            params_i,
-            params_e,
-            params_s,
+            params: self.params.clone(),
             persistent: self.persistent,
+            in_mapping: self.in_mapping.clone(),
         }))
     }
 }
@@ -159,8 +117,23 @@ impl StatefulAction for StatefulInstruction {
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
+        state: &State,
     ) -> Result<(), Error> {
+        for (id, key) in self.in_mapping.iter() {
+            if let Some(entry) = self.params.get_mut(key) {
+                if let Some(value) = state.get(id) {
+                    *entry = match value {
+                        Value::Bool(v) => v.to_string(),
+                        Value::Integer(v) => v.to_string(),
+                        Value::Float(v) => format!("{v:.4}"),
+                        Value::Text(v) => v.to_string(),
+                        Value::Null => "<UNSET>".to_owned(),
+                        _ => "<INVALID>".to_owned(),
+                    };
+                }
+            }
+        }
+
         sync_writer.push(SyncSignal::Repaint);
         Ok(())
     }
@@ -170,29 +143,32 @@ impl StatefulAction for StatefulInstruction {
         signal: &ActionSignal,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
+        state: &State,
     ) -> Result<(), Error> {
+        let mut changed = false;
         match signal {
-            ActionSignal::Internal(_, signal) => {
-                for (k, v) in signal.iter() {
-                    if let Some(entry) = self.params_i.get_mut(k) {
-                        *entry = match v {
-                            Value::Bool(v) => v.to_string(),
-                            Value::Integer(v) => v.to_string(),
-                            Value::Float(v) => format!("{v:.4}"),
-                            Value::Text(v) => v.to_string(),
-                            Value::Null => "<UNSET>".to_owned(),
-                            _ => "<INVALID>".to_owned(),
-                        };
+            ActionSignal::StateChanged(_, signal) => {
+                for id in signal {
+                    if let Some(key) = self.in_mapping.get(id) {
+                        if let Some(entry) = self.params.get_mut(key) {
+                            *entry = match state.get(id).unwrap() {
+                                Value::Bool(v) => v.to_string(),
+                                Value::Integer(v) => v.to_string(),
+                                Value::Float(v) => format!("{v:.4}"),
+                                Value::Text(v) => v.to_string(),
+                                Value::Null => "<UNSET>".to_owned(),
+                                _ => "<INVALID>".to_owned(),
+                            };
+                        }
+                        changed = true;
                     }
                 }
             }
-            ActionSignal::StateChanged => {
-                if !self.params_s.is_empty() {
-                    sync_writer.push(SyncSignal::Repaint);
-                }
-            }
-            _ => {}
+            _ => return Ok(()),
+        }
+
+        if changed {
+            sync_writer.push(SyncSignal::Repaint);
         }
 
         Ok(())
@@ -203,33 +179,12 @@ impl StatefulAction for StatefulInstruction {
         ui: &mut egui::Ui,
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
-        state: &State,
+        _state: &State,
     ) -> Result<()> {
         let mut text = self.text.clone();
 
-        for (i, v) in self.params_i.iter() {
-            text = Regex::new(&format!(r"#i\({i}\)"))
-                .unwrap()
-                .replace_all(&text, v)
-                .to_string();
-        }
-        for (i, v) in self.params_e.iter() {
-            text = Regex::new(&format!(r"#e\({i}\)"))
-                .unwrap()
-                .replace_all(&text, v)
-                .to_string();
-        }
-        for i in self.params_s.iter() {
-            let v = match state.get(i).unwrap_or(&Value::Null) {
-                Value::Bool(v) => v.to_string(),
-                Value::Integer(v) => v.to_string(),
-                Value::Float(v) => format!("{v:.4}"),
-                Value::Text(v) => v.to_string(),
-                Value::Null => "<UNSET>".to_owned(),
-                _ => "<INVALID>".to_owned(),
-            };
-
-            text = Regex::new(&format!(r"#s\({i}\)"))
+        for (k, v) in self.params.iter() {
+            text = Regex::new(&format!(r"\$\{{{k}}}"))
                 .unwrap()
                 .replace_all(&text, v)
                 .to_string();

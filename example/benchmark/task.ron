@@ -16,10 +16,11 @@
                 par(([
                     wait((3.0))
                 ], [
-                    timer((sig_duration: s(0x0f)))
+                    timer((out_duration: 1))
                 ])),
                 instruction((
-                    text: "This block took #s(0x0f) seconds (ideal = 3.0000)."
+                    text: "This block took ${dur} seconds (ideal = 3.0000).",
+                    in_mapping: { 1: "dur" }
                 )),
             ]))
         ),
@@ -81,10 +82,11 @@
                         wait((0.5)), timeout((0.5, fixation((background: rgba(180, 180, 0, 127))))),
                     ]))
                 ], [
-                    timer((sig_duration: s(0x0f)))
+                    timer((out_duration: 1))
                 ])),
                 instruction((
-                    text: "This block took #s(0x0f) seconds (ideal = 50.0000)."
+                    text: "This block took ${dur} seconds (ideal = 50.0000).",
+                    in_mapping: { 1: "dur" }
                 )),
             ]))
         ),
@@ -304,10 +306,11 @@
                         audio((src: "sample-6s.wav")),
                     ])),
                 ], [
-                    timer((sig_duration: s(0x0f)))
+                    timer((out_duration: 1))
                 ])),
                 instruction((
-                    text: "This block took #s(0x0f) seconds (ideal = 647.0205)."
+                    text: "This block took ${dur} seconds (ideal = 647.0205).",
+                    in_mapping: { 1: "dur" }
                 )),
             ]))
         ),
@@ -422,10 +425,11 @@
                         par(([audio((src: "sample-6s.wav"))], [fixation(())])),
                     ]))
                 ], [
-                    timer((sig_duration: s(0x0f)))
+                    timer((out_duration: 1))
                 ])),
                 instruction((
-                    text: "This block took #s(0x0f) seconds (ideal = 639.1293)."
+                    text: "This block took ${dur} seconds (ideal = 639.1293).",
+                    in_mapping: { 1: "dur" }
                 )),
             ]))
         ),

@@ -1,14 +1,13 @@
 ## To-do
 
-- [ ] Unify all SignalId into a single state-updating signal. External communication will be handled by dedicated thread.
-- [ ] Set a limit on signal queue (e.g., 256). If we get there, it's very likely something is wrong.
+- [x] Unify all SignalId into a single state-updating signal. External communication will be handled by dedicated thread.
+- [x] Set a limit on signal queue (e.g., 256). If we get there, it's very likely something is wrong.
 - [ ] Separate params from signals:
-        - `Instruction`: Reuse ${x} in text; add params:Map<str,str>; add in_mapping:Map<u16,str>.
-        - `Math`: use regular word in expression text; add vars:Map<str,f32>; add in_mapping:Map<u16,str>.
+        - [x] `Instruction`: Reuse ${x} in text; add params:Map<str,str>; add in_mapping:Map<u16,str>.
+        - [ ] `Math`: use regular word in expression text; add vars:Map<str,f32>; add in_mapping:Map<u16,str>.
 - [ ] Unify logging. Introduce two fields -- `log_name` (group chosen by action) and `log_group`.
-- [ ] Rename `sig_*` fields to `in_*` or `out_*` depending on direction.
-- [ ] Add button press count metric (`sig_count`) to `Reaction`.
-- [ ] Each time a button is pressed that is captured by `Reaction`, emit. Only log once.
+- [x] Rename `sig_*` fields to `in_*` or `out_*` depending on direction.
+- [x] Each time a button is pressed that is captured by `Reaction`, emit. Only log once.
 - [ ] Add `Counter` action which starts from an initial value and counts each time it receives a signal.
 - [ ] Add `Math` action which takes in variables and logs/signals at start and every time the result changes. Candidates are: [meval](https://github.com/rekka/meval-rs), [savage](https://github.com/p-e-w/savage), [fasteval](https://github.com/likebike/fasteval), [caldyn](https://github.com/Luthaf/caldyn).
 - [ ] Add `ValueLogger` action that logs anything that arrives on a set of signals.

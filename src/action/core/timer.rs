@@ -13,12 +13,12 @@ pub struct Timer {
     #[serde(default)]
     name: String,
     #[serde(default)]
-    sig_duration: SignalId,
+    out_duration: SignalId,
 }
 
 stateful!(Timer {
     name: String,
-    sig_duration: SignalId,
+    out_duration: SignalId,
     since: Instant,
 });
 
@@ -27,9 +27,9 @@ impl Action for Timer {
     where
         Self: 'static + Sized,
     {
-        if self.name.is_empty() && self.sig_duration.is_none() {
+        if self.name.is_empty() && self.out_duration == 0 {
             Err(eyre!(
-                "`Timer` without a `name` or `sig_duration` is useless."
+                "`Timer` without a `name` or `out_duration` is useless."
             ))
         } else {
             Ok(Box::new(self))
@@ -48,7 +48,7 @@ impl Action for Timer {
         Ok(Box::new(StatefulTimer {
             done: false,
             name: self.name.clone(),
-            sig_duration: self.sig_duration,
+            out_duration: self.out_duration,
             since: Instant::now(),
         }))
     }
@@ -105,10 +105,10 @@ impl StatefulAction for StatefulTimer {
             ));
         }
 
-        if !self.sig_duration.is_none() {
+        if self.out_duration > 0 {
             sync_writer.push(SyncSignal::Emit(
                 Instant::now(),
-                vec![(self.sig_duration, Value::Float(duration.as_secs_f64()))].into(),
+                vec![(self.out_duration, Value::Float(duration.as_secs_f64()))].into(),
             ))
         }
 

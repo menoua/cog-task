@@ -3,24 +3,29 @@ use crate::comm::{QWriter, SignalId};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
-use eyre::Result;
+use eyre::{eyre, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct View(SignalId, usize, Vec<Box<dyn Action>>);
+pub struct View {
+    #[serde(default)]
+    default: usize,
+    children: Vec<Box<dyn Action>>,
+    in_control: SignalId,
+}
 
 stateful!(View {
-    control: SignalId,
     children: Vec<Box<dyn StatefulAction>>,
+    in_control: SignalId,
     decision: usize,
 });
 
 impl Action for View {
     #[inline]
     fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
-        self.2
+        self.children
             .iter()
             .flat_map(|c| c.resources(config))
             .unique()
@@ -35,18 +40,16 @@ impl Action for View {
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
+        let mut children = vec![];
+        for c in self.children.iter() {
+            children.push(c.stateful(io, res, config, sync_writer, async_writer)?);
+        }
+
         Ok(Box::new(StatefulView {
             done: false,
-            control: self.0,
-            children: self
-                .2
-                .iter()
-                .map(|a| {
-                    a.stateful(io, res, config, sync_writer, async_writer)
-                        .unwrap()
-                })
-                .collect(),
-            decision: self.1,
+            children,
+            in_control: self.in_control,
+            decision: self.default,
         }))
     }
 }
@@ -94,17 +97,16 @@ impl StatefulAction for StatefulView {
         state: &State,
     ) -> Result<()> {
         match signal {
-            ActionSignal::Internal(_, signal) => {
-                if let SignalId::Internal(i) = self.control {
-                    if let Some(Value::Integer(c)) = signal.get(&i) {
-                        self.decision = *c as usize;
-                    }
-                }
-            }
-            ActionSignal::StateChanged => {
-                if let SignalId::State(i) = self.control {
-                    if let Some(Value::Integer(c)) = state.get(&i) {
-                        self.decision = *c as usize;
+            ActionSignal::StateChanged(_, signal) => {
+                if signal.contains(&self.in_control) {
+                    match state.get(&self.in_control) {
+                        Some(Value::Integer(i)) if *i < self.children.len() as i128 => {
+                            self.decision = *i as usize
+                        }
+                        Some(Value::Integer(_)) => {
+                            return Err(eyre!("View request is out of bounds."))
+                        }
+                        _ => {}
                     }
                 }
             }

@@ -98,7 +98,7 @@ impl Launcher {
     pub fn window_size(&self) -> Vec2 {
         let count = self.task_paths.len() as u32;
         let width = 580;
-        let height = (200 + count * 75).max(280).min(650);
+        let height = (200 + count * 75).max(280).min(700);
         Vec2::from([width as f32, height as f32])
     }
 

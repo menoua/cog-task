@@ -3,6 +3,7 @@
 
 include_actions!(
     core::audio@("audio"),
+    core::branch@(),
     core::counter@(),
     core::delayed@(),
     core::event@(),
@@ -27,6 +28,7 @@ include_actions!(
 
 include_stateful_actions!(
     core::audio@("audio"),
+    core::branch@(),
     core::counter@(),
     core::delayed@(),
     core::event@(),
