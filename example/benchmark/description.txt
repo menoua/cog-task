@@ -1,0 +1,3 @@
+This is a benchmarking task meant to measure the action-switching overhead in a few scenarios.
+
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc sed tellus sodales, cursus leo nec, varius metus. Aliquam erat volutpat. Maecenas tincidunt urna ac dolor facilisis lacinia. Suspendisse potenti. Curabitur quis eros mi. Nunc finibus arcu ipsum, sit amet rutrum felis convallis et. Sed ultricies eu augue non bibendum. Pellentesque lorem ipsum, euismod in placerat in, sollicitudin sit amet velit. Aliquam iaculis velit orci, eget cursus lacus maximus sed.
