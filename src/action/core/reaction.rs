@@ -3,7 +3,6 @@ use crate::comm::{QWriter, SignalId};
 use crate::resource::{Key, ResourceMap};
 use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
 use eframe::egui;
-use eframe::egui::Ui;
 use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
@@ -139,14 +138,14 @@ impl StatefulAction for StatefulReaction {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Vec<SyncSignal>> {
         let (time, keys) = match signal {
             ActionSignal::KeyPress(t, k) => (t.duration_since(self.since), k),
-            _ => return Ok(()),
+            _ => return Ok(vec![]),
         };
 
         if !self.keys.is_empty() && keys.is_disjoint(&self.keys) {
-            return Ok(());
+            return Ok(vec![]);
         }
 
         self.reaction_times.push(time.as_secs_f32());
@@ -205,17 +204,7 @@ impl StatefulAction for StatefulReaction {
         };
         async_writer.push(LoggerSignal::Append(self.group.clone(), entry));
 
-        Ok(())
-    }
-
-    fn show(
-        &mut self,
-        _ui: &mut Ui,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<(), Error> {
-        Ok(())
+        Ok(vec![])
     }
 
     #[inline]

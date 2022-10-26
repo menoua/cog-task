@@ -68,7 +68,7 @@ impl StatefulAction for StatefulKeyLogger {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Vec<SyncSignal>> {
         if let ActionSignal::KeyPress(_, keys) = signal {
             let group = self.group.clone();
             let entry = (
@@ -81,7 +81,8 @@ impl StatefulAction for StatefulKeyLogger {
                 LoggerSignal::Append(group, entry),
             ));
         }
-        Ok(())
+
+        Ok(vec![])
     }
 
     fn show(

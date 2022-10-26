@@ -95,7 +95,7 @@ impl StatefulAction for StatefulView {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Vec<SyncSignal>> {
         if let ActionSignal::StateChanged(_, signal) = signal {
             if signal.contains(&self.in_control) {
                 match state.get(&self.in_control) {
@@ -116,7 +116,7 @@ impl StatefulAction for StatefulView {
             self.done = true;
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     fn show(

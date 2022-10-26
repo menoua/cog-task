@@ -1,8 +1,7 @@
-use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
+use crate::action::{Action, Props, StatefulAction, DEFAULT};
 use crate::comm::QWriter;
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
-use eframe::egui::Ui;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 
@@ -55,32 +54,13 @@ impl StatefulAction for StatefulNil {
         Ok(())
     }
 
-    fn update(
-        &mut self,
-        _signal: &ActionSignal,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<()> {
-        Ok(())
-    }
-
-    fn show(
-        &mut self,
-        _ui: &mut Ui,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<()> {
-        Ok(())
-    }
-
     fn stop(
         &mut self,
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
     ) -> Result<()> {
+        self.done = true;
         Ok(())
     }
 }

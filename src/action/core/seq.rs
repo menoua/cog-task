@@ -102,7 +102,7 @@ impl StatefulAction for StatefulSeq {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Vec<SyncSignal>> {
         if let Some(c) = self.children.get_mut(0) {
             c.update(signal, sync_writer, async_writer, state)?;
 
@@ -120,7 +120,7 @@ impl StatefulAction for StatefulSeq {
             }
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     fn show(

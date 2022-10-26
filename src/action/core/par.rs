@@ -148,7 +148,7 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Vec<SyncSignal>> {
         let mut done = vec![];
         let mut finished = false;
         for (i, c) in self.primary.iter_mut().enumerate() {
@@ -186,7 +186,7 @@ impl StatefulAction for StatefulPar {
             self.done = true;
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     fn show(

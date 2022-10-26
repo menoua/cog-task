@@ -1,4 +1,4 @@
-use crate::action::{Action, ActionSignal, Props, StatefulAction, VISUAL};
+use crate::action::{Action, Props, StatefulAction, VISUAL};
 use crate::comm::QWriter;
 use crate::gui::{
     center_x, header_body_controls, style_ui, text::body, text::button1, text::inactive, Style,
@@ -88,16 +88,6 @@ impl StatefulAction for StatefulQuestion {
         _state: &State,
     ) -> Result<()> {
         sync_writer.push(SyncSignal::Repaint);
-        Ok(())
-    }
-
-    fn update(
-        &mut self,
-        _signal: &ActionSignal,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<()> {
         Ok(())
     }
 

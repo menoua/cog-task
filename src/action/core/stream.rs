@@ -1,13 +1,13 @@
 //@ stream
 
-use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
+use crate::action::{Action, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::comm::QWriter;
 use crate::resource::{Color, MediaMode, ResourceAddr, ResourceMap, ResourceValue, Trigger};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
-use eyre::{eyre, Context, Error, Result};
+use eyre::{eyre, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
@@ -226,16 +226,6 @@ impl StatefulAction for StatefulStream {
         }
 
         sync_writer.push(SyncSignal::Repaint);
-        Ok(())
-    }
-
-    fn update(
-        &mut self,
-        _signal: &ActionSignal,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<(), Error> {
         Ok(())
     }
 

@@ -1,12 +1,12 @@
 use crate::action::nil::StatefulNil;
 use crate::action::resource::ResourceMap;
 use crate::action::{Action, ActionSignal};
-use crate::comm::{QReader, QWriter, Signal};
+use crate::comm::{QReader, QWriter, Signal, MAX_QUEUE_SIZE};
 use crate::server::{AsyncSignal, Atomic, Config, LoggerSignal, ServerSignal, State, IO};
 use eframe::egui;
-use eyre::Result;
+use eyre::{eyre, Result};
 use serde_cbor::Value;
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
@@ -83,8 +83,10 @@ impl SyncProcessor {
             });
 
             'mainloop: while let Ok(signals) = proc.sync_reader.poll() {
-                for signal in signals {
-                    match signal {
+                let mut n_signal = signals.len();
+                let mut signals = VecDeque::from(signals);
+                while let Some(signal) = signals.pop_front() {
+                    let new_signals = match signal {
                         SyncSignal::UpdateGraph => {
                             let (tree, state) = &mut *proc.atomic.lock().unwrap();
                             tree.update(
@@ -119,20 +121,40 @@ impl SyncProcessor {
                                 &mut proc.sync_writer,
                                 &mut proc.async_writer,
                                 state,
-                            )?;
-
-                            Ok(())
+                            )
                         }
                         SyncSignal::Repaint => {
                             proc.ctx.request_repaint();
-                            Ok(())
+                            Ok(vec![])
                         }
                         SyncSignal::Finish => break 'mainloop,
                     }
                     .unwrap_or_else(|e| {
                         proc.server_writer.push(ServerSignal::BlockCrashed(e));
                         proc.ctx.request_repaint();
+                        vec![]
                     });
+
+                    if !new_signals.is_empty() {
+                        n_signal += new_signals.len();
+                        if n_signal > MAX_QUEUE_SIZE {
+                            proc.server_writer.push(ServerSignal::BlockCrashed(eyre!(
+                                "Number of signals in a single poll exceeded MAX_QUEUE_SIZE."
+                            )));
+                            proc.ctx.request_repaint();
+                        } else {
+                            for signal in new_signals.into_iter().rev() {
+                                if let SyncSignal::Emit(_, _) = signal {
+                                    signals.push_front(signal);
+                                } else {
+                                    proc.server_writer.push(ServerSignal::BlockCrashed(eyre!(
+                                        "Action sent a non-emit signal which is not allowed."
+                                    )));
+                                    proc.ctx.request_repaint();
+                                }
+                            }
+                        }
+                    }
 
                     let (tree, state) = &mut *proc.atomic.lock().unwrap();
                     let is_over = tree.is_over().unwrap_or_else(|e| {

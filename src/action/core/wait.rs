@@ -1,10 +1,9 @@
-use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
+use crate::action::{Action, Props, StatefulAction, DEFAULT};
 use crate::comm::QWriter;
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
-use eframe::egui::Ui;
-use eyre::{Error, Result};
+use eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -61,26 +60,6 @@ impl StatefulAction for StatefulWait {
             *done.lock().unwrap() = Ok(true);
             sync_writer.push(SyncSignal::UpdateGraph);
         });
-        Ok(())
-    }
-
-    fn update(
-        &mut self,
-        _signal: &ActionSignal,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn show(
-        &mut self,
-        _ui: &mut Ui,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<(), Error> {
         Ok(())
     }
 

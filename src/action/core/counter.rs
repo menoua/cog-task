@@ -1,11 +1,11 @@
-use crate::action::{Action, ActionSignal, Props, StatefulAction, VISUAL};
+use crate::action::{Action, Props, StatefulAction, VISUAL};
 use crate::comm::QWriter;
 use crate::gui::{style_ui, Style};
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
 use egui_extras::{Size, StripBuilder};
-use eyre::{Error, Result};
+use eyre::Result;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -64,16 +64,6 @@ impl StatefulAction for StatefulCounter {
             sync_writer.push(SyncSignal::Repaint);
         }
 
-        Ok(())
-    }
-
-    fn update(
-        &mut self,
-        _signal: &ActionSignal,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<(), Error> {
         Ok(())
     }
 

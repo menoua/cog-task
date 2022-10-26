@@ -124,7 +124,7 @@ impl StatefulAction for StatefulBranch {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Vec<SyncSignal>> {
         match self.decision {
             Decision::Temporary(_) => {
                 if let ActionSignal::StateChanged(_, signal) = signal {
@@ -149,7 +149,7 @@ impl StatefulAction for StatefulBranch {
             }
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     fn show(

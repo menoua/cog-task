@@ -116,7 +116,7 @@ impl StatefulAction for StatefulSwitch {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Vec<SyncSignal>> {
         match self.decision {
             Decision::Temporary(_) => {
                 if let ActionSignal::StateChanged(_, signal) = signal {
@@ -143,7 +143,7 @@ impl StatefulAction for StatefulSwitch {
             }
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     fn show(

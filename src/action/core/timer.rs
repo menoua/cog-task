@@ -1,8 +1,7 @@
-use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
+use crate::action::{Action, Props, StatefulAction, INFINITE};
 use crate::comm::{QWriter, SignalId};
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
-use eframe::egui::Ui;
 use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
@@ -68,26 +67,6 @@ impl StatefulAction for StatefulTimer {
         _state: &State,
     ) -> Result<(), Error> {
         self.since = Instant::now();
-        Ok(())
-    }
-
-    fn update(
-        &mut self,
-        _signal: &ActionSignal,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn show(
-        &mut self,
-        _ui: &mut Ui,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<(), Error> {
         Ok(())
     }
 

@@ -86,7 +86,7 @@ impl StatefulAction for StatefulDelayed {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Vec<SyncSignal>> {
         if *self.wait_over.lock().unwrap() {
             if !self.has_begun {
                 self.inner.start(sync_writer, async_writer, state)?;
@@ -101,7 +101,7 @@ impl StatefulAction for StatefulDelayed {
             }
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     fn show(

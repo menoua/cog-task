@@ -1,4 +1,4 @@
-use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
+use crate::action::{Action, Props, StatefulAction, INFINITE, VISUAL};
 use crate::comm::QWriter;
 use crate::resource::{Color, ResourceAddr, ResourceMap, ResourceValue};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
@@ -84,16 +84,6 @@ impl StatefulAction for StatefulImage {
         _state: &State,
     ) -> Result<(), Error> {
         sync_writer.push(SyncSignal::Repaint);
-        Ok(())
-    }
-
-    fn update(
-        &mut self,
-        _signal: &ActionSignal,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<(), Error> {
         Ok(())
     }
 

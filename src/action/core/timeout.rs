@@ -84,7 +84,7 @@ impl StatefulAction for StatefulTimeout {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Vec<SyncSignal>> {
         self.inner
             .update(signal, sync_writer, async_writer, state)?;
         if self.inner.is_over()?
@@ -92,7 +92,7 @@ impl StatefulAction for StatefulTimeout {
         {
             self.done = true;
         }
-        Ok(())
+        Ok(vec![])
     }
 
     fn show(

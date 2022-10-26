@@ -144,7 +144,7 @@ impl StatefulAction for StatefulInstruction {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Vec<SyncSignal>, Error> {
         let mut changed = false;
         match signal {
             ActionSignal::StateChanged(_, signal) => {
@@ -164,14 +164,14 @@ impl StatefulAction for StatefulInstruction {
                     }
                 }
             }
-            _ => return Ok(()),
+            _ => return Ok(vec![]),
         }
 
         if changed {
             sync_writer.push(SyncSignal::Repaint);
         }
 
-        Ok(())
+        Ok(vec![])
     }
 
     fn show(

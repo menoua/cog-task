@@ -61,25 +61,29 @@ pub trait StatefulAction: Send {
 
     fn update(
         &mut self,
-        signal: &ActionSignal,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
-        state: &State,
-    ) -> Result<()>;
+        _signal: &ActionSignal,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
+    ) -> Result<Vec<SyncSignal>> {
+        Ok(vec![])
+    }
 
     fn show(
         &mut self,
-        ui: &mut egui::Ui,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
-        state: &State,
-    ) -> Result<()>;
+        _ui: &mut egui::Ui,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
+    ) -> Result<()> {
+        Ok(())
+    }
 
     fn stop(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
-        state: &State,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
     ) -> Result<()>;
 
     fn debug(&self) -> Vec<(&str, String)> {

@@ -7,7 +7,6 @@ use crate::resource::{
 };
 use crate::server::{config::TimePrecision, AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
-use eframe::egui::Ui;
 use eyre::{eyre, Context, Result};
 use rodio::{Sink, Source};
 use serde::{Deserialize, Serialize};
@@ -224,10 +223,10 @@ impl StatefulAction for StatefulAudio {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Vec<SyncSignal>> {
         match signal {
             ActionSignal::StateChanged(_, signal) if signal.contains(&self.in_volume) => {}
-            _ => return Ok(()),
+            _ => return Ok(vec![]),
         };
 
         if let Some(Value::Float(vol)) = state.get(&self.in_volume) {
@@ -237,17 +236,7 @@ impl StatefulAction for StatefulAudio {
             }
         }
 
-        Ok(())
-    }
-
-    fn show(
-        &mut self,
-        _ui: &mut Ui,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<()> {
-        Ok(())
+        Ok(vec![])
     }
 
     #[inline(always)]
