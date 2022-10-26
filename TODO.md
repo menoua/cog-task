@@ -2,6 +2,7 @@
 
 - [x] Unify all SignalId into a single state-updating signal. External communication will be handled by dedicated thread.
 - [x] Set a limit on signal queue (e.g., 256). If we get there, it's very likely something is wrong.
+- [ ] Prioritize StateUpdated over UpdateGraph, so that when a new action wants to start, all necessary state changes from the preceding action are applied. Make sure Branch and Switch make the right choice even if the change was last minute. Maybe there's no need to update, but rather read the state at start only. 
 - [ ] Separate params from signals:
         - [x] `Instruction`: Reuse ${x} in text; add params:Map<str,str>; add in_mapping:Map<u16,str>.
         - [ ] `Math`: use regular word in expression text; add vars:Map<str,f32>; add in_mapping:Map<u16,str>.
