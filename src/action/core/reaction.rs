@@ -6,7 +6,7 @@ use eframe::egui;
 use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::time::{Duration, Instant};
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -16,7 +16,7 @@ pub struct Reaction {
     #[serde(default = "defaults::group")]
     group: String,
     #[serde(default = "defaults::keys")]
-    keys: HashSet<Key>,
+    keys: BTreeSet<Key>,
     #[serde(default = "defaults::tol")]
     tol: f32,
     #[serde(default)]
@@ -31,7 +31,7 @@ pub struct Reaction {
 
 stateful!(Reaction {
     group: String,
-    keys: HashSet<egui::Key>,
+    keys: BTreeSet<egui::Key>,
     times: Vec<Duration>,
     tol: Duration,
     since: Instant,
@@ -47,7 +47,7 @@ stateful!(Reaction {
 
 mod defaults {
     use crate::resource::Key;
-    use std::collections::HashSet;
+    use std::collections::BTreeSet;
 
     #[inline(always)]
     pub fn group() -> String {
@@ -55,8 +55,8 @@ mod defaults {
     }
 
     #[inline(always)]
-    pub fn keys() -> HashSet<Key> {
-        HashSet::new()
+    pub fn keys() -> BTreeSet<Key> {
+        BTreeSet::new()
     }
 
     #[inline(always)]
