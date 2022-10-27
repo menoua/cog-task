@@ -23,8 +23,6 @@ pub struct Math {
     #[serde(default)]
     vars: BTreeMap<String, f64>,
     #[serde(default)]
-    default: f64,
-    #[serde(default)]
     interpreter: Interpreter,
     #[serde(default)]
     persistent: bool,
@@ -45,7 +43,6 @@ stateful!(Math {
     in_mapping: BTreeMap<SignalId, String>,
     in_update: SignalId,
     out_result: SignalId,
-    value: f64,
 });
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
@@ -87,7 +84,7 @@ impl Action for Math {
                 return Err(eyre!(
                     "Reserved variable (\"self\") of `Math` cannot be included in `in_mapping`."
                 ));
-            } else if !re.is_match(var) && var.as_str() != "_" {
+            } else if !re.is_match(var) {
                 return Err(eyre!("Invalid variable name ({var}) in `in_mapping`."));
             }
         }
@@ -96,9 +93,10 @@ impl Action for Math {
         for caps in re.captures_iter(&self.expr) {
             self.vars.entry(caps[2].to_owned()).or_default();
         }
+        self.vars.entry("self".to_owned()).or_default();
 
         for (_, var) in self.in_mapping.iter() {
-            if !self.vars.contains_key(var) && var.as_str() != "_" {
+            if !self.vars.contains_key(var) {
                 return Err(eyre!("Undefined variable ({var}) in `in_mapping`."));
             }
         }
@@ -138,7 +136,6 @@ impl Action for Math {
             in_mapping: self.in_mapping.clone(),
             in_update: self.in_update,
             out_result: self.out_result,
-            value: self.default,
         }))
     }
 }
@@ -163,26 +160,32 @@ impl StatefulAction for StatefulMath {
                     *entry = match value {
                         Value::Integer(v) => *v as f64,
                         Value::Float(v) => *v,
-                        Value::Bool(v) => if *v { 1.0 } else { 0.0 },
+                        Value::Bool(v) => {
+                            if *v {
+                                1.0
+                            } else {
+                                0.0
+                            }
+                        }
                         _ => 0.0,
                     };
                 }
             }
         }
 
-        self.value = self.eval()?;
+        let result = self.eval()?;
 
         if self.out_result > 0 {
             sync_writer.push(SyncSignal::Emit(
                 Instant::now(),
-                vec![(self.out_result, Value::Float(self.value))].into(),
+                vec![(self.out_result, Value::Float(result))].into(),
             ));
         }
 
         if !self.name.is_empty() {
             async_writer.push(LoggerSignal::Append(
                 "math".to_owned(),
-                (self.name.clone(), Value::Float(self.value)),
+                (self.name.clone(), Value::Float(result)),
             ));
         }
 
@@ -209,7 +212,13 @@ impl StatefulAction for StatefulMath {
                         *entry = match state.get(id).unwrap() {
                             Value::Integer(v) => *v as f64,
                             Value::Float(v) => *v,
-                            Value::Bool(v) => if *v { 1.0 } else { 0.0 },
+                            Value::Bool(v) => {
+                                if *v {
+                                    1.0
+                                } else {
+                                    0.0
+                                }
+                            }
                             _ => 0.0,
                         };
                     }
@@ -226,19 +235,19 @@ impl StatefulAction for StatefulMath {
             return Ok(vec![]);
         }
 
-        self.value = self.eval()?;
+        let result = self.eval()?;
 
         if self.out_result > 0 {
             sync_writer.push(SyncSignal::Emit(
                 Instant::now(),
-                vec![(self.out_result, Value::Float(self.value))].into(),
+                vec![(self.out_result, Value::Float(result))].into(),
             ));
         }
 
         if !self.name.is_empty() {
             async_writer.push(LoggerSignal::Append(
                 "math".to_owned(),
-                (self.name.clone(), Value::Float(self.value)),
+                (self.name.clone(), Value::Float(result)),
             ));
         }
 
@@ -296,7 +305,7 @@ impl Math {
 
 impl StatefulMath {
     fn eval(&mut self) -> Result<f64> {
-        match &self.parser {
+        let result = match &self.parser {
             Parser::Fasteval(_, slab, instr) => {
                 use fasteval::eval_compiled_ref;
 
@@ -322,6 +331,7 @@ impl StatefulMath {
                             ),
                         );
                     }
+                    vars.insert("self".to_owned(), self.value);
 
                     let result = expression.evaluate(vars).map_err(|e| {
                         eyre!("Failed to evaluate mathematical expression ({e:?}).")
@@ -345,7 +355,10 @@ impl StatefulMath {
                     Err(eyre!("`savage::Expression` is missing."))
                 }
             }
-        }
+        }?;
+
+        self.vars.insert("self".to_owned(), result);
+        Ok(result)
     }
 
     fn drop_parser(&mut self) {
