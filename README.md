@@ -6,7 +6,7 @@
 [![Build Status](https://github.com/menoua/cog-task/workflows/CI/badge.svg)](https://github.com/menoua/cog-task/actions)
 [![Crates.io Downloads](https://img.shields.io/crates/d/cog-task.svg)](https://crates.io/crates/cog-task)
 
-A general-purpose low-latency application to serve cognitive tasks, built with [egui](https://github.com/emilk/egui).
+A general-purpose low-latency application to serve cognitive tasks, built with [egui](https://github.com/emilk/egui) in [rust](https://www.rust-lang.org/).
 
 ## Installation
 
