@@ -3,6 +3,7 @@ use crate::comm::{QWriter, SignalId};
 use crate::gui::{center_x, header_body_controls, style_ui, text::button1, Style};
 use crate::resource::{parse_text, text_or_file, ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
+use crate::util::f64_as_i64;
 use eframe::egui;
 use eframe::egui::{CursorIcon, ScrollArea};
 use egui_extras::{Size, StripBuilder};
@@ -153,7 +154,13 @@ impl StatefulAction for StatefulInstruction {
                         *entry = match state.get(id).unwrap() {
                             Value::Bool(v) => v.to_string(),
                             Value::Integer(v) => v.to_string(),
-                            Value::Float(v) => format!("{v:.4}"),
+                            Value::Float(v) => {
+                                if let Ok(v) = f64_as_i64(*v) {
+                                    v.to_string()
+                                } else {
+                                    format!("{v:.4}")
+                                }
+                            }
                             Value::Text(v) => v.to_string(),
                             Value::Null => "<UNSET>".to_owned(),
                             _ => "<INVALID>".to_owned(),

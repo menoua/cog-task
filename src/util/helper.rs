@@ -2,7 +2,7 @@ use eyre::{eyre, Result};
 use serde::Serialize;
 use spin_sleep::{SpinSleeper, SpinStrategy};
 
-const APPROX_EQ_EPS: f64 = 1e-3;
+const APPROX_EQ_EPS: f64 = 1e-6;
 const SPIN_DURATION: u32 = 100_000_000; // equivalent to 100ms
 const SPIN_STRATEGY: SpinStrategy = SpinStrategy::SpinLoopHint;
 
