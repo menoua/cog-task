@@ -222,10 +222,10 @@ impl Server {
                 Some(body("Block was interrupted by user.").color(CUSTOM_BLUE))
             }
             Progress::Failure(_, e) => {
-                Some(body(format!("\nError in block execution:\n\n{e}\n")).color(CUSTOM_RED))
+                Some(body(format!("\nError in block execution:\n\n{e:?}\n")).color(CUSTOM_RED))
             }
             Progress::CleanupError(_, e) => Some(
-                body(format!("\nFailed to clean up after block:\n\n{e}\n")).color(CUSTOM_ORANGE),
+                body(format!("\nFailed to clean up after block:\n\n{e:?}\n")).color(CUSTOM_ORANGE),
             ),
             Progress::LastRun(_) => None,
         };

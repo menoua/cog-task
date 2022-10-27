@@ -1,5 +1,5 @@
 use crate::action::{Action, Props, StatefulAction, INFINITE};
-use crate::comm::{QWriter, SignalId};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
@@ -89,10 +89,11 @@ impl StatefulAction for StatefulClock {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         self.link
             .send(())
-            .wrap_err("Failed to communicate with the clock thread.")
+            .wrap_err("Failed to communicate with the clock thread.")?;
+        Ok(Signal::none())
     }
 
     fn stop(
@@ -100,8 +101,8 @@ impl StatefulAction for StatefulClock {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         self.done = true;
-        Ok(())
+        Ok(Signal::none())
     }
 }

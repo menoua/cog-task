@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
-use crate::comm::{QWriter, SignalId};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::f64_as_i64;
@@ -102,10 +102,12 @@ impl StatefulAction for StatefulBranch {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
-        if matches!(self.decision, Decision::Final(_)) {
-            return Ok(());
-        }
+    ) -> Result<Signal> {
+        let decision = if let Decision::Temporary(i) = self.decision {
+            i
+        } else {
+            return Err(eyre!("Tried to restart branch."));
+        };
 
         let decision = match state.get(&self.in_control) {
             Some(Value::Integer(i)) => {
@@ -123,13 +125,7 @@ impl StatefulAction for StatefulBranch {
                     return Err(eyre!("Branch request is out of bounds."));
                 }
             }
-            None => {
-                if let Decision::Temporary(i) = self.decision {
-                    i
-                } else {
-                    return Ok(());
-                }
-            }
+            None => decision,
             _ => return Err(eyre!("Branch control is in invalid state.")),
         };
 
@@ -144,15 +140,16 @@ impl StatefulAction for StatefulBranch {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Vec<SyncSignal>> {
+    ) -> Result<Signal> {
         if let Decision::Final(i) = self.decision {
-            self.children[i].update(signal, sync_writer, async_writer, state)?;
+            let news = self.children[i].update(signal, sync_writer, async_writer, state)?;
             if self.children[i].is_over()? {
                 self.done = true;
             }
+            Ok(news)
+        } else {
+            Ok(Signal::none())
         }
-
-        Ok(vec![])
     }
 
     fn show(
@@ -175,11 +172,12 @@ impl StatefulAction for StatefulBranch {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
-        if let Decision::Final(i) = self.decision {
-            self.children[i].stop(sync_writer, async_writer, state)?;
-        }
+    ) -> Result<Signal> {
         self.done = true;
-        Ok(())
+        if let Decision::Final(i) = self.decision {
+            self.children[i].stop(sync_writer, async_writer, state)
+        } else {
+            Ok(Signal::none())
+        }
     }
 }

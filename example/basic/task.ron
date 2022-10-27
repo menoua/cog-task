@@ -168,6 +168,37 @@
         ),
 
         (
+            name: "Fan-in",
+            tree: par(([
+                instruction((
+                    text: "*${x}*  /${y}/",
+                    in_mapping: { 5: "x", 7: "y" }
+                ))
+            ], [
+                clock((step: 1, out_tic: 1)),
+                delayed((0.25, clock((step: 1, out_tic: 2)))),
+                delayed((0.5, clock((step: 1, out_tic: 3)))),
+                merge((
+                    in_many: [1, 2, 3],
+                    out_one: 4,
+                )),
+                math((
+                    expr: "(self + 1) % 4",
+                    in_update: 4,
+                    out_result: 5,
+                    persistent: true,
+                )),
+                clock((step: 0.25, out_tic: 6)),
+                math((
+                    expr: "(self + 1) % 4",
+                    in_update: 6,
+                    out_result: 7,
+                    persistent: true,
+                )),
+            ]))
+        ),
+
+        (
             name: "Empty block",
             tree: nil(())
         ),

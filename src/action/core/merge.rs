@@ -1,31 +1,33 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::ResourceMap;
-use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Logger {
-    group: String,
-    in_mapping: BTreeMap<SignalId, String>,
+pub struct Merge {
+    in_many: BTreeSet<SignalId>,
+    out_one: SignalId,
 }
 
-stateful!(Logger {
-    group: String,
-    in_mapping: BTreeMap<SignalId, String>,
+stateful!(Merge {
+    in_many: BTreeSet<SignalId>,
+    out_one: SignalId,
 });
 
-impl Action for Logger {
+impl Action for Merge {
     fn init(self) -> Result<Box<dyn Action>>
     where
         Self: 'static + Sized,
     {
-        if self.group.is_empty() {
-            Err(eyre!("Logger's `group` cannot be empty."))
-        } else if self.in_mapping.is_empty() {
-            Err(eyre!("Logger without `in_mapping` is useless."))
+        if self.in_many.is_empty() {
+            Err(eyre!("Merge with no inputs is useless."))
+        } else if self.out_one == 0 {
+            Err(eyre!("Merge without an output is useless."))
+        } else if self.in_many.contains(&self.out_one) {
+            Err(eyre!("Merge output cannot be connected to its input."))
         } else {
             Ok(Box::new(self))
         }
@@ -39,15 +41,15 @@ impl Action for Logger {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        Ok(Box::new(StatefulLogger {
+        Ok(Box::new(StatefulMerge {
             done: false,
-            group: self.group.clone(),
-            in_mapping: self.in_mapping.clone(),
+            in_many: self.in_many.clone(),
+            out_one: self.out_one,
         }))
     }
 }
 
-impl StatefulAction for StatefulLogger {
+impl StatefulAction for StatefulMerge {
     impl_stateful!();
 
     fn props(&self) -> Props {
@@ -67,22 +69,21 @@ impl StatefulAction for StatefulLogger {
         &mut self,
         signal: &ActionSignal,
         _sync_writer: &mut QWriter<SyncSignal>,
-        async_writer: &mut QWriter<AsyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Signal> {
-        let mut entries = vec![];
         if let ActionSignal::StateChanged(_, signal) = signal {
-            for id in signal {
-                if let Some(name) = self.in_mapping.get(id) {
-                    if let Some(value) = state.get(id) {
-                        entries.push((name.clone(), value.clone()));
-                    }
+            let mut news = BTreeMap::new();
+            for id in signal.iter().filter(|&i| self.in_many.contains(i)) {
+                if let Some(value) = state.get(id) {
+                    news.insert(self.out_one, value.clone());
                 }
             }
-        }
 
-        async_writer.push(LoggerSignal::Extend(self.group.clone(), entries));
-        Ok(Signal::none())
+            Ok(Signal::new(news))
+        } else {
+            Ok(Signal::none())
+        }
     }
 
     fn stop(

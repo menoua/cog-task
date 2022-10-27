@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
-use crate::comm::{QWriter, SignalId};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::approx_eq;
@@ -96,9 +96,9 @@ impl StatefulAction for StatefulSwitch {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         if matches!(self.decision, Decision::Final(_)) {
-            return Ok(());
+            return Err(eyre!("Tried to restart a switch."));
         }
 
         let decision = match state.get(&self.in_control) {
@@ -126,26 +126,28 @@ impl StatefulAction for StatefulSwitch {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Vec<SyncSignal>> {
+    ) -> Result<Signal> {
         match self.decision {
             Decision::Final(true) => {
-                self.if_true
+                let news = self
+                    .if_true
                     .update(signal, sync_writer, async_writer, state)?;
                 if self.if_true.is_over()? {
                     self.done = true;
                 }
+                Ok(news)
             }
             Decision::Final(false) => {
-                self.if_false
+                let news = self
+                    .if_false
                     .update(signal, sync_writer, async_writer, state)?;
                 if self.if_false.is_over()? {
                     self.done = true;
                 }
+                Ok(news)
             }
-            _ => {}
+            _ => Ok(Signal::none()),
         }
-
-        Ok(vec![])
     }
 
     fn show(
@@ -168,14 +170,12 @@ impl StatefulAction for StatefulSwitch {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
-        match self.decision {
-            Decision::Final(true) => self.if_true.stop(sync_writer, async_writer, state)?,
-            Decision::Final(false) => self.if_true.stop(sync_writer, async_writer, state)?,
-            Decision::Temporary(_) => {}
-        }
-
+    ) -> Result<Signal> {
         self.done = true;
-        Ok(())
+        match self.decision {
+            Decision::Final(true) => self.if_true.stop(sync_writer, async_writer, state),
+            Decision::Final(false) => self.if_true.stop(sync_writer, async_writer, state),
+            Decision::Temporary(_) => Ok(Signal::none()),
+        }
     }
 }

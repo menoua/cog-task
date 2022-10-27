@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
-use crate::comm::{QWriter, SignalId};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{Key, ResourceMap};
 use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
 use eyre::{eyre, Error, Result};
@@ -122,13 +122,13 @@ impl StatefulAction for StatefulReaction {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Signal> {
         self.since = Instant::now();
         async_writer.push(LoggerSignal::Append(
             self.group.clone(),
             ("event".to_owned(), Value::Text("start".to_owned())),
         ));
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn update(
@@ -137,14 +137,14 @@ impl StatefulAction for StatefulReaction {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<Vec<SyncSignal>> {
+    ) -> Result<Signal> {
         let (time, keys) = match signal {
             ActionSignal::KeyPress(t, k) => (t.duration_since(self.since), k),
-            _ => return Ok(vec![]),
+            _ => return Ok(Signal::none()),
         };
 
         if !self.keys.is_empty() && keys.is_disjoint(&self.keys) {
-            return Ok(vec![]);
+            return Ok(Signal::none());
         }
 
         self.reaction_times.push(time.as_secs_f32());
@@ -203,16 +203,17 @@ impl StatefulAction for StatefulReaction {
         };
         async_writer.push(LoggerSignal::Append(self.group.clone(), entry));
 
-        Ok(vec![])
+        Ok(Signal::none())
     }
 
     #[inline]
     fn stop(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
+        self.done = true;
         let accuracy = self.accuracy();
         let mean_rt = self.mean_rt();
         let recall = self.recall();
@@ -227,22 +228,17 @@ impl StatefulAction for StatefulReaction {
             ],
         ));
 
-        let mut signals = vec![];
+        let mut news = vec![];
         if self.out_accuracy > 0 {
-            signals.push((self.out_accuracy, Value::Float(accuracy)))
+            news.push((self.out_accuracy, Value::Float(accuracy)))
         }
         if self.out_mean_rt > 0 {
-            signals.push((self.out_mean_rt, Value::Float(mean_rt)))
+            news.push((self.out_mean_rt, Value::Float(mean_rt)))
         }
         if self.out_recall > 0 {
-            signals.push((self.out_recall, Value::Float(recall)))
+            news.push((self.out_recall, Value::Float(recall)))
         }
-        if !signals.is_empty() {
-            sync_writer.push(SyncSignal::Emit(Instant::now(), signals.into()));
-        }
-
-        self.done = true;
-        Ok(())
+        Ok(news.into())
     }
 
     fn debug(&self) -> Vec<(&str, String)> {

@@ -1,10 +1,10 @@
 use crate::action::{Action, Props, StatefulAction, INFINITE, VISUAL};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::resource::{Color, ResourceAddr, ResourceMap, ResourceValue};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
-use eyre::{eyre, Error, Result};
+use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -82,9 +82,9 @@ impl StatefulAction for StatefulImage {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Signal> {
         sync_writer.push(SyncSignal::Repaint);
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn show(
@@ -118,10 +118,10 @@ impl StatefulAction for StatefulImage {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         self.done = true;
         sync_writer.push(SyncSignal::Repaint);
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn debug(&self) -> Vec<(&str, String)> {

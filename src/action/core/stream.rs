@@ -1,7 +1,7 @@
 //@ stream
 
 use crate::action::{Action, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::resource::{Color, MediaMode, ResourceAddr, ResourceMap, ResourceValue, Trigger};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
@@ -190,7 +190,7 @@ impl StatefulAction for StatefulStream {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         self.link_start
             .send(())
             .wrap_err("Failed to send start signal to concurrent stream thread.")?;
@@ -208,7 +208,7 @@ impl StatefulAction for StatefulStream {
 
         if let Ok(true) = *self.done.lock().unwrap() {
             sync_writer.push(SyncSignal::UpdateGraph);
-            return Ok(());
+            return Ok(Signal::none());
         }
 
         {
@@ -226,7 +226,7 @@ impl StatefulAction for StatefulStream {
         }
 
         sync_writer.push(SyncSignal::Repaint);
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn show(
@@ -269,12 +269,12 @@ impl StatefulAction for StatefulStream {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         *self.done.lock().unwrap() = Ok(true);
         if self.framerate > 0.0 {
             sync_writer.push(SyncSignal::Repaint);
         }
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn debug(&self) -> Vec<(&str, String)> {

@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
-use crate::comm::{QWriter, SignalId};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::gui::{center_x, header_body_controls, style_ui, text::button1, Style};
 use crate::resource::{parse_text, text_or_file, ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
@@ -119,7 +119,7 @@ impl StatefulAction for StatefulInstruction {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Signal> {
         for (id, key) in self.in_mapping.iter() {
             if let Some(entry) = self.params.get_mut(key) {
                 if let Some(value) = state.get(id) {
@@ -136,7 +136,7 @@ impl StatefulAction for StatefulInstruction {
         }
 
         sync_writer.push(SyncSignal::Repaint);
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn update(
@@ -145,7 +145,7 @@ impl StatefulAction for StatefulInstruction {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Vec<SyncSignal>, Error> {
+    ) -> Result<Signal> {
         let mut changed = false;
         if let ActionSignal::StateChanged(_, signal) = signal {
             for id in signal {
@@ -171,12 +171,10 @@ impl StatefulAction for StatefulInstruction {
             }
         }
 
-        if !changed {
-            return Ok(vec![]);
+        if changed {
+            sync_writer.push(SyncSignal::Repaint);
         }
-
-        sync_writer.push(SyncSignal::Repaint);
-        Ok(vec![])
+        Ok(Signal::none())
     }
 
     fn show(
@@ -238,10 +236,10 @@ impl StatefulAction for StatefulInstruction {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         self.done = true;
         sync_writer.push(SyncSignal::Repaint);
-        Ok(())
+        Ok(Signal::none())
     }
 }
 

@@ -1,8 +1,8 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
-use crate::comm::{QWriter, SignalId};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
-use eyre::{eyre, Error, Result};
+use eyre::{eyre, Context, Error, Result};
 use fasteval::{Compiler, Evaler};
 use num_traits::ToPrimitive;
 use regex::Regex;
@@ -10,7 +10,6 @@ use savage_core::expression as savage;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::collections::{BTreeMap, HashMap};
-use std::time::Instant;
 
 static mut SAVAGE_EXPR: Option<BTreeMap<usize, savage::Expression>> = None;
 
@@ -153,7 +152,7 @@ impl StatefulAction for StatefulMath {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Signal> {
         for (id, var) in self.in_mapping.iter() {
             if let Some(entry) = self.vars.get_mut(var) {
                 if let Some(value) = state.get(id) {
@@ -173,14 +172,9 @@ impl StatefulAction for StatefulMath {
             }
         }
 
-        let result = self.eval()?;
-
-        if self.out_result > 0 {
-            sync_writer.push(SyncSignal::Emit(
-                Instant::now(),
-                vec![(self.out_result, Value::Float(result))].into(),
-            ));
-        }
+        let result = self
+            .eval()
+            .wrap_err("Failed to initialize mathematical expression.")?;
 
         if !self.name.is_empty() {
             async_writer.push(LoggerSignal::Append(
@@ -194,16 +188,20 @@ impl StatefulAction for StatefulMath {
             sync_writer.push(SyncSignal::UpdateGraph);
         }
 
-        Ok(())
+        if self.out_result > 0 {
+            Ok(vec![(self.out_result, Value::Float(result))].into())
+        } else {
+            Ok(Signal::none())
+        }
     }
 
     fn update(
         &mut self,
         signal: &ActionSignal,
-        sync_writer: &mut QWriter<SyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Vec<SyncSignal>> {
+    ) -> Result<Signal> {
         let mut changed = false;
         if let ActionSignal::StateChanged(_, signal) = signal {
             for id in signal {
@@ -232,17 +230,12 @@ impl StatefulAction for StatefulMath {
         }
 
         if !changed {
-            return Ok(vec![]);
+            return Ok(Signal::none());
         }
 
-        let result = self.eval()?;
-
-        if self.out_result > 0 {
-            sync_writer.push(SyncSignal::Emit(
-                Instant::now(),
-                vec![(self.out_result, Value::Float(result))].into(),
-            ));
-        }
+        let result = self
+            .eval()
+            .wrap_err("Failed to update mathematical expression.")?;
 
         if !self.name.is_empty() {
             async_writer.push(LoggerSignal::Append(
@@ -251,7 +244,11 @@ impl StatefulAction for StatefulMath {
             ));
         }
 
-        Ok(vec![])
+        if self.out_result > 0 {
+            Ok(vec![(self.out_result, Value::Float(result))].into())
+        } else {
+            Ok(Signal::none())
+        }
     }
 
     #[inline]
@@ -260,10 +257,10 @@ impl StatefulAction for StatefulMath {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
-        self.drop_parser();
+    ) -> Result<Signal> {
         self.done = true;
-        Ok(())
+        self.drop_parser();
+        Ok(Signal::none())
     }
 
     fn debug(&self) -> Vec<(&str, String)> {

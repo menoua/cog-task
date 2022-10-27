@@ -1,10 +1,10 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
-use eyre::{Error, Result};
+use eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::thread;
@@ -59,11 +59,12 @@ impl StatefulAction for StatefulTimeout {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Signal> {
         if self.done {
             sync_writer.push(SyncSignal::UpdateGraph);
+            Ok(Signal::none())
         } else {
-            self.inner.start(sync_writer, async_writer, state)?;
+            let news = self.inner.start(sync_writer, async_writer, state)?;
 
             let dur = self.duration;
             let timeout_over = self.timeout_over.clone();
@@ -73,9 +74,9 @@ impl StatefulAction for StatefulTimeout {
                 *timeout_over.lock().unwrap() = true;
                 sync_writer.push(SyncSignal::UpdateGraph);
             });
-        }
 
-        Ok(())
+            Ok(news)
+        }
     }
 
     fn update(
@@ -84,15 +85,16 @@ impl StatefulAction for StatefulTimeout {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Vec<SyncSignal>> {
-        self.inner
+    ) -> Result<Signal> {
+        let news = self
+            .inner
             .update(signal, sync_writer, async_writer, state)?;
         if self.inner.is_over()?
             || (matches!(signal, ActionSignal::UpdateGraph) && *self.timeout_over.lock().unwrap())
         {
             self.done = true;
         }
-        Ok(vec![])
+        Ok(news)
     }
 
     fn show(
@@ -101,7 +103,7 @@ impl StatefulAction for StatefulTimeout {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<()> {
         self.inner.show(ui, sync_writer, async_writer, state)
     }
 
@@ -110,9 +112,8 @@ impl StatefulAction for StatefulTimeout {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<(), Error> {
-        self.inner.stop(sync_writer, async_writer, state)?;
+    ) -> Result<Signal> {
         self.done = true;
-        Ok(())
+        self.inner.stop(sync_writer, async_writer, state)
     }
 }

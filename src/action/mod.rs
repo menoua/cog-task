@@ -10,7 +10,7 @@ pub mod resource;
 pub use include::*;
 pub use props::*;
 
-use crate::comm::{QWriter, SignalId};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::Key;
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
@@ -58,7 +58,7 @@ pub trait StatefulAction: Send {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()>;
+    ) -> Result<Signal>;
 
     fn update(
         &mut self,
@@ -66,8 +66,8 @@ pub trait StatefulAction: Send {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<Vec<SyncSignal>> {
-        Ok(vec![])
+    ) -> Result<Signal> {
+        Ok(Signal::none())
     }
 
     fn show(
@@ -85,7 +85,7 @@ pub trait StatefulAction: Send {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()>;
+    ) -> Result<Signal>;
 
     fn debug(&self) -> Vec<(&str, String)> {
         vec![

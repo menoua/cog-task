@@ -1,5 +1,5 @@
 use crate::action::{Action, Props, StatefulAction, DEFAULT};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
@@ -51,7 +51,7 @@ impl StatefulAction for StatefulWait {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         let done = self.done.clone();
         let duration = self.duration;
         let mut sync_writer = sync_writer.clone();
@@ -60,7 +60,7 @@ impl StatefulAction for StatefulWait {
             *done.lock().unwrap() = Ok(true);
             sync_writer.push(SyncSignal::UpdateGraph);
         });
-        Ok(())
+        Ok(Signal::none())
     }
 
     #[inline(always)]
@@ -69,8 +69,8 @@ impl StatefulAction for StatefulWait {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         *self.done.lock().unwrap() = Ok(true);
-        Ok(())
+        Ok(Signal::none())
     }
 }

@@ -89,7 +89,7 @@ impl SyncProcessor {
                 let mut n_signal = signals.len();
                 let mut signals = VecDeque::from(signals);
                 while let Some(signal) = signals.pop_front() {
-                    let new_signals = match signal {
+                    let news = match signal {
                         SyncSignal::UpdateGraph => {
                             let (tree, state) = &mut *proc.atomic.lock().unwrap();
                             tree.update(
@@ -129,34 +129,25 @@ impl SyncProcessor {
                         }
                         SyncSignal::Repaint => {
                             proc.ctx.request_repaint();
-                            Ok(vec![])
+                            Ok(Signal::none())
                         }
                         SyncSignal::Finish => break 'mainloop,
                     }
                     .unwrap_or_else(|e| {
                         proc.server_writer.push(ServerSignal::BlockCrashed(e));
                         proc.ctx.request_repaint();
-                        vec![]
+                        Signal::none()
                     });
 
-                    if !new_signals.is_empty() {
-                        n_signal += new_signals.len();
+                    if !news.is_empty() {
+                        n_signal += 1;
                         if n_signal > MAX_QUEUE_SIZE {
                             proc.server_writer.push(ServerSignal::BlockCrashed(eyre!(
                                 "Number of signals in a single poll exceeded MAX_QUEUE_SIZE."
                             )));
                             proc.ctx.request_repaint();
                         } else {
-                            for signal in new_signals.into_iter().rev() {
-                                if let SyncSignal::Emit(_, _) = signal {
-                                    signals.push_front(signal);
-                                } else {
-                                    proc.server_writer.push(ServerSignal::BlockCrashed(eyre!(
-                                        "Action sent a non-emit signal which is not allowed."
-                                    )));
-                                    proc.ctx.request_repaint();
-                                }
-                            }
+                            signals.push_front(news.into());
                         }
                     }
 
@@ -198,7 +189,10 @@ impl SyncProcessor {
             ("start".to_owned(), Value::Text("ok".to_owned())),
         ));
 
-        tree.start(&mut self.sync_writer, &mut self.async_writer, state)?;
+        let news = tree.start(&mut self.sync_writer, &mut self.async_writer, state)?;
+        if !news.is_empty() {
+            self.sync_writer.push(SyncSignal::from(news));
+        }
 
         if tree.is_over()? {
             self.server_writer.push(ServerSignal::BlockFinished);

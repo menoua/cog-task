@@ -1,7 +1,7 @@
 //@ audio
 
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
-use crate::comm::{QWriter, SignalId};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{
     drop_channel, interlace_channels, ResourceAddr, ResourceMap, ResourceValue, Trigger,
 };
@@ -191,7 +191,7 @@ impl StatefulAction for StatefulAudio {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         let link = self
             .link
             .take()
@@ -214,7 +214,7 @@ impl StatefulAction for StatefulAudio {
             });
         }
 
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn update(
@@ -223,10 +223,10 @@ impl StatefulAction for StatefulAudio {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Vec<SyncSignal>> {
+    ) -> Result<Signal> {
         match signal {
             ActionSignal::StateChanged(_, signal) if signal.contains(&self.in_volume) => {}
-            _ => return Ok(vec![]),
+            _ => return Ok(Signal::none()),
         };
 
         if let Some(Value::Float(vol)) = state.get(&self.in_volume) {
@@ -236,7 +236,7 @@ impl StatefulAction for StatefulAudio {
             }
         }
 
-        Ok(vec![])
+        Ok(Signal::none())
     }
 
     #[inline(always)]
@@ -245,12 +245,12 @@ impl StatefulAction for StatefulAudio {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         if let Some(sink) = self.sink.lock().unwrap().take() {
             sink.stop();
         }
         *self.done.lock().unwrap() = Ok(true);
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn debug(&self) -> Vec<(&str, String)> {

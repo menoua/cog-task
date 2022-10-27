@@ -1,5 +1,5 @@
 use crate::action::{Action, Props, StatefulAction, INFINITE};
-use crate::comm::{QWriter, SignalId};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
 use eyre::{eyre, Error, Result};
@@ -65,17 +65,17 @@ impl StatefulAction for StatefulTimer {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Signal, Error> {
         self.since = Instant::now();
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn stop(
         &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
+        _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Signal> {
         let duration = Instant::now() - self.since;
         if !self.name.is_empty() {
             async_writer.push(LoggerSignal::Append(
@@ -84,14 +84,11 @@ impl StatefulAction for StatefulTimer {
             ));
         }
 
-        if self.out_duration > 0 {
-            sync_writer.push(SyncSignal::Emit(
-                Instant::now(),
-                vec![(self.out_duration, Value::Float(duration.as_secs_f64()))].into(),
-            ))
-        }
-
         self.done = true;
-        Ok(())
+        if self.out_duration > 0 {
+            Ok(vec![(self.out_duration, Value::Float(duration.as_secs_f64()))].into())
+        } else {
+            Ok(Signal::none())
+        }
     }
 }

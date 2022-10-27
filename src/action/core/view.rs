@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
-use crate::comm::{QWriter, SignalId};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::f64_as_i64;
@@ -81,7 +81,7 @@ impl StatefulAction for StatefulView {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         self.choice = match state.get(&self.in_control) {
             Some(Value::Integer(i)) => {
                 if *i < self.children.len() as i128 {
@@ -102,11 +102,12 @@ impl StatefulAction for StatefulView {
             _ => return Err(eyre!("View control is in invalid state.")),
         };
 
+        let mut news = vec![];
         for c in self.children.iter_mut() {
-            c.start(sync_writer, async_writer, state)?;
+            news.extend(c.start(sync_writer, async_writer, state)?);
         }
 
-        Ok(())
+        Ok(news.into())
     }
 
     #[inline]
@@ -116,7 +117,7 @@ impl StatefulAction for StatefulView {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Vec<SyncSignal>> {
+    ) -> Result<Signal> {
         if let ActionSignal::StateChanged(_, signal) = signal {
             if signal.contains(&self.in_control) {
                 self.choice = match state.get(&self.in_control) {
@@ -141,15 +142,16 @@ impl StatefulAction for StatefulView {
             }
         }
 
+        let mut news = vec![];
         for c in self.children.iter_mut() {
-            c.update(signal, sync_writer, async_writer, state)?;
+            news.extend(c.update(signal, sync_writer, async_writer, state)?);
         }
 
         if self.children[self.choice].is_over()? {
             self.done = true;
         }
 
-        Ok(vec![])
+        Ok(news.into())
     }
 
     fn show(
@@ -168,11 +170,12 @@ impl StatefulAction for StatefulView {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
-        for c in self.children.iter_mut() {
-            c.stop(sync_writer, async_writer, state)?;
-        }
+    ) -> Result<Signal> {
         self.done = true;
-        Ok(())
+        let mut news = vec![];
+        for c in self.children.iter_mut() {
+            news.extend(c.stop(sync_writer, async_writer, state)?);
+        }
+        Ok(news.into())
     }
 }

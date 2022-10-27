@@ -1,8 +1,8 @@
 use crate::action::{Action, Props, StatefulAction, INFINITE};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
-use eyre::{Error, Result};
+use eyre::Result;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 
@@ -40,12 +40,12 @@ impl StatefulAction for StatefulEvent {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Signal> {
         async_writer.push(LoggerSignal::Append(
             "event".to_owned(),
             (self.name.clone(), Value::Text("start".to_owned())),
         ));
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn stop(
@@ -53,13 +53,13 @@ impl StatefulAction for StatefulEvent {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Signal> {
         async_writer.push(LoggerSignal::Append(
             "event".to_owned(),
             (self.name.clone(), Value::Text("stop".to_owned())),
         ));
 
         self.done = true;
-        Ok(())
+        Ok(Signal::none())
     }
 }

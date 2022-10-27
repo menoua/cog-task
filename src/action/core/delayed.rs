@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
@@ -64,7 +64,7 @@ impl StatefulAction for StatefulDelayed {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         if self.done {
             sync_writer.push(SyncSignal::UpdateGraph);
         } else {
@@ -77,7 +77,7 @@ impl StatefulAction for StatefulDelayed {
                 sync_writer.push(SyncSignal::UpdateGraph);
             });
         }
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn update(
@@ -86,22 +86,24 @@ impl StatefulAction for StatefulDelayed {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Vec<SyncSignal>> {
+    ) -> Result<Signal> {
         if *self.wait_over.lock().unwrap() {
-            if !self.has_begun {
+            let news = if !self.has_begun {
                 self.inner.start(sync_writer, async_writer, state)?;
                 self.has_begun = true;
+                Signal::none()
             } else {
                 self.inner
-                    .update(signal, sync_writer, async_writer, state)?;
-            }
+                    .update(signal, sync_writer, async_writer, state)?
+            };
 
             if self.inner.is_over()? {
                 self.done = true;
             }
+            Ok(news)
+        } else {
+            Ok(Signal::none())
         }
-
-        Ok(vec![])
     }
 
     fn show(
@@ -123,11 +125,12 @@ impl StatefulAction for StatefulDelayed {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
-        if *self.wait_over.lock().unwrap() {
-            self.inner.stop(sync_writer, async_writer, state)?;
-        }
+    ) -> Result<Signal> {
         self.done = true;
-        Ok(())
+        if *self.wait_over.lock().unwrap() {
+            self.inner.stop(sync_writer, async_writer, state)
+        } else {
+            Ok(Signal::none())
+        }
     }
 }

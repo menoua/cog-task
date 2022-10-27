@@ -1,5 +1,5 @@
 use crate::action::{Action, Props, StatefulAction, VISUAL};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::gui::{style_ui, Style};
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
@@ -56,7 +56,7 @@ impl StatefulAction for StatefulCounter {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         if self.count == 0 {
             self.done = true;
             sync_writer.push(SyncSignal::UpdateGraph);
@@ -64,7 +64,7 @@ impl StatefulAction for StatefulCounter {
             sync_writer.push(SyncSignal::Repaint);
         }
 
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn show(
@@ -130,10 +130,10 @@ impl StatefulAction for StatefulCounter {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         self.done = true;
         sync_writer.push(SyncSignal::Repaint);
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn debug(&self) -> Vec<(&str, String)> {

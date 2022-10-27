@@ -1,5 +1,5 @@
 use crate::action::{Action, Props, StatefulAction, DEFAULT};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eyre::Result;
@@ -48,10 +48,10 @@ impl StatefulAction for StatefulNil {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         self.done = true;
         sync_writer.push(SyncSignal::UpdateGraph);
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn stop(
@@ -59,9 +59,9 @@ impl StatefulAction for StatefulNil {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         self.done = true;
-        Ok(())
+        Ok(Signal::none())
     }
 }
 

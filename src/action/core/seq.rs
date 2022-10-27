@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
@@ -85,13 +85,13 @@ impl StatefulAction for StatefulSeq {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         if let Some(c) = self.children.get_mut(0) {
             c.start(sync_writer, async_writer, state)
         } else {
             self.done = true;
             sync_writer.push(SyncSignal::UpdateGraph);
-            Ok(())
+            Ok(Signal::none())
         }
     }
 
@@ -102,25 +102,29 @@ impl StatefulAction for StatefulSeq {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Vec<SyncSignal>> {
+    ) -> Result<Signal> {
         if let Some(c) = self.children.get_mut(0) {
-            c.update(signal, sync_writer, async_writer, state)?;
+            let mut news = vec![];
+            news.extend(c.update(signal, sync_writer, async_writer, state)?);
 
             if c.is_over()? {
-                self.children
-                    .pop_front()
-                    .unwrap()
-                    .stop(sync_writer, async_writer, state)?;
+                news.extend(self.children.pop_front().unwrap().stop(
+                    sync_writer,
+                    async_writer,
+                    state,
+                )?);
 
                 if let Some(c) = self.children.get_mut(0) {
-                    c.start(sync_writer, async_writer, state)?;
+                    news.extend(c.start(sync_writer, async_writer, state)?);
                 } else {
                     self.done = true;
                 }
             }
-        }
 
-        Ok(vec![])
+            Ok(news.into())
+        } else {
+            Ok(Signal::none())
+        }
     }
 
     fn show(
@@ -143,11 +147,12 @@ impl StatefulAction for StatefulSeq {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
-        if let Some(c) = self.children.get_mut(0) {
-            c.stop(sync_writer, async_writer, state)?;
-        }
+    ) -> Result<Signal> {
         self.done = true;
-        Ok(())
+        if let Some(c) = self.children.get_mut(0) {
+            c.stop(sync_writer, async_writer, state)
+        } else {
+            Ok(Signal::none())
+        }
     }
 }

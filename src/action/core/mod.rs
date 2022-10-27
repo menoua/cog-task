@@ -14,6 +14,7 @@ pub mod instruction;
 pub mod key_logger;
 pub mod logger;
 pub mod math;
+pub mod merge;
 pub mod nil;
 pub mod par;
 pub mod question;

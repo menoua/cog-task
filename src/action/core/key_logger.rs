@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
 use chrono::Local;
@@ -54,12 +54,12 @@ impl StatefulAction for StatefulKeyLogger {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<(), Error> {
+    ) -> Result<Signal> {
         async_writer.push(LoggerSignal::Append(
             self.group.clone(),
             ("event".to_owned(), Value::Text("start".to_owned())),
         ));
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn update(
@@ -68,7 +68,7 @@ impl StatefulAction for StatefulKeyLogger {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<Vec<SyncSignal>> {
+    ) -> Result<Signal> {
         if let ActionSignal::KeyPress(_, keys) = signal {
             let group = self.group.clone();
             let entry = (
@@ -82,7 +82,7 @@ impl StatefulAction for StatefulKeyLogger {
             ));
         }
 
-        Ok(vec![])
+        Ok(Signal::none())
     }
 
     fn show(
@@ -101,14 +101,14 @@ impl StatefulAction for StatefulKeyLogger {
         _sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         async_writer.push(LoggerSignal::Append(
             self.group.clone(),
             ("event".to_owned(), Value::Text("stop".to_owned())),
         ));
 
         self.done = true;
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn debug(&self) -> Vec<(&str, String)> {

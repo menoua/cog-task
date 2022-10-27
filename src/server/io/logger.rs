@@ -12,8 +12,8 @@ use std::fmt::Debug;
 use std::fs::{create_dir_all, File};
 use std::io::Write;
 use std::path::PathBuf;
-use std::thread;
 use std::time::Duration;
+use std::{fs, thread};
 
 pub const TAG_INFO: u64 = 0x01;
 pub const TAG_CONFIG: u64 = 0x02;
@@ -98,10 +98,16 @@ impl Logger {
     fn write(&mut self, name: String, content: Value) -> Result<()> {
         let name = format!("{}.log", normalized_name(&name));
         let path = self.out_dir.join(name);
-        let file = File::create(&path)
-            .wrap_err_with(|| format!("Failed to create log file ({path:?})."))?;
 
-        write_as(file, &content, self.log_format)?;
+        if let Value::Text(content) = content {
+            fs::write(&path, &content)
+                .wrap_err_with(|| format!("Failed to write to log file ({path:?})."))?;
+        } else {
+            let file = File::create(&path)
+                .wrap_err_with(|| format!("Failed to create log file ({path:?})."))?;
+            write_as(file, &content, self.log_format)
+                .wrap_err_with(|| format!("Failed to write to log file ({path:?})."))?;
+        }
 
         #[cfg(debug_assertions)]
         println!("{:?} -> Wrote to file: {path:?}", Local::now());

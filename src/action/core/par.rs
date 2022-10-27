@@ -1,5 +1,5 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
@@ -128,17 +128,18 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
+        let mut news = vec![];
         if self.primary.is_empty() {
             self.done = true;
             sync_writer.push(SyncSignal::UpdateGraph);
         } else {
             for c in self.primary.iter_mut().chain(self.secondary.iter_mut()) {
-                c.start(sync_writer, async_writer, state)?;
+                news.extend(c.start(sync_writer, async_writer, state)?);
             }
         }
 
-        Ok(())
+        Ok(news.into())
     }
 
     #[inline]
@@ -148,14 +149,15 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Vec<SyncSignal>> {
+    ) -> Result<Signal> {
         let mut done = vec![];
+        let mut news = vec![];
         let mut finished = false;
         for (i, c) in self.primary.iter_mut().enumerate() {
-            c.update(signal, sync_writer, async_writer, state)?;
+            news.extend(c.update(signal, sync_writer, async_writer, state)?);
 
             if c.is_over()? {
-                c.stop(sync_writer, async_writer, state)?;
+                news.extend(c.stop(sync_writer, async_writer, state)?);
                 done.push(i);
             }
         }
@@ -171,10 +173,10 @@ impl StatefulAction for StatefulPar {
 
         let mut done = vec![];
         for (i, c) in self.secondary.iter_mut().enumerate() {
-            c.update(signal, sync_writer, async_writer, state)?;
+            news.extend(c.update(signal, sync_writer, async_writer, state)?);
 
             if c.is_over()? {
-                c.stop(sync_writer, async_writer, state)?;
+                news.extend(c.stop(sync_writer, async_writer, state)?);
                 done.push(i);
             }
         }
@@ -186,7 +188,7 @@ impl StatefulAction for StatefulPar {
             self.done = true;
         }
 
-        Ok(vec![])
+        Ok(news.into())
     }
 
     fn show(
@@ -211,12 +213,13 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
+        self.done = true;
+        let mut news = vec![];
         let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
         for c in children {
-            c.stop(sync_writer, async_writer, state)?;
+            news.extend(c.stop(sync_writer, async_writer, state)?);
         }
-        self.done = true;
-        Ok(())
+        Ok(news.into())
     }
 }

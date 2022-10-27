@@ -1,5 +1,5 @@
 use crate::action::{Action, Props, StatefulAction, VISUAL};
-use crate::comm::QWriter;
+use crate::comm::{QWriter, Signal};
 use crate::gui::{
     center_x, header_body_controls, style_ui, text::body, text::button1, text::inactive, Style,
     TEXT_SIZE_BODY,
@@ -86,9 +86,9 @@ impl StatefulAction for StatefulQuestion {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         sync_writer.push(SyncSignal::Repaint);
-        Ok(())
+        Ok(Signal::none())
     }
 
     fn show(
@@ -119,10 +119,10 @@ impl StatefulAction for StatefulQuestion {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Signal> {
         self.done = true;
         sync_writer.push(SyncSignal::Repaint);
-        Ok(())
+        Ok(Signal::none())
     }
 }
 
