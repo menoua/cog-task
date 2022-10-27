@@ -13,9 +13,9 @@ use serde_cbor::Value;
 pub struct Switch {
     #[serde(default)]
     default: bool,
-    #[serde(rename = "true")]
+    #[serde(alias = "if")]
     if_true: Box<dyn Action>,
-    #[serde(rename = "false")]
+    #[serde(alias = "else")]
     if_false: Box<dyn Action>,
     in_control: SignalId,
 }
