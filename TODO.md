@@ -1,5 +1,6 @@
 ## To-do
 
+- [ ] Add a `Math`-like action that takes in the path to an external compiled FFI (C/Rust/Python/Matlab/etc.) and behaves very similarly to `Math`.
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.
 - [ ] Consider relegating compile-time asset management to [rust-embed](https://github.com/pyrossh/rust-embed).
