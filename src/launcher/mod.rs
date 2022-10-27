@@ -12,7 +12,7 @@ use egui::widget_text::RichText;
 use egui_extras::{Size, StripBuilder};
 use heck::ToTitleCase;
 use itertools::Itertools;
-use native_dialog::FileDialog;
+use rfd::FileDialog;
 use std::env::{current_dir, current_exe};
 use std::path::PathBuf;
 use std::thread;
@@ -368,9 +368,8 @@ impl Launcher {
             Interaction::None => {}
             Interaction::LoadTask => {
                 let path = FileDialog::new()
-                    .set_location(current_dir().unwrap().to_str().unwrap())
-                    .show_open_single_dir()
-                    .unwrap();
+                    .set_directory(current_dir().unwrap().to_str().unwrap())
+                    .pick_folder();
 
                 if let Some(path) = path {
                     self.run_task(path);
@@ -378,9 +377,8 @@ impl Launcher {
             }
             Interaction::LoadTaskRepo => {
                 let path = FileDialog::new()
-                    .set_location(current_dir().unwrap().to_str().unwrap())
-                    .show_open_single_dir()
-                    .unwrap();
+                    .set_directory(current_dir().unwrap().to_str().unwrap())
+                    .pick_folder();
 
                 if let Some(path) = path {
                     let sys_info = self.sys_info.clone();
