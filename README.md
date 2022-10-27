@@ -104,11 +104,3 @@ Alternatively, you can run:
 $ cog-launcher
 ```
 Then use the leftmost control icon to load the [*example/basic/*](https://github.com/menoua/cog-task/tree/master/example/basic/) directory. Or, you can use the second button to open the parent [*example/*](https://github.com/menoua/cog-task/tree/master/example/) directory which contains all the example tasks within. The former, directly runs `cog-server` on the chosen task. The latter, displays a list of all tasks located in the chosen directory, which can be started by clicking the corresponding button.
-
-## Changelog
-
-Version 0.2.0 has gone through a massive overhaul, transitioning from the GUI framework of `iced` to `egui`. The transition was done to solve a screen update skipping issue (which it did). There have been other pros and cons too:
-
-- Text and widget styling is (much) more difficult in `egui`.
-- `egui`'s Glow backend supports image/SVG.
-- Separating the `view` and `update` calls allowed redesigning block architecture (the dependency graph) into an action tree. This change makes it very difficult to design a buggy task, and significantly simplifies task definition style. It slightly limits the task design flexibility, but it's worth it. This change also comes with an increased overhead since `update`/`view` calls traverse the entire active subset of the tree, instead of jumping to the end nodes. However, the tree overhead is generally low compared to action-specific overheads, so that's not a huge deal.
