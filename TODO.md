@@ -1,17 +1,6 @@
 ## To-do
 
-- [x] Unify all SignalId into a single state-updating signal. External communication will be handled by dedicated thread.
-- [x] Set a limit on signal queue (e.g., 256). If we get there, it's very likely something is wrong.
-- [ ] Prioritize StateUpdated over UpdateGraph, so that when a new action wants to start, all necessary state changes from the preceding action are applied. Make sure Branch and Switch make the right choice even if the change was last minute. Maybe there's no need to update, but rather read the state at start only. 
 - [ ] On block crash, dump error in `crash.log` by adding a dump(e: Error) function to AsyncProcessor. This should only fail if the error is caused by the logger itself.
-- [ ] Separate params from signals:
-        - [x] `Instruction`: Reuse ${x} in text; add params:Map<str,str>; add in_mapping:Map<u16,str>.
-        - [ ] `Math`: use regular word in expression text; add vars:Map<str,f32>; add in_mapping:Map<u16,str>.
-- [ ] Unify logging. Introduce two fields -- `log_name` (group chosen by action) and `log_group`.
-- [x] Rename `sig_*` fields to `in_*` or `out_*` depending on direction.
-- [x] Each time a button is pressed that is captured by `Reaction`, emit. Only log once.
-- [ ] Add `Counter` action which starts from an initial value and counts each time it receives a signal.
-- [ ] Add `Math` action which takes in variables and logs/signals at start and every time the result changes. Candidates are: [meval](https://github.com/rekka/meval-rs), [savage](https://github.com/p-e-w/savage), [fasteval](https://github.com/likebike/fasteval), [caldyn](https://github.com/Luthaf/caldyn).
 - [ ] Add `ValueLogger` action that logs anything that arrives on a set of signals.
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.
