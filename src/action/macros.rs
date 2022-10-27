@@ -1,7 +1,6 @@
 macro_rules! include_actions {
     ($($group:ident::$name:ident@($($feature:literal),* $(,)?)),* $(,)?) => {
         use crate::action::Action;
-        use eyre::Result;
         use serde::{Deserialize, Serialize};
         use std::any::TypeId;
 
@@ -30,7 +29,7 @@ macro_rules! include_actions {
             }
 
             impl ActionEnum {
-                pub fn unwrap(self) -> Result<Box<dyn Action>> {
+                pub fn unwrap(self) -> eyre::Result<Box<dyn Action>> {
                     match self {
                         $(
                             #[cfg(all($(feature = $feature,)*))]
@@ -118,7 +117,7 @@ macro_rules! stateful {
 
             impl [<Stateful $name>] {
                 #[inline(always)]
-                fn is_over(&self) -> Result<bool> {
+                fn is_over(&self) -> eyre::Result<bool> {
                     Ok(self.done)
                 }
             }
@@ -130,7 +129,7 @@ macro_rules! stateful_arc {
     ($name:ident { $($field:ident: $ty:ty),* $(,)? }) => {
         paste::paste! {
             pub struct [<Stateful $name>] {
-                done: Arc<Mutex<Result<bool>>>,
+                done: Arc<Mutex<eyre::Result<bool>>>,
                 $(
                     $field: $ty,
                 )*
@@ -140,7 +139,7 @@ macro_rules! stateful_arc {
 
             impl [<Stateful $name>] {
                 #[inline(always)]
-                fn is_over(&self) -> Result<bool> {
+                fn is_over(&self) -> eyre::Result<bool> {
                     use eyre::{eyre, Context};
 
                     let mut done = self.done.lock().unwrap();
@@ -160,7 +159,7 @@ macro_rules! stateful_arc {
 macro_rules! impl_stateful {
     () => {
         #[inline(always)]
-        fn is_over(&self) -> Result<bool> {
+        fn is_over(&self) -> eyre::Result<bool> {
             self.is_over()
         }
 

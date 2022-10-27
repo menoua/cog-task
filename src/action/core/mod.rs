@@ -4,6 +4,7 @@
 #[cfg(feature = "audio")]
 pub mod audio;
 pub mod branch;
+pub mod clock;
 pub mod counter;
 pub mod delayed;
 pub mod event;

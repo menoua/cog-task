@@ -133,7 +133,7 @@ impl StatefulAction for StatefulBranch {
             _ => return Err(eyre!("Branch control is in invalid state.")),
         };
 
-        selfd.decision = Decision::Final(decision);
+        self.decision = Decision::Final(decision);
         self.children[decision].start(sync_writer, async_writer, state)
     }
 

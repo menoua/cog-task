@@ -1,4 +1,4 @@
-use eyre::{Result, eyre};
+use eyre::{eyre, Result};
 use serde::Serialize;
 use spin_sleep::{SpinSleeper, SpinStrategy};
 
@@ -7,7 +7,7 @@ const SPIN_DURATION: u32 = 100_000_000; // equivalent to 100ms
 const SPIN_STRATEGY: SpinStrategy = SpinStrategy::SpinLoopHint;
 
 pub fn approx_eq(x: f64, y: f64) -> bool {
-    (x - y).abs() < APPROX_EQ_EPSILON
+    (x - y).abs() < APPROX_EQ_EPS
 }
 
 pub fn f64_as_bool(x: f64) -> Result<bool> {

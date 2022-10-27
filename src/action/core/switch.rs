@@ -97,9 +97,18 @@ impl StatefulAction for StatefulSwitch {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<()> {
-        let decision = match self.decision {
-            Decision::Temporary(c) => c,
-            _ => return Ok(()),
+        if matches!(self.decision, Decision::Final(_)) {
+            return Ok(());
+        }
+
+        let decision = match state.get(&self.in_control) {
+            Some(Value::Bool(c)) => *c,
+            Some(Value::Integer(1)) => true,
+            Some(Value::Integer(0)) => false,
+            Some(Value::Float(x)) if approx_eq(*x, 1.0) => true,
+            Some(Value::Float(x)) if approx_eq(*x, 0.0) => false,
+            Some(v) => return Err(eyre!("Failed to interpret value ({v:?}) as boolean.")),
+            None => return Err(eyre!("Control state is missing.")),
         };
 
         self.decision = Decision::Final(decision);
@@ -119,20 +128,6 @@ impl StatefulAction for StatefulSwitch {
         state: &State,
     ) -> Result<Vec<SyncSignal>> {
         match self.decision {
-            Decision::Temporary(_) => {
-                if let ActionSignal::StateChanged(_, signal) = signal {
-                    if signal.contains(&self.in_control) {
-                        self.decision = match state.get(&self.in_control) {
-                            Some(Value::Bool(c)) => c,
-                            Some(Value::Integer(1)) => true,
-                            Some(Value::Integer(0)) => false,
-                            Some(Value::Float(x)) if approx_eq(*x, 1.0) => true,
-                            Some(Value::Float(x)) if approx_eq(*x, 0.0) => false,
-                            v => return Err(eyre!("Failed to interpret value ({v}) as boolean.")),
-                        };
-                    }
-                }
-            }
             Decision::Final(true) => {
                 self.if_true
                     .update(signal, sync_writer, async_writer, state)?;
@@ -147,6 +142,7 @@ impl StatefulAction for StatefulSwitch {
                     self.done = true;
                 }
             }
+            _ => {}
         }
 
         Ok(vec![])

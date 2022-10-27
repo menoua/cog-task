@@ -331,7 +331,6 @@ impl StatefulMath {
                             ),
                         );
                     }
-                    vars.insert("self".to_owned(), self.value);
 
                     let result = expression.evaluate(vars).map_err(|e| {
                         eyre!("Failed to evaluate mathematical expression ({e:?}).")
