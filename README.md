@@ -31,7 +31,7 @@ There are many more types of actions, which are not properly documented yet. But
 
 ## Installation
 
-The most reliable way to install CogTask is by installing Cargo through [rustup](https://rustup.rs/) and compiling the binaries locally.
+The most reliable way to install CogTask is by installing Cargo through [rustup](https://rustup.rs/) and compiling the binaries locally (check requirements section below).
 
 Install Cargo:<br>
 ```bash
@@ -79,7 +79,7 @@ Examples:
 
 By default (no features), this package should compile and run out-of-the-box on a reasonably recent macOS or Linux distribution. On *linux*, if you do not have a toolchain installed, you can install the `gcc` toolchain, e.g.:<br>
 ```bash
-sudo apt install build-essential
+sudo apt install build-essential cmake
 ```
 
 Some features depend on certain libraries that might not come preinstalled on your OS. In these cases, before building the binaries with said features enabled, you need to first install the requirements:
