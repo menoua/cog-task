@@ -6,6 +6,7 @@ use crate::util::spin_sleeper;
 use eyre::{eyre, Context, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
+use std::collections::BTreeSet;
 use std::sync::mpsc::{self, Sender, TryRecvError};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -23,6 +24,11 @@ stateful!(Clock {
 });
 
 impl Action for Clock {
+    #[inline]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        BTreeSet::from([self.out_tic])
+    }
+
     fn init(self) -> Result<Box<dyn Action>>
     where
         Self: 'static + Sized,

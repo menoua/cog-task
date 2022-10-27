@@ -1,11 +1,12 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
-use crate::comm::{QWriter, Signal};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
 use eyre::Result;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
@@ -20,6 +21,16 @@ stateful!(Timeout {
 });
 
 impl Action for Timeout {
+    #[inline]
+    fn in_signals(&self) -> BTreeSet<SignalId> {
+        self.1.in_signals()
+    }
+
+    #[inline]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        self.1.out_signals()
+    }
+
     #[inline(always)]
     fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         self.1.resources(config)

@@ -18,6 +18,16 @@ stateful!(Merge {
 });
 
 impl Action for Merge {
+    #[inline]
+    fn in_signals(&self) -> BTreeSet<SignalId> {
+        self.in_many.clone()
+    }
+
+    #[inline]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        BTreeSet::from([self.out_one])
+    }
+
     fn init(self) -> Result<Box<dyn Action>>
     where
         Self: 'static + Sized,

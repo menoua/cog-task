@@ -9,7 +9,7 @@ use regex::Regex;
 use savage_core::expression as savage;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 static mut SAVAGE_EXPR: Option<BTreeMap<usize, savage::Expression>> = None;
 
@@ -67,6 +67,18 @@ enum Parser {
 }
 
 impl Action for Math {
+    #[inline]
+    fn in_signals(&self) -> BTreeSet<SignalId> {
+        let mut signals: BTreeSet<_> = self.in_mapping.keys().cloned().collect();
+        signals.insert(self.in_update);
+        signals
+    }
+
+    #[inline]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        BTreeSet::from([self.out_result])
+    }
+
     #[inline(always)]
     fn init(mut self) -> Result<Box<dyn Action>, Error>
     where

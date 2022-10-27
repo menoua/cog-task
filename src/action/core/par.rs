@@ -1,11 +1,12 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
-use crate::comm::{QWriter, Signal};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
 use eyre::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Par(
@@ -44,6 +45,30 @@ impl Par {
 }
 
 impl Action for Par {
+    #[inline]
+    fn in_signals(&self) -> BTreeSet<SignalId> {
+        let mut signals = BTreeSet::new();
+        for c in self.0.iter() {
+            signals.extend(c.in_signals());
+        }
+        for c in self.1.iter() {
+            signals.extend(c.in_signals());
+        }
+        signals
+    }
+
+    #[inline]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        let mut signals = BTreeSet::new();
+        for c in self.0.iter() {
+            signals.extend(c.out_signals());
+        }
+        for c in self.1.iter() {
+            signals.extend(c.out_signals());
+        }
+        signals
+    }
+
     #[inline]
     fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         self.0

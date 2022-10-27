@@ -8,6 +8,7 @@ use eyre::{eyre, Context, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
+use std::collections::BTreeSet;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Branch {
@@ -29,6 +30,25 @@ stateful!(Branch {
 });
 
 impl Action for Branch {
+    #[inline]
+    fn in_signals(&self) -> BTreeSet<SignalId> {
+        let mut signals = BTreeSet::new();
+        signals.insert(self.in_control);
+        for c in self.children.iter() {
+            signals.extend(c.in_signals());
+        }
+        signals
+    }
+
+    #[inline]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        let mut signals = BTreeSet::new();
+        for c in self.children.iter() {
+            signals.extend(c.out_signals());
+        }
+        signals
+    }
+
     #[inline]
     fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         self.children

@@ -24,16 +24,26 @@ use std::time::Instant;
 
 pub trait Action: Debug + Any {
     #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
-        vec![]
-    }
-
-    #[inline(always)]
     fn init(self) -> Result<Box<dyn Action>>
     where
         Self: 'static + Sized,
     {
         Ok(Box::new(self))
+    }
+
+    #[inline(always)]
+    fn in_signals(&self) -> BTreeSet<SignalId> {
+        BTreeSet::new()
+    }
+
+    #[inline(always)]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        BTreeSet::new()
+    }
+
+    #[inline(always)]
+    fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
+        vec![]
     }
 
     fn stateful(

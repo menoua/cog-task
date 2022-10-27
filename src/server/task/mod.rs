@@ -45,7 +45,9 @@ impl Task {
 
     pub fn init(mut self, root_dir: &Path) -> Result<Self> {
         for block in self.blocks.iter_mut() {
-            block.init()?;
+            block
+                .init()
+                .wrap_err_with(|| eyre!("Failed to verify block ({}).", block.label()))?;
         }
 
         for (name, count) in self.block_labels().into_iter().counts() {

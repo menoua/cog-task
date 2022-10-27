@@ -8,6 +8,7 @@ use eyre::{eyre, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
+use std::collections::BTreeSet;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Switch {
@@ -33,6 +34,22 @@ stateful!(Switch {
 });
 
 impl Action for Switch {
+    #[inline]
+    fn in_signals(&self) -> BTreeSet<SignalId> {
+        let mut signals = BTreeSet::from([self.in_control]);
+        signals.extend(self.if_true.in_signals());
+        signals.extend(self.if_false.in_signals());
+        signals
+    }
+
+    #[inline]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        let mut signals = BTreeSet::new();
+        signals.extend(self.if_true.out_signals());
+        signals.extend(self.if_false.out_signals());
+        signals
+    }
+
     #[inline]
     fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         [&self.if_true, &self.if_false]

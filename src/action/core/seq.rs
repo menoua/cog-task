@@ -1,12 +1,12 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
-use crate::comm::{QWriter, Signal};
+use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
 use eyre::{eyre, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Seq(Vec<Box<dyn Action>>);
@@ -22,6 +22,24 @@ impl Seq {
 }
 
 impl Action for Seq {
+    #[inline]
+    fn in_signals(&self) -> BTreeSet<SignalId> {
+        let mut signals = BTreeSet::new();
+        for c in self.0.iter() {
+            signals.extend(c.in_signals());
+        }
+        signals
+    }
+
+    #[inline]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        let mut signals = BTreeSet::new();
+        for c in self.0.iter() {
+            signals.extend(c.out_signals());
+        }
+        signals
+    }
+
     #[inline]
     fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         self.0

@@ -15,11 +15,11 @@ use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, Frame};
 use eyre::Result;
 use serde_cbor::{ser::to_vec, Value};
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
-pub type State = HashMap<u16, Value>;
+pub type State = BTreeMap<u16, Value>;
 pub type Atomic = Arc<Mutex<(Box<dyn StatefulAction>, State)>>;
 
 pub struct Scheduler {
@@ -45,6 +45,7 @@ impl Scheduler {
         let config = block.config(server.config());
         let io = IO::new()?;
         let tree = block.action_tree();
+        let state = block.default_state();
 
         let server_writer = server.callback_channel();
         let mut async_writer = AsyncProcessor::spawn(&info, &config, &server_writer)?;
@@ -54,6 +55,7 @@ impl Scheduler {
             &config,
             ctx,
             tree,
+            state,
             &async_writer,
             &server_writer,
         )?;

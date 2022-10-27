@@ -1,22 +1,29 @@
 use crate::action::Action;
+use crate::comm::SignalId;
 use crate::resource::ResourceAddr;
-use crate::server::{config::OptionalConfig, Config};
+use crate::server::{config::OptionalConfig, Config, State};
 use crate::util::Hash;
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::ser::to_vec_packed;
+use serde_cbor::Value;
+use std::collections::BTreeMap;
 
 #[derive(Deserialize, Serialize, Debug)]
 pub struct Block {
     name: String,
+    #[serde(default)]
+    #[serde(alias = "cfg")]
+    config: OptionalConfig,
     tree: Box<dyn Action>,
     #[serde(default)]
-    config: OptionalConfig,
+    state: BTreeMap<SignalId, Value>,
 }
 
 impl Block {
     pub fn init(&mut self) -> Result<()> {
         self.verify_name()?;
+        self.verify_connections()?;
         Ok(())
     }
 
@@ -37,6 +44,25 @@ impl Block {
         }
     }
 
+    fn verify_connections(&self) -> Result<()> {
+        let mut in_signals = self.tree.in_signals();
+        let mut out_signals = self.tree.out_signals();
+
+        in_signals.insert(0);
+        out_signals.insert(0);
+
+        let in_not_out: Vec<_> = in_signals.difference(&out_signals).collect();
+        let out_not_in: Vec<_> = out_signals.difference(&in_signals).collect();
+
+        if !in_not_out.is_empty() {
+            Err(eyre!("Consumed signals are never produced: {in_not_out:?}"))
+        } else if !out_not_in.is_empty() {
+            Err(eyre!("Produced signals are never consumed: {out_not_in:?}"))
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         self.tree.resources(config)
     }
@@ -49,6 +75,11 @@ impl Block {
     #[inline(always)]
     pub fn action_tree_vec(&self) -> Vec<u8> {
         to_vec_packed(&self.tree).unwrap()
+    }
+
+    #[inline(always)]
+    pub fn default_state(&self) -> &State {
+        &self.state
     }
 
     #[inline(always)]

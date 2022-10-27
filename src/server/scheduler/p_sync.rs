@@ -52,19 +52,21 @@ impl From<Signal> for SyncSignal {
 }
 
 impl SyncProcessor {
+    #[allow(clippy::too_many_arguments)]
     pub fn spawn(
         io: &IO,
         res: &ResourceMap,
         config: &Config,
         ctx: &egui::Context,
         tree: &dyn Action,
+        state: &State,
         async_writer: &QWriter<AsyncSignal>,
         server_writer: &QWriter<ServerSignal>,
     ) -> Result<(QWriter<SyncSignal>, Atomic)> {
         let sync_reader = QReader::new();
         let sync_writer = sync_reader.writer();
         let tree = tree.stateful(io, res, config, &sync_writer, async_writer)?;
-        let atomic = Arc::new(Mutex::new((tree, State::new())));
+        let atomic = Arc::new(Mutex::new((tree, state.clone())));
         let mut proc = Self {
             ctx: ctx.clone(),
             atomic,

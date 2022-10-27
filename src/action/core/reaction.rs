@@ -65,6 +65,16 @@ mod defaults {
 }
 
 impl Action for Reaction {
+    #[inline]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        BTreeSet::from([
+            self.out_rt,
+            self.out_accuracy,
+            self.out_mean_rt,
+            self.out_recall,
+        ])
+    }
+
     #[inline(always)]
     fn init(mut self) -> Result<Box<dyn Action>, Error>
     where

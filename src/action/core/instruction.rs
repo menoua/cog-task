@@ -11,7 +11,7 @@ use eyre::{eyre, Error, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -56,6 +56,11 @@ impl From<&str> for Instruction {
 }
 
 impl Action for Instruction {
+    #[inline]
+    fn in_signals(&self) -> BTreeSet<SignalId> {
+        self.in_mapping.keys().cloned().collect()
+    }
+
     #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
         if let Some(path) = text_or_file(&self.text) {

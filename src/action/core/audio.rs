@@ -11,6 +11,7 @@ use eyre::{eyre, Context, Result};
 use rodio::{Sink, Source};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
+use std::collections::BTreeSet;
 use std::fmt::Debug;
 use std::path::PathBuf;
 use std::sync::mpsc::{Receiver, Sender, TryRecvError};
@@ -47,6 +48,11 @@ mod defaults {
 }
 
 impl Action for Audio {
+    #[inline(always)]
+    fn in_signals(&self) -> BTreeSet<SignalId> {
+        BTreeSet::from([self.in_volume])
+    }
+
     #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
         if let Trigger::Ext(trig) = &self.trigger {

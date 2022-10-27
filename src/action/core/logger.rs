@@ -4,7 +4,7 @@ use crate::resource::ResourceMap;
 use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Logger {
@@ -18,6 +18,11 @@ stateful!(Logger {
 });
 
 impl Action for Logger {
+    #[inline]
+    fn in_signals(&self) -> BTreeSet<SignalId> {
+        self.in_mapping.keys().cloned().collect()
+    }
+
     fn init(self) -> Result<Box<dyn Action>>
     where
         Self: 'static + Sized,

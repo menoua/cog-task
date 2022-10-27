@@ -5,6 +5,7 @@ use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
 use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
+use std::collections::BTreeSet;
 use std::time::Instant;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -22,6 +23,11 @@ stateful!(Timer {
 });
 
 impl Action for Timer {
+    #[inline]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        BTreeSet::from([self.out_duration])
+    }
+
     fn init(self) -> Result<Box<dyn Action>>
     where
         Self: 'static + Sized,
