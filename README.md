@@ -40,7 +40,7 @@ Currently, there are 4 main features that can be enabled:
 Examples:
 - Stable binaries with full support:<br>
   ```bash
-  $ cargo install cog-task --features=full
+  $ cargo install cog-task@1.0.0-beta --features=full
   ```
 - Nightly binaries with **audio** and **gstreamer** support:<br>
   ```bash
