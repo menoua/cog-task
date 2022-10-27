@@ -114,6 +114,33 @@
         ),
 
         (
+            name: "Count integer squares",
+            tree: par(([
+                instruction((
+                    text: "Counting: ${num}",
+                    in_mapping: { 3: "num" },
+                ))
+            ], [
+                clock((
+                    step: 0.5,
+                    out_tic: 1,
+                )),
+                math((
+                    expr: "self + 1",
+                    in_update: 1,
+                    out_result: 2,
+                    persistent: true,
+                )),
+                math((
+                    expr: "n ^ 2",
+                    in_mapping: { 2: "n" },
+                    out_result: 3,
+                    persistent: true,
+                )),
+            ]))
+        ),
+
+        (
             name: "Empty block",
             tree: nil(())
         ),

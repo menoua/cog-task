@@ -110,11 +110,9 @@ impl SyncProcessor {
                             let (tree, state) = &mut *proc.atomic.lock().unwrap();
 
                             let mut changed = BTreeSet::new();
-                            if !signal.is_empty() {
-                                for (k, v) in signal.into_iter() {
-                                    state.insert(k, v);
-                                    changed.insert(k);
-                                }
+                            for (k, v) in signal.into_iter() {
+                                state.insert(k, v);
+                                changed.insert(k);
                             }
 
                             tree.update(

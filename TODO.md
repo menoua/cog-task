@@ -1,6 +1,5 @@
 ## To-do
 
-- [ ] On block crash, dump error in `crash.log` by adding a dump(e: Error) function to AsyncProcessor. This should only fail if the error is caused by the logger itself.
 - [ ] Add `ValueLogger` action that logs anything that arrives on a set of signals.
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.

@@ -23,6 +23,7 @@ use eframe::egui::CentralPanel;
 use eframe::glow::HasContext;
 use eframe::{egui, App};
 use eyre::{Context, Error, Result};
+use serde_cbor::Value;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -212,6 +213,12 @@ impl Server {
                 self.drop_scheduler();
             }
             (Page::Activity, ServerSignal::BlockCrashed(e)) => {
+                if let Some(scheduler) = self.scheduler.as_mut() {
+                    scheduler.async_writer().push(LoggerSignal::Write(
+                        "crash".to_owned(),
+                        Value::Text(format!("{e:?}")),
+                    ));
+                }
                 self.status = Progress::Failure(Local::now(), e);
                 self.drop_scheduler();
             }

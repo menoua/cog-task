@@ -185,6 +185,14 @@ impl Scheduler {
 
         result
     }
+
+    pub fn sync_writer(&mut self) -> &mut QWriter<SyncSignal> {
+        &mut self.sync_writer
+    }
+
+    pub fn async_writer(&mut self) -> &mut QWriter<AsyncSignal> {
+        &mut self.async_writer
+    }
 }
 
 impl Drop for Scheduler {
