@@ -2,7 +2,6 @@ use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::comm::{QWriter, SignalId};
 use crate::resource::{Key, ResourceMap};
 use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
-use eframe::egui;
 use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
@@ -31,7 +30,7 @@ pub struct Reaction {
 
 stateful!(Reaction {
     group: String,
-    keys: BTreeSet<egui::Key>,
+    keys: BTreeSet<Key>,
     times: Vec<Duration>,
     tol: Duration,
     since: Instant,
@@ -90,7 +89,7 @@ impl Action for Reaction {
         Ok(Box::new(StatefulReaction {
             done: false,
             group: self.group.clone(),
-            keys: self.keys.iter().map(|k| k.into()).collect(),
+            keys: self.keys.clone(),
             times: self
                 .times
                 .iter()

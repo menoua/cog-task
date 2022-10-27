@@ -2,8 +2,9 @@ use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINI
 use crate::comm::{QWriter, SignalId};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
+use crate::util::approx_eq;
 use eframe::egui;
-use eyre::Result;
+use eyre::{eyre, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
@@ -121,9 +122,14 @@ impl StatefulAction for StatefulSwitch {
             Decision::Temporary(_) => {
                 if let ActionSignal::StateChanged(_, signal) = signal {
                     if signal.contains(&self.in_control) {
-                        if let Some(Value::Bool(c)) = state.get(&self.in_control) {
-                            self.decision = Decision::Temporary(*c);
-                        }
+                        self.decision = match state.get(&self.in_control) {
+                            Some(Value::Bool(c)) => c,
+                            Some(Value::Integer(1)) => true,
+                            Some(Value::Integer(0)) => false,
+                            Some(Value::Float(x)) if approx_eq(*x, 1.0) => true,
+                            Some(Value::Float(x)) if approx_eq(*x, 0.0) => false,
+                            v => return Err(eyre!("Failed to interpret value ({v}) as boolean.")),
+                        };
                     }
                 }
             }

@@ -11,6 +11,7 @@ pub mod fixation;
 pub mod image;
 pub mod instruction;
 pub mod key_logger;
+pub mod math;
 pub mod nil;
 pub mod par;
 pub mod question;

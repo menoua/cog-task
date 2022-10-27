@@ -2,8 +2,9 @@ use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINI
 use crate::comm::{QWriter, SignalId};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
+use crate::util::f64_as_i64;
 use eframe::egui;
-use eyre::{eyre, Result};
+use eyre::{eyre, Context, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
@@ -19,7 +20,7 @@ pub struct View {
 stateful!(View {
     children: Vec<Box<dyn StatefulAction>>,
     in_control: SignalId,
-    decision: usize,
+    choice: usize,
 });
 
 impl Action for View {
@@ -49,7 +50,7 @@ impl Action for View {
             done: false,
             children,
             in_control: self.in_control,
-            decision: self.default,
+            choice: self.default,
         }))
     }
 }
@@ -81,6 +82,26 @@ impl StatefulAction for StatefulView {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<()> {
+        self.choice = match state.get(&self.in_control) {
+            Some(Value::Integer(i)) => {
+                if *i < self.children.len() as i128 {
+                    *i as usize
+                } else {
+                    return Err(eyre!("Branch request is out of bounds."));
+                }
+            }
+            Some(Value::Float(x)) => {
+                let x = f64_as_i64(*x).wrap_err("Non-integer number supplied to view.")?;
+                if (0..self.children.len() as i64).contains(&x) {
+                    x as usize
+                } else {
+                    return Err(eyre!("Branch request is out of bounds."));
+                }
+            }
+            None => self.choice,
+            _ => return Err(eyre!("View control is in invalid state.")),
+        };
+
         for c in self.children.iter_mut() {
             c.start(sync_writer, async_writer, state)?;
         }
@@ -98,13 +119,25 @@ impl StatefulAction for StatefulView {
     ) -> Result<Vec<SyncSignal>> {
         if let ActionSignal::StateChanged(_, signal) = signal {
             if signal.contains(&self.in_control) {
-                match state.get(&self.in_control) {
-                    Some(Value::Integer(i)) if *i < self.children.len() as i128 => {
-                        self.decision = *i as usize;
+                self.choice = match state.get(&self.in_control) {
+                    Some(Value::Integer(i)) => {
+                        if *i < self.children.len() as i128 {
+                            *i as usize
+                        } else {
+                            return Err(eyre!("View request is out of bounds."));
+                        }
                     }
-                    Some(Value::Integer(_)) => return Err(eyre!("View request is out of bounds.")),
-                    _ => {}
-                }
+                    Some(Value::Float(x)) => {
+                        let x = f64_as_i64(*x).wrap_err("Non-integer number supplied to view.")?;
+                        if (0..self.children.len() as i64).contains(&x) {
+                            x as usize
+                        } else {
+                            return Err(eyre!("View request is out of bounds."));
+                        }
+                    }
+                    None => self.choice,
+                    _ => return Err(eyre!("View control is in invalid state.")),
+                };
             }
         }
 
@@ -112,7 +145,7 @@ impl StatefulAction for StatefulView {
             c.update(signal, sync_writer, async_writer, state)?;
         }
 
-        if self.children[self.decision].is_over()? {
+        if self.children[self.choice].is_over()? {
             self.done = true;
         }
 
@@ -126,7 +159,7 @@ impl StatefulAction for StatefulView {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<()> {
-        self.children[self.decision].show(ui, sync_writer, async_writer, state)
+        self.children[self.choice].show(ui, sync_writer, async_writer, state)
     }
 
     #[inline]

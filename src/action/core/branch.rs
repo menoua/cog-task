@@ -2,8 +2,9 @@ use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINI
 use crate::comm::{QWriter, SignalId};
 use crate::resource::{ResourceAddr, ResourceMap};
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
+use crate::util::f64_as_i64;
 use eframe::egui;
-use eyre::{eyre, Result};
+use eyre::{eyre, Context, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
@@ -102,18 +103,37 @@ impl StatefulAction for StatefulBranch {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<()> {
-        let decision = match self.decision {
-            Decision::Temporary(i) => i,
-            _ => return Ok(()),
-        };
-
-        if !(0..self.children.len()).contains(&decision) {
-            return Err(eyre!(
-                "Switch ended up with a decision outside allowed boundary."
-            ));
+        if matches!(self.decision, Decision::Final(_)) {
+            return Ok(());
         }
 
-        self.decision = Decision::Final(decision);
+        let decision = match state.get(&self.in_control) {
+            Some(Value::Integer(i)) => {
+                if *i < self.children.len() as i128 {
+                    *i as usize
+                } else {
+                    return Err(eyre!("Branch request is out of bounds."));
+                }
+            }
+            Some(Value::Float(x)) => {
+                let x = f64_as_i64(*x).wrap_err("Non-integer number supplied to branch.")?;
+                if (0..self.children.len() as i64).contains(&x) {
+                    x as usize
+                } else {
+                    return Err(eyre!("Branch request is out of bounds."));
+                }
+            }
+            None => {
+                if let Decision::Temporary(i) = self.decision {
+                    i
+                } else {
+                    return Ok(());
+                }
+            }
+            _ => return Err(eyre!("Branch control is in invalid state.")),
+        };
+
+        selfd.decision = Decision::Final(decision);
         self.children[decision].start(sync_writer, async_writer, state)
     }
 
@@ -125,27 +145,10 @@ impl StatefulAction for StatefulBranch {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Vec<SyncSignal>> {
-        match self.decision {
-            Decision::Temporary(_) => {
-                if let ActionSignal::StateChanged(_, signal) = signal {
-                    if signal.contains(&self.in_control) {
-                        match state.get(&self.in_control) {
-                            Some(Value::Integer(i)) if *i < self.children.len() as i128 => {
-                                self.decision = Decision::Temporary(*i as usize);
-                            }
-                            Some(Value::Integer(_)) => {
-                                return Err(eyre!("Branch request is out of bounds."));
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-            }
-            Decision::Final(i) => {
-                self.children[i].update(signal, sync_writer, async_writer, state)?;
-                if self.children[i].is_over()? {
-                    self.done = true;
-                }
+        if let Decision::Final(i) = self.decision {
+            self.children[i].update(signal, sync_writer, async_writer, state)?;
+            if self.children[i].is_over()? {
+                self.done = true;
             }
         }
 

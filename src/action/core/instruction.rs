@@ -146,31 +146,29 @@ impl StatefulAction for StatefulInstruction {
         state: &State,
     ) -> Result<Vec<SyncSignal>, Error> {
         let mut changed = false;
-        match signal {
-            ActionSignal::StateChanged(_, signal) => {
-                for id in signal {
-                    if let Some(key) = self.in_mapping.get(id) {
-                        if let Some(entry) = self.params.get_mut(key) {
-                            *entry = match state.get(id).unwrap() {
-                                Value::Bool(v) => v.to_string(),
-                                Value::Integer(v) => v.to_string(),
-                                Value::Float(v) => format!("{v:.4}"),
-                                Value::Text(v) => v.to_string(),
-                                Value::Null => "<UNSET>".to_owned(),
-                                _ => "<INVALID>".to_owned(),
-                            };
-                        }
-                        changed = true;
+        if let ActionSignal::StateChanged(_, signal) = signal {
+            for id in signal {
+                if let Some(key) = self.in_mapping.get(id) {
+                    if let Some(entry) = self.params.get_mut(key) {
+                        *entry = match state.get(id).unwrap() {
+                            Value::Bool(v) => v.to_string(),
+                            Value::Integer(v) => v.to_string(),
+                            Value::Float(v) => format!("{v:.4}"),
+                            Value::Text(v) => v.to_string(),
+                            Value::Null => "<UNSET>".to_owned(),
+                            _ => "<INVALID>".to_owned(),
+                        };
                     }
+                    changed = true;
                 }
             }
-            _ => return Ok(vec![]),
         }
 
-        if changed {
-            sync_writer.push(SyncSignal::Repaint);
+        if !changed {
+            return Ok(vec![]);
         }
 
+        sync_writer.push(SyncSignal::Repaint);
         Ok(vec![])
     }
 

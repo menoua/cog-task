@@ -11,13 +11,14 @@ pub use include::*;
 pub use props::*;
 
 use crate::comm::{QWriter, SignalId};
+use crate::resource::Key;
 use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
 use eframe::egui;
 use eyre::Result;
 use itertools::Itertools;
 use resource::{ResourceAddr, ResourceMap};
 use std::any::Any;
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 use std::fmt::{Debug, Formatter};
 use std::time::Instant;
 
@@ -114,6 +115,6 @@ pub trait ImplStatefulAction: StatefulAction {}
 #[derive(Debug, Clone)]
 pub enum ActionSignal {
     UpdateGraph,
-    KeyPress(Instant, HashSet<egui::Key>),
-    StateChanged(Instant, HashSet<SignalId>),
+    KeyPress(Instant, BTreeSet<Key>),
+    StateChanged(Instant, BTreeSet<SignalId>),
 }

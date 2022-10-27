@@ -1,8 +1,33 @@
+use eyre::{Result, eyre};
 use serde::Serialize;
 use spin_sleep::{SpinSleeper, SpinStrategy};
 
+const APPROX_EQ_EPS: f64 = 1e-3;
 const SPIN_DURATION: u32 = 100_000_000; // equivalent to 100ms
 const SPIN_STRATEGY: SpinStrategy = SpinStrategy::SpinLoopHint;
+
+pub fn approx_eq(x: f64, y: f64) -> bool {
+    (x - y).abs() < APPROX_EQ_EPSILON
+}
+
+pub fn f64_as_bool(x: f64) -> Result<bool> {
+    if approx_eq(x, 0.0) {
+        Ok(false)
+    } else if approx_eq(x, 1.0) {
+        Ok(true)
+    } else {
+        Err(eyre!("Tried to read a non-boolean float as bool."))
+    }
+}
+
+pub fn f64_as_i64(x: f64) -> Result<i64> {
+    let int = x.round();
+    if approx_eq(x, int) {
+        Ok(int as i64)
+    } else {
+        Err(eyre!("Tried to read a non-integer float as int."))
+    }
+}
 
 #[inline(always)]
 pub fn spin_sleeper() -> SpinSleeper {

@@ -18,9 +18,14 @@
                 ], [
                     timer((out_duration: 1))
                 ])),
+                math((
+                    expr: "x - 3",
+                    in_mapping: { 1: "x" },
+                    out_result: 2,
+                )),
                 instruction((
-                    text: "This block took ${dur} seconds (ideal = 3.0000).",
-                    in_mapping: { 1: "dur" }
+                    text: "Overhead was ${dur} - 3 = ${diff} seconds.",
+                    in_mapping: { 1: "dur", 2: "diff" }
                 )),
             ]))
         ),
@@ -84,9 +89,14 @@
                 ], [
                     timer((out_duration: 1))
                 ])),
+                math((
+                    expr: "x - 50",
+                    in_mapping: { 1: "x" },
+                    out_result: 2,
+                )),
                 instruction((
-                    text: "This block took ${dur} seconds (ideal = 50.0000).",
-                    in_mapping: { 1: "dur" }
+                    text: "Overhead was ${dur} - 50 = ${diff} seconds.",
+                    in_mapping: { 1: "dur", 2: "diff" }
                 )),
             ]))
         ),
@@ -308,9 +318,14 @@
                 ], [
                     timer((out_duration: 1))
                 ])),
+                math((
+                    expr: "x - 647.0205",
+                    in_mapping: { 1: "x" },
+                    out_result: 2,
+                )),
                 instruction((
-                    text: "This block took ${dur} seconds (ideal = 647.0205).",
-                    in_mapping: { 1: "dur" }
+                    text: "Overhead was ${dur} - 647.0205 = ${diff} seconds.",
+                    in_mapping: { 1: "dur", 2: "diff" }
                 )),
             ]))
         ),
@@ -427,9 +442,14 @@
                 ], [
                     timer((out_duration: 1))
                 ])),
+                math((
+                    expr: "x - 639.1293",
+                    in_mapping: { 1: "x" },
+                    out_result: 2,
+                )),
                 instruction((
-                    text: "This block took ${dur} seconds (ideal = 639.1293).",
-                    in_mapping: { 1: "dur" }
+                    text: "Overhead was ${dur} - 639.1293 = ${diff} seconds.",
+                    in_mapping: { 1: "dur", 2: "diff" }
                 )),
             ]))
         ),

@@ -15,7 +15,7 @@ use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, Frame};
 use eyre::Result;
 use serde_cbor::{ser::to_vec, Value};
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant, SystemTime};
 
@@ -138,8 +138,18 @@ impl Scheduler {
             self.last_esc = Some(time);
         }
 
-        let mut keys_pressed = ui.input().keys_down.clone();
-        keys_pressed.retain(|k| ui.input().key_pressed(*k));
+        let keys_pressed: BTreeSet<_> = ui
+            .input()
+            .keys_down
+            .iter()
+            .filter_map(|k| {
+                if ui.input().key_pressed(*k) {
+                    Some(k.into())
+                } else {
+                    None
+                }
+            })
+            .collect();
         if !keys_pressed.is_empty() {
             self.sync_writer
                 .push(SyncSignal::KeyPress(Instant::now(), keys_pressed))

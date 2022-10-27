@@ -56,9 +56,15 @@
                         out_mean_rt: 3,
                     )),
                 ])),
+                math((
+                    expr: "x + 10",
+                    interpreter: savage,
+                    in_mapping: { 3: "x" },
+                    out_result: 4,
+                )),
                 instruction((
-                    text: "Accuracy: ${acc}\nRecall: ${rec}\nMean RT: ${mean_rt}",
-                    in_mapping: { 1: "acc", 2: "rec", 3: "mean_rt" }
+                    text: "Accuracy: ${acc}\nRecall: ${rec}\nMean RT + 10: ${mean_rt_10}",
+                    in_mapping: { 1: "acc", 2: "rec", 4: "mean_rt_10" }
                 )),
             ]))
         ),

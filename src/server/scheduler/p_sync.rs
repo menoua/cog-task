@@ -2,11 +2,12 @@ use crate::action::nil::StatefulNil;
 use crate::action::resource::ResourceMap;
 use crate::action::{Action, ActionSignal};
 use crate::comm::{QReader, QWriter, Signal, MAX_QUEUE_SIZE};
+use crate::resource::Key;
 use crate::server::{AsyncSignal, Atomic, Config, LoggerSignal, ServerSignal, State, IO};
 use eframe::egui;
 use eyre::{eyre, Result};
 use serde_cbor::Value;
-use std::collections::{HashSet, VecDeque};
+use std::collections::{BTreeSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
@@ -14,7 +15,7 @@ use std::time::Instant;
 #[derive(Debug, Clone)]
 pub enum SyncSignal {
     UpdateGraph,
-    KeyPress(Instant, HashSet<egui::Key>),
+    KeyPress(Instant, BTreeSet<Key>),
     Emit(Instant, Signal),
     Repaint,
     Finish,
@@ -108,7 +109,7 @@ impl SyncProcessor {
                         SyncSignal::Emit(time, signal) => {
                             let (tree, state) = &mut *proc.atomic.lock().unwrap();
 
-                            let mut changed = HashSet::new();
+                            let mut changed = BTreeSet::new();
                             if !signal.is_empty() {
                                 for (k, v) in signal.into_iter() {
                                     state.insert(k, v);
