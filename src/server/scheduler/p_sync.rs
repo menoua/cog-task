@@ -5,7 +5,7 @@ use crate::comm::{QReader, QWriter, Signal, MAX_QUEUE_SIZE};
 use crate::resource::Key;
 use crate::server::{AsyncSignal, Atomic, Config, LoggerSignal, ServerSignal, State, IO};
 use eframe::egui;
-use eyre::{eyre, Result};
+use eyre::{eyre, Context, Result};
 use serde_cbor::Value;
 use std::collections::{BTreeSet, VecDeque};
 use std::sync::{Arc, Mutex};
@@ -79,9 +79,11 @@ impl SyncProcessor {
 
         thread::spawn(move || {
             proc.sync_reader.pop();
-            proc.start().unwrap_or_else(|e| {
-                proc.server_writer.push(ServerSignal::BlockCrashed(e));
-            });
+            proc.start()
+                .wrap_err("Failed to start block.")
+                .unwrap_or_else(|e| {
+                    proc.server_writer.push(ServerSignal::BlockCrashed(e));
+                });
 
             'mainloop: while let Ok(signals) = proc.sync_reader.poll() {
                 let mut n_signal = signals.len();
@@ -96,6 +98,7 @@ impl SyncProcessor {
                                 &mut proc.async_writer,
                                 state,
                             )
+                            .wrap_err("Failed to update graph.")
                         }
                         SyncSignal::KeyPress(time, keys) => {
                             let (tree, state) = &mut *proc.atomic.lock().unwrap();
@@ -105,6 +108,7 @@ impl SyncProcessor {
                                 &mut proc.async_writer,
                                 state,
                             )
+                            .wrap_err("Failed to process key press.")
                         }
                         SyncSignal::Emit(time, signal) => {
                             let (tree, state) = &mut *proc.atomic.lock().unwrap();
@@ -121,6 +125,7 @@ impl SyncProcessor {
                                 &mut proc.async_writer,
                                 state,
                             )
+                            .wrap_err_with(|| eyre!("Failed to emit signal ({signal:?})"))
                         }
                         SyncSignal::Repaint => {
                             proc.ctx.request_repaint();
@@ -157,7 +162,9 @@ impl SyncProcessor {
 
                     let (tree, state) = &mut *proc.atomic.lock().unwrap();
                     let is_over = tree.is_over().unwrap_or_else(|e| {
-                        proc.server_writer.push(ServerSignal::BlockCrashed(e));
+                        proc.server_writer.push(ServerSignal::BlockCrashed(
+                            e.wrap_err_with(|| eyre!("Failed to check if action over: {tree:?}")),
+                        ));
                         let _ = tree.stop(&mut proc.sync_writer, &mut proc.async_writer, state);
                         *tree = Box::new(StatefulNil::new());
                         proc.ctx.request_repaint();
@@ -166,7 +173,8 @@ impl SyncProcessor {
 
                     if is_over {
                         proc.server_writer.push(ServerSignal::BlockFinished);
-                        tree.stop(&mut proc.sync_writer, &mut proc.async_writer, state)?;
+                        tree.stop(&mut proc.sync_writer, &mut proc.async_writer, state)
+                            .wrap_err("Failed to graciously stop all actions.")?;
                         *tree = Box::new(StatefulNil::new());
                         proc.ctx.request_repaint();
                     }
