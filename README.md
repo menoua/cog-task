@@ -27,6 +27,13 @@ Build binaries (choose one):
   $ cargo install --git https://github.com/menoua/cog-task [--features=...]
   ```
 
+## Update
+
+To update the installation to the latest version, add the `-U` option to whichever of the installation commands you used:
+  ```bash
+  $ cargo install -U [...]
+  ```
+
 ## Features
 
 By default (no features), this package should compile and run out-of-the-box on a reasonably recent macOS or Linux distribution. Some types of actions however depend on features that can be enabled during installation. These features are not enabled by default because they rely on system libraries that might not be installed on the OS out-of-the-box.
