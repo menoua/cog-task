@@ -14,7 +14,7 @@ A general-purpose low-latency tool for designing cognitive tasks.
 
 </div>
 
-## Intro
+## Description
 
 This tool provides an easy way to write and execute different types of interactive actions that are usually useful in experiments involving cognitive sciences. E.g., display an image/video, play sounds, show text, measure reactions to events (through key presses or clicks), measure action completion times, ask questions, etc.
 
@@ -35,29 +35,29 @@ The most reliable way to install CogTask is by installing Cargo through [rustup]
 
 Install Cargo:<br>
 ```bash
-$ curl https://sh.rustup.rs -sSf | sh
+curl https://sh.rustup.rs -sSf | sh
 ```
 
 Build binaries (choose one):
 - Stable binaries from [crates.io](https://crates.io/crates/cog-task):<br>
   ```bash
-  $ cargo install cog-task@1.0.0-beta [--features=...]
+  cargo install cog-task@1.0.0-beta [--features=...]
   ```
 - Nightly binaries from [github](https://github.com/menoua/cog-task):<br>
   ```bash
-  $ cargo install --git https://github.com/menoua/cog-task [--features=...]
+  cargo install --git https://github.com/menoua/cog-task [--features=...]
   ```
 
 ## Update
 
 To update the installation to the latest version, add the `-U` option to whichever of the installation commands you used:
   ```bash
-  $ cargo install -U [...]
+  cargo install -U [...]
   ```
 
 ## Features
 
-By default (no features), this package should compile and run out-of-the-box on a reasonably recent macOS or Linux distribution. Some types of actions however depend on features that can be enabled during installation. These features are not enabled by default because they rely on system libraries that might not be installed on the OS out-of-the-box.
+Some types of actions depend on optional features that can be enabled during installation. These features are not enabled by default because they rely on extra system libraries that might not be installed on the OS out-of-the-box.
 
 Currently, there are 4 main features that can be enabled:
 1. **audio** -- enables the `Audio` action via the ALSA sound library.
@@ -68,14 +68,19 @@ Currently, there are 4 main features that can be enabled:
 Examples:
 - Stable binaries with full support:<br>
   ```bash
-  $ cargo install cog-task@1.0.0-beta --features=full
+  cargo install cog-task@1.0.0-beta --features=full
   ```
 - Nightly binaries with **audio** and **gstreamer** support:<br>
   ```bash
-  $ cargo install --git https://github.com/menoua/cog-task --features=audio,gstreamer
+  cargo install --git https://github.com/menoua/cog-task --features=audio,gstreamer
   ```
 
-## Requirements:
+## Requirements
+
+By default (no features), this package should compile and run out-of-the-box on a reasonably recent macOS or Linux distribution. On *linux*, if you do not have a toolchain installed, you can install the `gcc` toolchain, e.g.:<br>
+```bash
+sudo apt install build-essential
+```
 
 Some features depend on certain libraries that might not come preinstalled on your OS. In these cases, before building the binaries with said features enabled, you need to first install the requirements:
 
@@ -83,26 +88,26 @@ Some features depend on certain libraries that might not come preinstalled on yo
 
 On *linux*, requires installing pkg-config and ALSA, e.g.:<br>
 ```bash
-$ sudo apt install pkg-config libasound2-dev
+sudo apt install pkg-config libasound2-dev
 ```
 
 ### gstreamer
 
 On *macOS*, requires installing gstreamer, e.g.:<br>
 ```bash
-$ brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server
+brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server
 ```
 
 On *linux*, requires installing libgstreamer, e.g.:<br>
 ```bash
-$ sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio libavfilter-dev libavdevice-dev
+sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
 ```
 
 ### ffmpeg
 
 On *linux*, requires installing pkg-config and libavutil, e.g.:<br>
 ```bash
-$ sudo apt install pkg-config libavfilter-dev libavdevice-dev
+sudo apt install pkg-config libavfilter-dev libavdevice-dev
 ```
   - *NOTE: Although it is not a requirement at compile time, to be able to use the ffmpeg backend, you need to have the ffmpeg library installed on the system during runtime.*
 
@@ -116,12 +121,12 @@ This crate installs two binaries -- `cog-launcher` and `cog-server`.
 
 For example, to run the [**Basic**](https://github.com/menoua/cog-task/tree/master/example/basic/) task in this repo, you would do the following:
 ```bash
-$ git clone https://github.com/menoua/cog-task
-$ cog-server cog-task/example/basic
+git clone https://github.com/menoua/cog-task
+cog-server cog-task/example/basic
 ```
 
 Alternatively, you can run:
 ```bash
-$ cog-launcher
+cog-launcher
 ```
 Then use the leftmost control icon to load the [*example/basic/*](https://github.com/menoua/cog-task/tree/master/example/basic/) directory. Or, you can use the second button to open the parent [*example/*](https://github.com/menoua/cog-task/tree/master/example/) directory which contains all the example tasks within. The former, directly runs `cog-server` on the chosen task. The latter, displays a list of all tasks located in the chosen directory, which can be started by clicking the corresponding button.
