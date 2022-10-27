@@ -125,7 +125,7 @@ impl SyncProcessor {
                                 &mut proc.async_writer,
                                 state,
                             )
-                            .wrap_err_with(|| eyre!("Failed to emit signal ({signal:?})"))
+                            .wrap_err("Failed to emit signal.")
                         }
                         SyncSignal::Repaint => {
                             proc.ctx.request_repaint();
@@ -161,15 +161,16 @@ impl SyncProcessor {
                     }
 
                     let (tree, state) = &mut *proc.atomic.lock().unwrap();
-                    let is_over = tree.is_over().unwrap_or_else(|e| {
-                        proc.server_writer.push(ServerSignal::BlockCrashed(
-                            e.wrap_err_with(|| eyre!("Failed to check if action over: {tree:?}")),
-                        ));
-                        let _ = tree.stop(&mut proc.sync_writer, &mut proc.async_writer, state);
-                        *tree = Box::new(StatefulNil::new());
-                        proc.ctx.request_repaint();
-                        false
-                    });
+                    let is_over = tree
+                        .is_over()
+                        .wrap_err_with(|| eyre!("Failed to check if action over: {tree:?}"))
+                        .unwrap_or_else(|e| {
+                            proc.server_writer.push(ServerSignal::BlockCrashed(e));
+                            let _ = tree.stop(&mut proc.sync_writer, &mut proc.async_writer, state);
+                            *tree = Box::new(StatefulNil::new());
+                            proc.ctx.request_repaint();
+                            false
+                        });
 
                     if is_over {
                         proc.server_writer.push(ServerSignal::BlockFinished);

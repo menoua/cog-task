@@ -123,11 +123,15 @@
         ),
 
         (
-            name: "Count integer squares",
+            name: "Integers squares and cubes",
             tree: par(([
                 instruction((
-                    text: "Counting: ${num}",
-                    in_mapping: { 3: "num" },
+                    text: "n=${num}\tn^2=${sqr}\tn^3=${cub}",
+                    in_mapping: {
+                        2: "num",
+                        3: "sqr",
+                        4: "cub",
+                    },
                 ))
             ], [
                 clock((
@@ -146,6 +150,20 @@
                     out_result: 3,
                     persistent: true,
                 )),
+                math((
+                    expr: "n ^ 3",
+                    in_mapping: { 2: "n" },
+                    out_result: 4,
+                    persistent: true,
+                )),
+                logger((
+                    group: "numbers",
+                    in_mapping: {
+                        2: "integer",
+                        3: "square",
+                        4: "cube",
+                    }
+                ))
             ]))
         ),
 

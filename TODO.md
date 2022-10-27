@@ -1,6 +1,5 @@
 ## To-do
 
-- [ ] Add `ValueLogger` action that logs anything that arrives on a set of signals.
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.
 - [ ] Consider relegating compile-time asset management to [rust-embed](https://github.com/pyrossh/rust-embed).

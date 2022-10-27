@@ -58,10 +58,7 @@ impl Logger {
         let block = normalized_name(info.block());
         let date = Local::now().format("%F").to_string();
         let time = Local::now().format("%T").to_string().replace(':', "-");
-        let out_dir = info
-            .output()
-            .join(&info.subject())
-            .join(format!("{date}/{block}/{time}"));
+        let out_dir = info.output().join(format!("{date}/{block}/{time}"));
 
         if out_dir.exists() {
             return Err(eyre!("Output directory already exists: {out_dir:?}"));
