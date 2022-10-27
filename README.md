@@ -20,7 +20,7 @@ $ curl https://sh.rustup.rs -sSf | sh
 Build binaries (choose one):
 - Stable binaries from [crates.io](https://crates.io/crates/cog-task):<br>
   ```bash
-  $ cargo install cog-task [--features=...]
+  $ cargo install cog-task@1.0.0-beta [--features=...]
   ```
 - Nightly binaries from [github](https://github.com/menoua/cog-task):<br>
   ```bash
