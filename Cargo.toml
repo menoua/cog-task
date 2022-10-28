@@ -64,7 +64,6 @@ ffmpeg = ["stream", "dep:ffmpeg-next"]
 savage = ["dep:savage_core"]
 full = ["audio", "gstreamer", "ffmpeg"]
 stream = ["audio"]
-benchmark = []
 
 [[bin]]
 name = "cog-launcher"

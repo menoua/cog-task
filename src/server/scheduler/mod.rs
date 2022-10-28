@@ -8,8 +8,6 @@ use crate::action::StatefulAction;
 use crate::comm::QWriter;
 use crate::resource::{LoggerSignal, IO, TAG_ACTION, TAG_CONFIG, TAG_INFO};
 use crate::server::{Config, Info, Server, ServerSignal};
-#[cfg(feature = "benchmark")]
-use crate::util::Profiler;
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, Frame};
 use eyre::Result;
@@ -31,8 +29,6 @@ pub struct Scheduler {
     sync_writer: QWriter<SyncSignal>,
     async_writer: QWriter<AsyncSignal>,
     server_writer: QWriter<ServerSignal>,
-    #[cfg(feature = "benchmark")]
-    profiler: Profiler,
 }
 
 impl Scheduler {
@@ -88,12 +84,6 @@ impl Scheduler {
             sync_writer,
             async_writer,
             server_writer,
-            #[cfg(feature = "benchmark")]
-            profiler: Profiler::new(
-                "Scheduler",
-                vec!["keys", "proc", "show"],
-                Duration::from_secs(60),
-            ),
         })
     }
 
@@ -121,17 +111,10 @@ impl Scheduler {
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui) -> Result<()> {
-        #[cfg(feature = "benchmark")]
-        self.profiler.step();
-
-        #[cfg(feature = "benchmark")]
-        self.profiler.tic(0);
         if ui.input().key_pressed(egui::Key::Escape) {
             let time = SystemTime::now();
             if let Some(t) = self.last_esc.take() {
                 if time.duration_since(t).unwrap() < Duration::from_millis(300) {
-                    #[cfg(feature = "benchmark")]
-                    self.profiler.toc(0);
                     self.request_interrupt();
                     return Ok(());
                 }
@@ -155,11 +138,7 @@ impl Scheduler {
             self.sync_writer
                 .push(SyncSignal::KeyPress(Instant::now(), keys_pressed))
         }
-        #[cfg(feature = "benchmark")]
-        self.profiler.toc(0);
 
-        #[cfg(feature = "benchmark")]
-        self.profiler.tic(2);
         let result = {
             let (tree, state) = &mut *self.atomic.lock().unwrap();
             CentralPanel::default()
@@ -181,8 +160,6 @@ impl Scheduler {
                 ("crash".to_owned(), Value::Text(format!("{e:#?}"))),
             ));
         }
-        #[cfg(feature = "benchmark")]
-        self.profiler.toc(2);
 
         result
     }

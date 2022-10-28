@@ -13,8 +13,6 @@ pub use task::*;
 use crate::comm::{QReader, QWriter};
 use crate::gui;
 use crate::resource::{LoggerSignal, ResourceMap};
-#[cfg(feature = "benchmark")]
-use crate::util::Profiler;
 use crate::util::SystemInfo;
 use chrono::{DateTime, Local, NaiveDateTime};
 use eframe::egui::CentralPanel;
@@ -52,8 +50,6 @@ pub struct Server {
     sys_info: SystemInfo,
     sync_reader: QReader<ServerSignal>,
     cleaning_up: u32,
-    #[cfg(feature = "benchmark")]
-    profiler: Profiler,
 }
 
 impl Server {
@@ -86,12 +82,6 @@ impl Server {
             sys_info: SystemInfo::new(),
             sync_reader: QReader::new(),
             cleaning_up: 0,
-            #[cfg(feature = "benchmark")]
-            profiler: Profiler::new(
-                "Server",
-                vec!["fps", "proc", "show"],
-                Duration::from_secs(60),
-            ),
         })
     }
 
@@ -253,13 +243,6 @@ impl Server {
     }
 
     fn drop_scheduler(&mut self) {
-        #[cfg(feature = "benchmark")]
-        {
-            self.profiler.report();
-            self.profiler.reset();
-            println!("Block ended...");
-        }
-
         self.page = Page::CleanUp;
         self.cleaning_up = 2;
         self.scheduler.take();
@@ -278,29 +261,14 @@ pub enum ServerSignal {
 
 impl App for Server {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        #[cfg(feature = "benchmark")]
-        self.profiler.step();
-
-        #[cfg(feature = "benchmark")]
-        {
-            self.profiler.toc(0);
-            self.profiler.tic(0);
-        }
-
-        #[cfg(feature = "benchmark")]
-        self.profiler.tic(1);
         while let Some(signal) = self.sync_reader.try_pop() {
             self.process(ctx, signal);
         }
-        #[cfg(feature = "benchmark")]
-        self.profiler.toc(1);
 
         let frame = egui::Frame::window(&ctx.style())
             .inner_margin(0.0)
             .outer_margin(0.0);
 
-        #[cfg(feature = "benchmark")]
-        self.profiler.tic(2);
         CentralPanel::default()
             .frame(frame)
             .show(ctx, |ui| match self.page {
@@ -310,8 +278,6 @@ impl App for Server {
                 Page::Loading => self.show_loading(ui),
                 Page::CleanUp => self.show_cleanup(ui),
             });
-        #[cfg(feature = "benchmark")]
-        self.profiler.toc(2);
 
         if !self.hold_on_rescale {
             gui::set_fullscreen_scale(ctx, self.scale_factor);
