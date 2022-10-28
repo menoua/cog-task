@@ -59,16 +59,16 @@ To update the installation to the latest version, add the `-U` option to whichev
 
 Some types of actions depend on optional features that can be enabled during installation. These features are not enabled by default because they rely on extra system libraries that might not be installed on the OS out-of-the-box.
 
-Currently, there are 4 main features that can be enabled:
+Currently, there are 4 distinct features that can be enabled:
 1. **audio** -- enables the `Audio` action via the ALSA sound library.
 2. **gstreamer** -- enables the `Stream` and `Video` actions via the gstreamer backend.
 3. **ffmpeg** (_incomplete_) -- enables the `Stream` and `Video` actions via the ffmpeg backend.
-4. **full** -- a shorthand to enable the previous three features.
+4. **savage** (_enabled by default_) -- enables using the [savage](https://github.com/p-e-w/savage) interpreter for `Math`.
 
 Examples:
-- Stable binaries with full support:<br>
+- Stable binaries with all features:<br>
   ```bash
-  cargo install cog-task@1.0.0-beta --features=full
+  cargo install cog-task@1.0.0-beta --all-features
   ```
 - Nightly binaries with **audio** and **gstreamer** support:<br>
   ```bash
@@ -77,39 +77,27 @@ Examples:
 
 ## Requirements
 
-By default (no features), this package should compile and run out-of-the-box on a reasonably recent macOS or Linux distribution. On *linux*, if you do not have a toolchain installed, you can install the `gcc` toolchain, e.g.:<br>
-```bash
-sudo apt install build-essential cmake
-```
+### macOS
 
-Some features depend on certain libraries that might not come preinstalled on your OS. In these cases, before building the binaries with said features enabled, you need to first install the requirements:
+|   Feature                   | Requirements |
+| -----------                 | ------------ |
+| (*required*)                | - |
+| **audio**                   | - |
+| **savage**                  | - |
+| **gstreamer**               | `brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server` |
+| **ffmpeg**                  | `brew install ffmpeg` |
+| (*--all-features*)          | `brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server ffmpeg` |
 
-### audio
+### Linux
 
-On *linux*, requires installing pkg-config and ALSA, e.g.:<br>
-```bash
-sudo apt install pkg-config libasound2-dev
-```
-
-### gstreamer
-
-On *macOS*, requires installing gstreamer, e.g.:<br>
-```bash
-brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server
-```
-
-On *linux*, requires installing libgstreamer, e.g.:<br>
-```bash
-sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio
-```
-
-### ffmpeg
-
-On *linux*, requires installing pkg-config and libavutil, e.g.:<br>
-```bash
-sudo apt install pkg-config libavfilter-dev libavdevice-dev
-```
-  - *NOTE: Although it is not a requirement at compile time, to be able to use the ffmpeg backend, you need to have the ffmpeg library installed on the system during runtime.*
+| Feature                     | Requirements |
+| -------                     | ------------ |
+| (*required*)                | `sudo apt install build-essential cmake pkg-config libfontconfig1-dev` |
+| **audio**                   | `sudo apt install libasound2-dev` |
+| **savage**                  | - |
+| **gstreamer**               | `sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio` |
+| **ffmpeg**                  | `sudo apt install libavfilter-dev libavdevice-dev ffmpeg` |
+| (*--all-features*)          | `sudo apt install build-essential cmake pkg-config libfontconfig1-dev libasound2-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio libavfilter-dev libavdevice-dev ffmpeg` |
 
 ## Usage
 
