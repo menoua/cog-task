@@ -69,7 +69,7 @@ impl Profiler {
 
     pub fn reset(&mut self) {
         self.epoch = Instant::now();
-        self.dt.iter_mut().enumerate().for_each(|(i, v)| {
+        self.dt.iter_mut().enumerate().for_each(|(_, v)| {
             v.clear();
         });
     }
