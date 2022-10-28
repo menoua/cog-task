@@ -48,12 +48,7 @@ Build binaries (choose one):
   cargo install --git https://github.com/menoua/cog-task [--features=...]
   ```
 
-## Update
-
-To update the installation to the latest version, add the `-U` option to whichever of the installation commands you used:
-  ```bash
-  cargo install -U [...]
-  ```
+To update the installation to the latest version, you can run the same commands.
 
 ## Features
 
@@ -101,11 +96,11 @@ Examples:
 
 ## Usage
 
-This crate installs two binaries -- `cog-launcher` and `cog-server`.
+This crate installs two binaries: `cog-launcher` and `cog-server`.
 
-`cog-launcher`: A launcher that provides a graphical interface to find and load tasks from disk.
+`cog-launcher` is a launcher that provides a graphical interface to find and load tasks from disk.
 
-`cog-server /path/to/task`: Used to run a specific task by providing the path to its directory. `cog-launcher` runs this binary when starting a task, so make sure both binaries are in the same directory.
+`cog-server /path/to/task` is used to run a specific task by providing the path to its directory. `cog-launcher` runs this binary when starting a task, so make sure both binaries are in the same directory.
 
 For example, to run the [**Basic**](https://github.com/menoua/cog-task/tree/master/example/basic/) task in this repo, you would do the following:
 ```bash
