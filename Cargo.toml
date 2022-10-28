@@ -63,7 +63,7 @@ gstreamer = ["stream", "dep:gstreamer", "dep:gstreamer-app", "dep:glib"]
 ffmpeg = ["stream", "dep:ffmpeg-next"]
 savage = ["dep:savage_core"]
 full = ["audio", "gstreamer", "ffmpeg"]
-stream = []
+stream = ["audio"]
 benchmark = []
 
 [[bin]]

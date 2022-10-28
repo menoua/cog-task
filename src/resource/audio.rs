@@ -4,6 +4,7 @@ use rodio::buffer::SamplesBuffer;
 use rodio::source::Buffered;
 use rodio::{Decoder, Source};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
@@ -84,8 +85,7 @@ pub fn drop_channel(src: AudioBuffer) -> Result<AudioBuffer> {
     Ok(SamplesBuffer::new(out_channels as u16, sample_rate, samples).buffered())
 }
 
-// #[serde(rename_all = "snake_case")]
-#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+#[derive(Copy, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
 pub enum Volume {
     Inherit,
@@ -96,6 +96,16 @@ impl Default for Volume {
     #[inline(always)]
     fn default() -> Self {
         Volume::Inherit
+    }
+}
+
+impl Debug for Volume {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        if let Volume::Value(vol) = self {
+            write!(f, "{vol}")
+        } else {
+            write!(f, "inherit")
+        }
     }
 }
 

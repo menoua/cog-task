@@ -1,12 +1,15 @@
-use crate::resource::{
-    color::Color, Interpreter, LogFormat, MediaBackend, TimePrecision, UseTrigger, Volume,
-};
+#[cfg(feature = "stream")]
+use crate::resource::MediaBackend;
+use crate::resource::{Color, Interpreter, LogFormat};
+#[cfg(feature = "audio")]
+use crate::resource::{TimePrecision, UseTrigger, Volume};
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    #[cfg(feature = "audio")]
     #[serde(default = "defaults::use_trigger")]
     use_trigger: UseTrigger,
     #[serde(default = "defaults::verify_sha2")]
@@ -14,14 +17,17 @@ pub struct Config {
     verify_sha2: Option<String>,
     #[serde(default = "defaults::blocks_per_row")]
     blocks_per_row: i32,
+    #[cfg(feature = "audio")]
     #[serde(default = "defaults::volume")]
     volume: Volume,
     #[serde(default = "defaults::log_format")]
     log_format: LogFormat,
+    #[cfg(feature = "audio")]
     #[serde(default = "defaults::time_precision")]
     time_precision: TimePrecision,
     #[serde(default = "defaults::math_interpreter")]
     math_interpreter: Interpreter,
+    #[cfg(feature = "stream")]
     #[serde(default = "defaults::media_backend")]
     media_backend: MediaBackend,
     #[serde(default = "defaults::background")]
@@ -29,11 +35,14 @@ pub struct Config {
 }
 
 mod defaults {
-    use crate::resource::{
-        Color, Interpreter, LogFormat, MediaBackend, TimePrecision, UseTrigger, Volume,
-    };
+    #[cfg(feature = "stream")]
+    use crate::resource::MediaBackend;
+    use crate::resource::{Color, Interpreter, LogFormat};
+    #[cfg(feature = "audio")]
+    use crate::resource::{TimePrecision, UseTrigger, Volume};
 
     #[inline(always)]
+    #[cfg(feature = "audio")]
     pub fn use_trigger() -> UseTrigger {
         UseTrigger::Yes
     }
@@ -49,6 +58,7 @@ mod defaults {
     }
 
     #[inline(always)]
+    #[cfg(feature = "audio")]
     pub fn volume() -> Volume {
         Volume::Value(1.0)
     }
@@ -59,6 +69,7 @@ mod defaults {
     }
 
     #[inline(always)]
+    #[cfg(feature = "audio")]
     pub fn time_precision() -> TimePrecision {
         TimePrecision::RespectBoundaries
     }
@@ -69,6 +80,7 @@ mod defaults {
     }
 
     #[inline(always)]
+    #[cfg(feature = "stream")]
     pub fn media_backend() -> MediaBackend {
         MediaBackend::None
     }
@@ -81,22 +93,30 @@ mod defaults {
 
 impl Config {
     pub fn init(&mut self) -> Result<()> {
-        self.volume = self.volume.or(&defaults::volume());
-        self.use_trigger = self.use_trigger.or(&defaults::use_trigger());
+        #[cfg(feature = "audio")]
+        {
+            self.volume = self.volume.or(&defaults::volume());
+            self.use_trigger = self.use_trigger.or(&defaults::use_trigger());
+            self.time_precision = self.time_precision.or(&defaults::time_precision());
+        }
         self.log_format = self.log_format.or(&defaults::log_format());
-        self.time_precision = self.time_precision.or(&defaults::time_precision());
         self.math_interpreter = self.math_interpreter.or(&defaults::math_interpreter());
-        self.media_backend = self.media_backend.or(&defaults::media_backend());
+        #[cfg(feature = "stream")]
+        {
+            self.media_backend = self.media_backend.or(&defaults::media_backend());
+        }
         self.background = self.background.or(&defaults::background());
         Ok(())
     }
 
     #[inline(always)]
+    #[cfg(feature = "audio")]
     pub fn volume(&self) -> Volume {
         self.volume
     }
 
     #[inline(always)]
+    #[cfg(feature = "audio")]
     pub fn use_trigger(&self) -> UseTrigger {
         self.use_trigger
     }
@@ -125,6 +145,7 @@ impl Config {
     }
 
     #[inline(always)]
+    #[cfg(feature = "audio")]
     pub fn time_precision(&self) -> TimePrecision {
         self.time_precision
     }
@@ -135,6 +156,7 @@ impl Config {
     }
 
     #[inline(always)]
+    #[cfg(feature = "stream")]
     pub fn media_backend(&self) -> MediaBackend {
         self.media_backend
     }
@@ -149,16 +171,20 @@ impl Config {
 #[serde(deny_unknown_fields)]
 pub struct OptionalConfig {
     #[serde(default)]
+    #[cfg(feature = "audio")]
     volume: Volume,
     #[serde(default)]
+    #[cfg(feature = "audio")]
     use_trigger: UseTrigger,
     #[serde(default)]
     log_format: LogFormat,
     #[serde(default)]
+    #[cfg(feature = "audio")]
     time_precision: TimePrecision,
     #[serde(default)]
     math_interpreter: Interpreter,
     #[serde(default)]
+    #[cfg(feature = "stream")]
     media_backend: MediaBackend,
     #[serde(default)]
     background: Color,
@@ -167,12 +193,18 @@ pub struct OptionalConfig {
 impl OptionalConfig {
     pub fn fill_blanks(&self, base_config: &Config) -> Config {
         let mut config = base_config.clone();
-        config.volume = self.volume.or(&base_config.volume);
-        config.use_trigger = self.use_trigger.or(&base_config.use_trigger);
+        #[cfg(feature = "audio")]
+        {
+            config.volume = self.volume.or(&base_config.volume);
+            config.use_trigger = self.use_trigger.or(&base_config.use_trigger);
+            config.time_precision = self.time_precision.or(&config.time_precision);
+        }
         config.log_format = self.log_format.or(&base_config.log_format);
-        config.time_precision = self.time_precision.or(&config.time_precision);
         config.math_interpreter = self.math_interpreter.or(&config.math_interpreter);
-        config.media_backend = self.media_backend.or(&config.media_backend);
+        #[cfg(feature = "stream")]
+        {
+            config.media_backend = self.media_backend.or(&config.media_backend);
+        }
         config.background = self.background.or(&config.background);
         config
     }

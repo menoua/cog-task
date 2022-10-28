@@ -61,8 +61,8 @@ Some types of actions depend on optional features that can be enabled during ins
 
 Currently, there are 4 distinct features that can be enabled:
 1. **audio** -- enables the `Audio` action via the ALSA sound library.
-2. **gstreamer** -- enables the `Stream` and `Video` actions via the gstreamer backend.
-3. **ffmpeg** (_incomplete_) -- enables the `Stream` and `Video` actions via the ffmpeg backend.
+2. **gstreamer** -- enables the `Stream` and `Video` actions via the gstreamer backend (also enables **audio**).
+3. **ffmpeg** (_incomplete_) -- enables the `Stream` and `Video` actions via the ffmpeg backend (also enables **audio**).
 4. **savage** (_enabled by default_) -- enables using the [savage](https://github.com/p-e-w/savage) interpreter for `Math`.
 
 Examples:
