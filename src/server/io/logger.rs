@@ -37,6 +37,32 @@ pub enum LoggerSignal {
     Flush,
 }
 
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum LogFormat {
+    Inherit,
+    JSON,
+    YAML,
+    RON,
+}
+
+impl Default for LogFormat {
+    #[inline(always)]
+    fn default() -> Self {
+        LogFormat::Inherit
+    }
+}
+
+impl LogFormat {
+    pub fn or(&self, other: &Self) -> Self {
+        if let Self::Inherit = self {
+            *other
+        } else {
+            *self
+        }
+    }
+}
+
 impl LoggerSignal {
     #[inline(always)]
     fn requires_flush(&self) -> bool {
@@ -195,6 +221,7 @@ where
     T: ?Sized + Serialize,
 {
     match fmt {
+        LogFormat::Inherit => Err(eyre!("Cannot log with log_format=`Inherit`.")),
         LogFormat::JSON => {
             serde_json::to_writer_pretty(file, &content).wrap_err("Failed to log JSON to file")
         }

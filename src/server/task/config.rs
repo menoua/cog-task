@@ -1,52 +1,7 @@
-use crate::resource::color::Color;
+use crate::resource::{color::Color, Interpreter, MediaBackend, TimePrecision};
+use crate::server::LogFormat;
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
-
-#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum LogFormat {
-    JSON,
-    YAML,
-    RON,
-}
-
-impl Default for LogFormat {
-    #[inline(always)]
-    fn default() -> Self {
-        LogFormat::RON
-    }
-}
-
-#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TimePrecision {
-    RespectIntervals,
-    RespectBoundaries,
-}
-
-impl Default for TimePrecision {
-    #[inline(always)]
-    fn default() -> Self {
-        TimePrecision::RespectBoundaries
-    }
-}
-
-#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum MediaBackend {
-    None,
-    #[cfg(feature = "gstreamer")]
-    Gst,
-    #[cfg(feature = "ffmpeg")]
-    Ffmpeg,
-}
-
-impl Default for MediaBackend {
-    #[inline(always)]
-    fn default() -> Self {
-        MediaBackend::None
-    }
-}
 
 #[derive(Debug, Default, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -64,6 +19,8 @@ pub struct Config {
     log_format: LogFormat,
     #[serde(default)]
     time_precision: TimePrecision,
+    #[serde(default)]
+    math_interpreter: Interpreter,
     #[serde(default)]
     media_backend: MediaBackend,
     #[serde(default)]
@@ -132,6 +89,11 @@ impl Config {
     }
 
     #[inline(always)]
+    pub fn math_interpreter(&self) -> Interpreter {
+        self.math_interpreter
+    }
+
+    #[inline(always)]
     pub fn media_backend(&self) -> MediaBackend {
         self.media_backend
     }
@@ -150,11 +112,13 @@ pub struct OptionalConfig {
     #[serde(default)]
     base_volume: Option<f32>,
     #[serde(default)]
-    log_format: Option<LogFormat>,
+    log_format: LogFormat,
     #[serde(default)]
-    time_precision: Option<TimePrecision>,
+    time_precision: TimePrecision,
     #[serde(default)]
-    media_backend: Option<MediaBackend>,
+    math_interpreter: Interpreter,
+    #[serde(default)]
+    media_backend: MediaBackend,
     #[serde(default)]
     background: Option<Color>,
 }
@@ -168,15 +132,10 @@ impl OptionalConfig {
         if let Some(v) = self.base_volume {
             config.base_volume = v;
         }
-        if let Some(v) = self.log_format {
-            config.log_format = v;
-        }
-        if let Some(v) = self.time_precision {
-            config.time_precision = v;
-        }
-        if let Some(v) = self.media_backend {
-            config.media_backend = v;
-        }
+        config.log_format = self.log_format.or(&base_config.log_format);
+        config.time_precision = self.time_precision.or(&config.time_precision);
+        config.math_interpreter = self.math_interpreter.or(&config.math_interpreter);
+        config.media_backend = self.media_backend.or(&config.media_backend);
         if let Some(v) = self.background {
             config.background = v;
         }

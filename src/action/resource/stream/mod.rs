@@ -85,6 +85,34 @@ pub enum MediaMode {
     WithExtTrigger(PathBuf),
 }
 
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MediaBackend {
+    None,
+    Inherit,
+    #[cfg(feature = "gstreamer")]
+    Gst,
+    #[cfg(feature = "ffmpeg")]
+    Ffmpeg,
+}
+
+impl Default for MediaBackend {
+    #[inline(always)]
+    fn default() -> Self {
+        MediaBackend::Inherit
+    }
+}
+
+impl MediaBackend {
+    pub fn or(&self, other: &Self) -> Self {
+        if let Self::Inherit = self {
+            *other
+        } else {
+            *self
+        }
+    }
+}
+
 impl Debug for Stream {
     #[inline(always)]
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

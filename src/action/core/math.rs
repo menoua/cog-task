@@ -106,16 +106,18 @@ impl Action for Math {
         &self,
         _io: &IO,
         _res: &ResourceMap,
-        _config: &Config,
+        config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
+        let interpreter = self.interpreter.or(&config.math_interpreter());
+
         Ok(Box::new(StatefulMath {
             done: false,
             _expr: self.expr.clone(),
             name: self.name.clone(),
             vars: self.vars.clone(),
-            evaluator: self.interpreter.parse(&self.expr)?,
+            evaluator: interpreter.parse(&self.expr)?,
             persistent: self.persistent,
             in_mapping: self.in_mapping.clone(),
             in_update: self.in_update,

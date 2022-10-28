@@ -82,3 +82,28 @@ pub fn drop_channel(src: AudioBuffer) -> Result<AudioBuffer> {
 
     Ok(SamplesBuffer::new(out_channels as u16, sample_rate, samples).buffered())
 }
+
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TimePrecision {
+    Inherit,
+    RespectIntervals,
+    RespectBoundaries,
+}
+
+impl Default for TimePrecision {
+    #[inline(always)]
+    fn default() -> Self {
+        TimePrecision::RespectBoundaries
+    }
+}
+
+impl TimePrecision {
+    pub fn or(&self, other: &Self) -> Self {
+        if let Self::Inherit = self {
+            *other
+        } else {
+            *self
+        }
+    }
+}
