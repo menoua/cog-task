@@ -1,9 +1,8 @@
 use crate::action::nil::StatefulNil;
-use crate::action::resource::ResourceMap;
 use crate::action::{Action, ActionSignal};
 use crate::comm::{QReader, QWriter, Signal, MAX_QUEUE_SIZE};
-use crate::resource::Key;
-use crate::server::{AsyncSignal, Atomic, Config, LoggerSignal, ServerSignal, State, IO};
+use crate::resource::{Key, LoggerSignal, ResourceMap, IO};
+use crate::server::{AsyncSignal, Atomic, Config, ServerSignal, State};
 use eframe::egui;
 use eyre::{eyre, Context, Result};
 use serde_cbor::Value;

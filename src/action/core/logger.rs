@@ -1,7 +1,7 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::ResourceMap;
-use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
+use crate::resource::{LoggerSignal, ResourceMap, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};

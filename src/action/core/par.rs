@@ -1,7 +1,7 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{ResourceAddr, ResourceMap};
-use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
+use crate::resource::{ResourceAddr, ResourceMap, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
 use eyre::Result;
 use itertools::Itertools;

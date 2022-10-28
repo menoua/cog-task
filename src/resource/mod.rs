@@ -3,7 +3,9 @@ pub mod address;
 pub mod audio;
 pub mod color;
 pub mod image;
+pub mod io;
 pub mod key;
+pub mod logger;
 pub mod math;
 #[cfg(feature = "stream")]
 pub mod stream;
@@ -11,12 +13,14 @@ pub mod text;
 pub mod trigger;
 pub mod value;
 
-pub use crate::action::resource::image::*;
+pub use crate::resource::image::*;
 pub use address::*;
 #[cfg(feature = "audio")]
 pub use audio::*;
 pub use color::*;
+pub use io::*;
 pub use key::*;
+pub use logger::*;
 pub use math::*;
 #[cfg(feature = "stream")]
 pub use stream::*;

@@ -2,8 +2,8 @@
 
 use crate::action::{Action, Props, StatefulAction, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal};
-use crate::resource::{Color, ResourceAddr, ResourceMap, ResourceValue};
-use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
+use crate::resource::{Color, ResourceAddr, ResourceMap, ResourceValue, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eframe::egui;
 use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};

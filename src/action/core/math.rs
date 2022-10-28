@@ -1,7 +1,7 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{Evaluator, Interpreter, ResourceMap};
-use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
+use crate::resource::{Evaluator, Interpreter, LoggerSignal, ResourceMap, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eyre::{eyre, Context, Error, Result};
 use regex::Regex;
 use serde::{Deserialize, Serialize};

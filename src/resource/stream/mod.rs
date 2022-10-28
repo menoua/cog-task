@@ -3,11 +3,12 @@ compile_error!(
     "To enable streaming at least one backend should be enabled (\"gstreamer\" or \"ffmpeg\")."
 );
 
-use crate::server::{config::MediaBackend, Config};
+use crate::server::Config;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{TextureId, Vec2};
 use eframe::epaint::TextureManager;
 use eyre::{eyre, Context, Result};
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -133,9 +134,8 @@ impl Stream {
 
         let media_backend = config.media_backend();
         match media_backend {
-            MediaBackend::None => Err(eyre!(
-                "`Stream` action cannot be used without a media backend."
-            )),
+            MediaBackend::Inherit => Err(eyre!("Invalid runtime state (media_backend=Inherit).")),
+            MediaBackend::None => Err(eyre!("Cannot initialize a stream without a media backend.")),
             #[cfg(feature = "ffmpeg")]
             MediaBackend::Ffmpeg => {
                 ffmpeg::Stream::new(tex_manager, path, config).map(Stream::Ffmpeg)

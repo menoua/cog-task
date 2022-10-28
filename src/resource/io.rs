@@ -1,7 +1,3 @@
-pub mod logger;
-
-pub use logger::*;
-
 #[cfg(feature = "audio")]
 use eyre::Context as _;
 use eyre::Result;

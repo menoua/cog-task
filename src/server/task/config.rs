@@ -1,5 +1,4 @@
-use crate::resource::{color::Color, Interpreter, MediaBackend, TimePrecision};
-use crate::server::LogFormat;
+use crate::resource::{color::Color, Interpreter, LogFormat, MediaBackend, TimePrecision};
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 

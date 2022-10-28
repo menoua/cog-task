@@ -1,7 +1,7 @@
 use crate::action::{Action, Props, StatefulAction, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::ResourceMap;
-use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
+use crate::resource::{ResourceMap, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eyre::{eyre, Context, Result};
 use serde::{Deserialize, Serialize};

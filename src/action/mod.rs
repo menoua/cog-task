@@ -5,18 +5,16 @@ pub mod de;
 pub mod extra;
 pub mod include;
 pub mod props;
-pub mod resource;
 
 pub use include::*;
 pub use props::*;
 
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::Key;
-use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
+use crate::resource::{Key, ResourceAddr, ResourceMap, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
 use eyre::Result;
 use itertools::Itertools;
-use resource::{ResourceAddr, ResourceMap};
 use std::any::Any;
 use std::collections::BTreeSet;
 use std::fmt::{Debug, Formatter};

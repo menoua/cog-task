@@ -1,8 +1,8 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal, SignalId};
 use crate::gui::{center_x, header_body_controls, style_ui, text::button1, Style};
-use crate::resource::{parse_text, text_or_file, ResourceAddr, ResourceMap};
-use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
+use crate::resource::{parse_text, text_or_file, ResourceAddr, ResourceMap, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::f64_as_i64;
 use eframe::egui;
 use eframe::egui::{CursorIcon, ScrollArea};

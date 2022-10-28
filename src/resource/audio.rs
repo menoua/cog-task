@@ -3,6 +3,7 @@ use eyre::{eyre, Context, Result};
 use rodio::buffer::SamplesBuffer;
 use rodio::source::Buffered;
 use rodio::{Decoder, Source};
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;

@@ -6,9 +6,8 @@ pub use p_sync::*;
 
 use crate::action::StatefulAction;
 use crate::comm::QWriter;
-use crate::server::{
-    Config, Info, LoggerSignal, Server, ServerSignal, IO, TAG_ACTION, TAG_CONFIG, TAG_INFO,
-};
+use crate::resource::{LoggerSignal, IO, TAG_ACTION, TAG_CONFIG, TAG_INFO};
+use crate::server::{Config, Info, Server, ServerSignal};
 #[cfg(feature = "benchmark")]
 use crate::util::Profiler;
 use eframe::egui;

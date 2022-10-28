@@ -1,20 +1,18 @@
 pub mod env;
 pub mod info;
-pub mod io;
 pub mod page;
 pub mod scheduler;
 pub mod task;
 
 pub use env::Env;
 pub use info::*;
-pub use io::*;
 pub use page::*;
 pub use scheduler::*;
 pub use task::*;
 
 use crate::comm::{QReader, QWriter};
 use crate::gui;
-use crate::resource::ResourceMap;
+use crate::resource::{LoggerSignal, ResourceMap};
 #[cfg(feature = "benchmark")]
 use crate::util::Profiler;
 use crate::util::SystemInfo;

@@ -1,11 +1,11 @@
 use crate::action::Action;
 use crate::comm::QWriter;
-use crate::server::{config::LogFormat, AsyncSignal, Config, Info};
+use crate::server::{AsyncSignal, Config, Info};
 use chrono::{DateTime, Local};
 use eyre::{eyre, Context, Error, Result};
 use itertools::Itertools;
 use ron::ser::PrettyConfig;
-use serde::{Serialize, Serializer};
+use serde::{Deserialize, Serialize, Serializer};
 use serde_cbor::{from_slice, Value};
 use std::collections::HashMap;
 use std::fmt::Debug;

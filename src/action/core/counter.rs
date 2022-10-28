@@ -1,8 +1,8 @@
 use crate::action::{Action, Props, StatefulAction, VISUAL};
 use crate::comm::{QWriter, Signal};
 use crate::gui::{style_ui, Style};
-use crate::resource::ResourceMap;
-use crate::server::{AsyncSignal, Config, State, SyncSignal, IO};
+use crate::resource::{ResourceMap, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
 use egui_extras::{Size, StripBuilder};
 use eyre::Result;

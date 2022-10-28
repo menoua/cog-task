@@ -3,9 +3,10 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{
-    drop_channel, interlace_channels, ResourceAddr, ResourceMap, ResourceValue, Trigger,
+    drop_channel, interlace_channels, ResourceAddr, ResourceMap, ResourceValue, TimePrecision,
+    Trigger, IO,
 };
-use crate::server::{config::TimePrecision, AsyncSignal, Config, State, SyncSignal, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eyre::{eyre, Context, Result};
 use rodio::{Sink, Source};
@@ -145,30 +146,36 @@ impl Action for Audio {
                     sleeper.sleep(target_time - Instant::now());
 
                     match time_precision {
+                        TimePrecision::Inherit => {
+                            *done.lock().unwrap() = Err(eyre!(
+                                "Invalid state at runtime (time_precision=`Inherit`)."
+                            ));
+                        }
                         TimePrecision::RespectIntervals => {
                             if let Some(sink) = sink.lock().unwrap().take() {
                                 sink.detach();
                             }
+                            *done.lock().unwrap() = Ok(true);
                         }
                         TimePrecision::RespectBoundaries => {
-                            let mut done = false;
+                            let mut over = false;
                             let step = Duration::from_micros(50);
-                            while !done {
+                            while !over {
                                 if let Some(sink) = sink.lock().unwrap().as_ref() {
                                     if sink.empty() {
-                                        done = true;
+                                        over = true;
                                     } else {
                                         sleeper.sleep(step);
                                     }
                                 } else {
-                                    done = true;
+                                    over = true;
                                 }
                             }
+                            *done.lock().unwrap() = Ok(true);
                         }
                     }
                 }
 
-                *done.lock().unwrap() = Ok(true);
                 let _ = tx_stop.send(());
             });
         }

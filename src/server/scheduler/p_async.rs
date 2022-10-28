@@ -1,5 +1,6 @@
 use crate::comm::{QReader, QWriter};
-use crate::server::{Config, Info, Logger, LoggerSignal, ServerSignal};
+use crate::resource::{Logger, LoggerSignal};
+use crate::server::{Config, Info, ServerSignal};
 use chrono::{DateTime, Local};
 use eyre::Result;
 use std::thread;

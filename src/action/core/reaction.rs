@@ -1,7 +1,7 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{Key, ResourceMap};
-use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
+use crate::resource::{Key, LoggerSignal, ResourceMap, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;

@@ -4,8 +4,8 @@ use crate::gui::{
     center_x, header_body_controls, style_ui, text::body, text::button1, text::inactive, Style,
     TEXT_SIZE_BODY,
 };
-use crate::resource::{parse_text, ResourceMap};
-use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
+use crate::resource::{parse_text, LoggerSignal, ResourceMap, IO};
+use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::{f32_with_precision, f64_with_precision};
 use eframe::egui;
 use eframe::egui::{
