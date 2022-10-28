@@ -4,7 +4,7 @@ use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINI
 use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{
     drop_channel, interlace_channels, ResourceAddr, ResourceMap, ResourceValue, TimePrecision,
-    Trigger, IO,
+    Trigger, Volume, IO,
 };
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
@@ -24,8 +24,8 @@ use std::time::{Duration, Instant};
 #[serde(deny_unknown_fields)]
 pub struct Audio {
     src: PathBuf,
-    #[serde(default = "defaults::volume")]
-    volume: f32,
+    #[serde(default)]
+    volume: Volume,
     #[serde(default)]
     looping: bool,
     #[serde(default)]
@@ -41,12 +41,6 @@ stateful_arc!(Audio {
     link: Option<(Sender<()>, Receiver<()>)>,
     in_volume: SignalId,
 });
-
-mod defaults {
-    pub fn volume() -> f32 {
-        1.0
-    }
-}
 
 impl Action for Audio {
     #[inline(always)]
@@ -81,7 +75,7 @@ impl Action for Audio {
             return Err(eyre!("Resource value and address types don't match."));
         };
 
-        let src = match (&self.trigger, config.use_trigger()) {
+        let src = match (&self.trigger, config.use_trigger().value()) {
             (Trigger::Ext(trig), true) => {
                 let trig = ResourceAddr::Audio(trig.clone());
                 let trig = if let ResourceValue::Audio(trig) = res.fetch(&trig)? {
@@ -97,10 +91,11 @@ impl Action for Audio {
         };
 
         let duration = src.total_duration().unwrap();
+        let volume = self.volume.or(&config.volume());
         let sink = io.audio()?;
 
         sink.pause();
-        sink.set_volume(self.volume * config.base_volume());
+        sink.set_volume(volume.value());
         if self.looping {
             sink.append(src.repeat_infinite())
         } else {

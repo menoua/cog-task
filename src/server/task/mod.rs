@@ -65,7 +65,7 @@ impl Task {
             self.description = description;
         }
 
-        // self.config.verify()?;
+        self.config.init()?;
         self.config.verify_checksum(self.hash())?;
         BASE_CFG.set(self.config.clone()).unwrap();
 
@@ -129,6 +129,10 @@ fn verify_features(content: &str) -> Result<()> {
             "audio" => {
                 #[cfg(not(feature = "audio"))]
                 Err(eyre!("Task requires missing feature (audio)."))?;
+            }
+            "savage" => {
+                #[cfg(not(feature = "savage"))]
+                Err(eyre!("Task requires missing feature (savage)."))?;
             }
             "ffmpeg" => {
                 #[cfg(not(feature = "ffmpeg"))]

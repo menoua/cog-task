@@ -2,7 +2,9 @@
 
 use crate::action::{Action, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal};
-use crate::resource::{Color, MediaMode, ResourceAddr, ResourceMap, ResourceValue, Trigger, IO};
+use crate::resource::{
+    Color, MediaMode, ResourceAddr, ResourceMap, ResourceValue, Trigger, Volume, IO,
+};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eframe::egui;
@@ -22,8 +24,8 @@ pub struct Stream {
     src: PathBuf,
     #[serde(default)]
     width: Option<u16>,
-    #[serde(default = "defaults::volume")]
-    volume: f32,
+    #[serde(default)]
+    volume: Volume,
     #[serde(default)]
     looping: bool,
     #[serde(default)]
@@ -43,12 +45,6 @@ stateful_arc!(Stream {
     background: Color32,
 });
 
-mod defaults {
-    pub fn volume() -> f32 {
-        1.0
-    }
-}
-
 impl Action for Stream {
     #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
@@ -64,10 +60,12 @@ impl Action for Stream {
 
     #[inline]
     fn init(self) -> Result<Box<dyn Action>> {
-        if !(0.0..=1.0).contains(&self.volume) {
-            return Err(eyre!(
-                "Stream volume should be a float number between 0.0 and 1.0"
-            ));
+        if let Volume::Value(vol) = self.volume {
+            if !(0.0..=1.0).contains(&vol) {
+                return Err(eyre!(
+                    "Stream volume should be a float number between 0.0 and 1.0"
+                ));
+            }
         }
 
         Ok(Box::new(self))
@@ -88,7 +86,7 @@ impl Action for Stream {
             return Err(eyre!("Resource value and address types don't match."));
         };
 
-        let use_trigger = config.use_trigger();
+        let use_trigger = config.use_trigger().value();
         let media_mode = match (&self.trigger, use_trigger) {
             (Trigger::Ext(trig), true) => {
                 let trig = ResourceAddr::Ref(trig.clone());
@@ -104,7 +102,7 @@ impl Action for Stream {
         };
 
         let frame = Arc::new(Mutex::new(None));
-        let volume = self.volume * config.base_volume();
+        let volume = self.volume.or(&config.volume()).value();
         let mut stream = stream.cloned(frame.clone(), media_mode, volume)?;
 
         if !stream.has_video() && self.width.is_some() {

@@ -5,8 +5,8 @@
     version: "0.1",
 
     config: (
-        use_trigger: true,
-        base_volume: 0.75,
+        use_trigger: yes,
+        volume: 0.75,
         blocks_per_row: 3,
         media_backend: ffmpeg,
     ),
@@ -61,7 +61,7 @@
         (
             name: "Medium Video with Trigger",
             config: (
-                use_trigger: Some(true),
+                use_trigger: yes,
             ),
             tree: seq(([
                 instruction((
@@ -97,7 +97,7 @@
         (
             name: "Streamed Audio",
             config: (
-                use_trigger: Some(true),
+                use_trigger: yes,
             ),
             tree: seq(([
                 stream((src: "../full/data/sample-6s.wav")),
@@ -110,7 +110,7 @@
         (
             name: "Backend error",
             config: (
-                media_backend: Some(none)
+                media_backend: none
             ),
             tree: timeout((
             15.0,

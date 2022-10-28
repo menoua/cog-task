@@ -12,7 +12,7 @@
         (
             name: "Basic",
             config: (
-                background: Some(rgba(0, 80, 240, 64)),
+                background: rgba(0, 80, 240, 64),
             ),
             tree: seq(([
                 par(([

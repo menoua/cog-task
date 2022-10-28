@@ -5,8 +5,8 @@
     version: "0.1",
 
     config: (
-        use_trigger: true,
-        base_volume: 0.75,
+        use_trigger: yes,
+        volume: 0.75,
         blocks_per_row: 3,
     ),
 
@@ -14,7 +14,7 @@
         (
             name: "Basic",
             config: (
-                background: Some(rgba(0, 80, 240, 64)),
+                background: rgba(0, 80, 240, 64),
             ),
             tree: seq(([
                 par(([
@@ -60,8 +60,8 @@
         (
             name: "Separate trigger",
             config: (
-                use_trigger: Some(true),
-                log_format: Some(yaml),
+                use_trigger: yes,
+                log_format: yaml,
             ),
             tree: par(([
                 audio((
@@ -79,8 +79,8 @@
         (
             name: "Embedded trigger",
             config: (
-                use_trigger: Some(true),
-                log_format: Some(ron),
+                use_trigger: yes,
+                log_format: ron,
             ),
             tree: par(([
                 audio((src: "../../full/data/sample-6s-with-silence1.wav", trigger: int))
@@ -95,7 +95,7 @@
         (
             name: "Non-overlapping audio",
             config: (
-                time_precision: Some(respect_boundaries)
+                time_precision: respect_boundaries
             ),
             tree: par(([
                 seq(([
@@ -311,7 +311,7 @@
         (
             name: "Overlapping audio",
             config: (
-                time_precision: Some(respect_intervals)
+                time_precision: respect_intervals
             ),
             tree: seq(([
                 audio((src: "sample-6s.wav")),

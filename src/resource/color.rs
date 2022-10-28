@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Color {
+    Inherit,
     Transparent,
     White,
     Black,
@@ -19,7 +20,7 @@ pub enum Color {
 impl Default for Color {
     #[inline(always)]
     fn default() -> Self {
-        Color::Transparent
+        Color::Inherit
     }
 }
 
@@ -27,7 +28,7 @@ impl From<&Color> for Color32 {
     #[inline]
     fn from(c: &Color) -> Self {
         match c {
-            Color::Transparent => Color32::TRANSPARENT,
+            Color::Inherit | Color::Transparent => Color32::TRANSPARENT,
             Color::White => Color32::WHITE,
             Color::Black => Color32::BLACK,
             Color::Gray => Color32::GRAY,
@@ -45,5 +46,15 @@ impl From<Color> for Color32 {
     #[inline(always)]
     fn from(c: Color) -> Self {
         Self::from(&c)
+    }
+}
+
+impl Color {
+    pub fn or(&self, other: &Self) -> Self {
+        if let Self::Inherit = self {
+            *other
+        } else {
+            *self
+        }
     }
 }

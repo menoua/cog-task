@@ -5,7 +5,7 @@
     version: "0.1",
 
     config: (
-        base_volume: 0.5,
+        volume: 0.5,
         blocks_per_row: 2,
     ),
 
@@ -104,7 +104,7 @@
         (
             name: "Non-overlapping audio",
             config: (
-                time_precision: Some(respect_boundaries)
+                time_precision: respect_boundaries
             ),
             tree: seq(([
                 par(([
@@ -333,7 +333,7 @@
         (
             name: "Overlapping audio",
             config: (
-                time_precision: Some(respect_intervals)
+                time_precision: respect_intervals
             ),
             tree: seq(([
                 par(([

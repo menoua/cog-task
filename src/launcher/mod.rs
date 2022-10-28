@@ -5,7 +5,7 @@ use crate::gui::{
     TEXT_SIZE_DIALOGUE_TITLE,
 };
 use crate::util::SystemInfo;
-use eframe::egui::{CursorIcon, Direction, Layout, Vec2, Window};
+use eframe::egui::{Align, CursorIcon, Layout, Vec2, Window};
 use eframe::glow::HasContext;
 use eframe::{egui, App, Storage};
 use egui::widget_text::RichText;
@@ -462,9 +462,9 @@ impl Launcher {
         };
 
         let (width, height) = if matches!(self.status, Status::Result(_)) {
-            (540.0, 250.0)
+            (560.0, 250.0)
         } else {
-            (540.0, 200.0)
+            (560.0, 200.0)
         };
 
         let mut open = true;
@@ -479,12 +479,9 @@ impl Launcher {
         .min_width(width)
         .default_size(Vec2::new(width, height))
         .show(ctx, |ui| {
-            ui.with_layout(
-                Layout::centered_and_justified(Direction::LeftToRight),
-                |ui| {
-                    ui.label(RichText::from(content.clone()).size(TEXT_SIZE_DIALOGUE_BODY * 0.9));
-                },
-            )
+            ui.with_layout(Layout::top_down(Align::Center), |ui| {
+                ui.label(RichText::from(content.clone()).size(TEXT_SIZE_DIALOGUE_BODY * 0.9));
+            })
             .response
             .context_menu(|ui| {
                 if ui

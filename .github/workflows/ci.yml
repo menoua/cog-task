@@ -50,6 +50,11 @@ jobs:
       - name: Cargo test (default)
         run: cargo test --all-targets
 
+      - name: Cargo clippy (savage)
+        run: cargo clippy --features=savage -- -D warnings
+      - name: Cargo test (savage)
+        run: cargo test --features=savage --all-targets
+
       - name: Install linux deps (audio)
         run: |
           sudo apt update
@@ -90,9 +95,9 @@ jobs:
         run: cargo test --features=gstreamer --all-targets
 
       - name: Cargo clippy (full)
-        run: cargo clippy --features=full -- -D warnings
+        run: cargo clippy --all-features -- -D warnings
       - name: Cargo test (full)
-        run: cargo test --features=full --all-targets
+        run: cargo test --all-features --all-targets
 
   cargo-publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/master'
