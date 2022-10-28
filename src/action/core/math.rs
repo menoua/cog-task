@@ -1,17 +1,12 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::ResourceMap;
+use crate::resource::{Evaluator, Interpreter, ResourceMap};
 use crate::server::{AsyncSignal, Config, LoggerSignal, State, SyncSignal, IO};
 use eyre::{eyre, Context, Error, Result};
-use fasteval::{Compiler, Evaler};
-use num_traits::ToPrimitive;
 use regex::Regex;
-use savage_core::expression as savage;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
-use std::collections::{BTreeMap, BTreeSet, HashMap};
-
-static mut SAVAGE_EXPR: Option<BTreeMap<usize, savage::Expression>> = None;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -37,34 +32,12 @@ stateful!(Math {
     _expr: String,
     name: String,
     vars: BTreeMap<String, f64>,
-    parser: Parser,
+    evaluator: Evaluator,
     persistent: bool,
     in_mapping: BTreeMap<SignalId, String>,
     in_update: SignalId,
     out_result: SignalId,
 });
-
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-enum Interpreter {
-    Fasteval,
-    Savage,
-}
-
-impl Default for Interpreter {
-    fn default() -> Self {
-        Interpreter::Fasteval
-    }
-}
-
-enum Parser {
-    Fasteval(
-        Box<fasteval::Parser>,
-        Box<fasteval::Slab>,
-        Box<fasteval::Instruction>,
-    ),
-    Savage(usize),
-}
 
 impl Action for Math {
     #[inline]
@@ -142,7 +115,7 @@ impl Action for Math {
             _expr: self.expr.clone(),
             name: self.name.clone(),
             vars: self.vars.clone(),
-            parser: self.get_parser()?,
+            evaluator: self.interpreter.parse(&self.expr)?,
             persistent: self.persistent,
             in_mapping: self.in_mapping.clone(),
             in_update: self.in_update,
@@ -184,27 +157,13 @@ impl StatefulAction for StatefulMath {
             }
         }
 
-        let result = self
-            .eval()
-            .wrap_err("Failed to initialize mathematical expression.")?;
-
-        if !self.name.is_empty() {
-            async_writer.push(LoggerSignal::Append(
-                "math".to_owned(),
-                (self.name.clone(), Value::Float(result)),
-            ));
-        }
-
         if !self.persistent {
             self.done = true;
             sync_writer.push(SyncSignal::UpdateGraph);
         }
 
-        if self.out_result > 0 {
-            Ok(vec![(self.out_result, Value::Float(result))].into())
-        } else {
-            Ok(Signal::none())
-        }
+        self.eval(async_writer)
+            .wrap_err("Failed to initialize mathematical expression.")
     }
 
     fn update(
@@ -245,9 +204,34 @@ impl StatefulAction for StatefulMath {
             return Ok(Signal::none());
         }
 
-        let result = self
-            .eval()
-            .wrap_err("Failed to update mathematical expression.")?;
+        self.eval(async_writer)
+            .wrap_err("Failed to update mathematical expression.")
+    }
+
+    #[inline]
+    fn stop(
+        &mut self,
+        _sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
+    ) -> Result<Signal> {
+        self.done = true;
+        Ok(Signal::none())
+    }
+
+    fn debug(&self) -> Vec<(&str, String)> {
+        <dyn StatefulAction>::debug(self)
+            .into_iter()
+            .chain([("name", format!("{:?}", self.name))])
+            .collect()
+    }
+}
+
+impl StatefulMath {
+    fn eval(&mut self, async_writer: &mut QWriter<AsyncSignal>) -> Result<Signal> {
+        let result = self.evaluator.eval(&mut self.vars)?;
+
+        self.vars.insert("self".to_owned(), result);
 
         if !self.name.is_empty() {
             async_writer.push(LoggerSignal::Append(
@@ -260,162 +244,6 @@ impl StatefulAction for StatefulMath {
             Ok(vec![(self.out_result, Value::Float(result))].into())
         } else {
             Ok(Signal::none())
-        }
-    }
-
-    #[inline]
-    fn stop(
-        &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<Signal> {
-        self.done = true;
-        self.drop_parser();
-        Ok(Signal::none())
-    }
-
-    fn debug(&self) -> Vec<(&str, String)> {
-        <dyn StatefulAction>::debug(self)
-            .into_iter()
-            .chain([("name", format!("{:?}", self.name))])
-            .collect()
-    }
-}
-
-impl Math {
-    fn get_parser(&self) -> Result<Parser> {
-        match self.interpreter {
-            Interpreter::Fasteval => {
-                let parser = fasteval::Parser::new();
-                let mut slab = fasteval::Slab::new();
-                let instr = parser
-                    .parse(&self.expr, &mut slab.ps)?
-                    .from(&slab.ps)
-                    .compile(&slab.ps, &mut slab.cs);
-
-                Ok(Parser::Fasteval(
-                    Box::new(parser),
-                    Box::new(slab),
-                    Box::new(instr),
-                ))
-            }
-            Interpreter::Savage => {
-                let expression = self
-                    .expr
-                    .parse::<savage::Expression>()
-                    .map_err(|e| eyre!("Failed to parse `savage` expression ({e:?})."))?;
-
-                Ok(Parser::Savage(savage_ext::new(expression)))
-            }
-        }
-    }
-}
-
-impl StatefulMath {
-    fn eval(&mut self) -> Result<f64> {
-        let result = match &self.parser {
-            Parser::Fasteval(_, slab, instr) => {
-                use fasteval::eval_compiled_ref;
-
-                Ok(eval_compiled_ref!(
-                    instr.as_ref(),
-                    slab.as_ref(),
-                    &mut self.vars
-                ))
-            }
-            Parser::Savage(parser_id) => {
-                use savage::{Expression, Rational, RationalRepresentation};
-
-                if let Some(expression) = savage_ext::get(parser_id) {
-                    let mut vars = HashMap::new();
-                    for (s, f) in self.vars.iter() {
-                        vars.insert(
-                            s.clone(),
-                            Expression::Rational(
-                                Rational::from_float(*f).ok_or_else(|| {
-                                    eyre!("Failed to convert float ({f}) to ratio.")
-                                })?,
-                                RationalRepresentation::Decimal,
-                            ),
-                        );
-                    }
-
-                    let result = expression.evaluate(vars).map_err(|e| {
-                        eyre!("Failed to evaluate mathematical expression ({e:?}).")
-                    })?;
-
-                    match result {
-                        Expression::Integer(x) => x
-                            .to_f64()
-                            .ok_or_else(|| eyre!("Failed to convert integer result to f64.")),
-                        Expression::Rational(x, _) => Ok(x.numer().to_f64().ok_or_else(|| {
-                            eyre!("Failed to convert numerator of result to f64.")
-                        })? / x.denom().to_f64().ok_or_else(
-                            || eyre!("Failed to convert denominator of result to f64."),
-                        )?),
-                        Expression::Complex(_, _) => {
-                            Err(eyre!("Complex results are currently not supported."))
-                        }
-                        _ => Err(eyre!("`savage::Expression` is missing.")),
-                    }
-                } else {
-                    Err(eyre!("`savage::Expression` is missing."))
-                }
-            }
-        }?;
-
-        self.vars.insert("self".to_owned(), result);
-        Ok(result)
-    }
-
-    fn drop_parser(&mut self) {
-        if let Parser::Savage(parser_id) = &mut self.parser {
-            savage_ext::drop(*parser_id);
-        }
-    }
-}
-
-mod savage_ext {
-    use super::SAVAGE_EXPR;
-    use savage_core::expression::Expression;
-    use std::collections::BTreeMap;
-
-    pub fn new(expression: Expression) -> usize {
-        unsafe {
-            if SAVAGE_EXPR.is_none() {
-                SAVAGE_EXPR = Some(BTreeMap::new());
-            }
-
-            let map = SAVAGE_EXPR.as_mut().unwrap();
-            let index = map.len();
-            map.insert(index, expression);
-            index
-        }
-    }
-
-    pub fn get(index: &usize) -> Option<&Expression> {
-        unsafe {
-            if let Some(map) = SAVAGE_EXPR.as_mut() {
-                map.get(index)
-            } else {
-                None
-            }
-        }
-    }
-
-    pub fn drop(index: usize) {
-        unsafe {
-            if let Some(map) = SAVAGE_EXPR.as_mut() {
-                map.remove(&index);
-            }
-        }
-    }
-
-    #[allow(unused)]
-    pub fn drop_all() {
-        unsafe {
-            SAVAGE_EXPR = None;
         }
     }
 }

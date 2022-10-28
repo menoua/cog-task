@@ -521,6 +521,7 @@ fn audio_meta_from_sink(audio_sink: &gst_app::AppSink) -> Result<(u16, u32)> {
     Ok((channels, audio_rate))
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("{0}")]

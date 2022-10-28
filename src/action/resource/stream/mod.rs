@@ -3,11 +3,6 @@ compile_error!(
     "To enable streaming at least one backend should be enabled (\"gstreamer\" or \"ffmpeg\")."
 );
 
-#[cfg(feature = "ffmpeg")]
-use crate::resource::ffmpeg;
-#[cfg(feature = "gstreamer")]
-use crate::resource::gst;
-use crate::resource::{FrameBuffer, MediaMode, MediaStream};
 use crate::server::{config::MediaBackend, Config};
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{TextureId, Vec2};
@@ -15,9 +10,24 @@ use eframe::epaint::TextureManager;
 use eyre::{eyre, Context, Result};
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+#[cfg(feature = "ffmpeg")]
+mod ffmpeg;
+#[cfg(feature = "gstreamer")]
+mod gst;
+
+pub type FrameBuffer = Arc<Vec<(TextureId, Vec2)>>;
+
+#[derive(Clone)]
+pub enum Stream {
+    #[cfg(feature = "gstreamer")]
+    Gst(gst::Stream),
+    #[cfg(feature = "ffmpeg")]
+    Ffmpeg(ffmpeg::Stream),
+}
 
 pub fn stream_from_file(
     tex_manager: Arc<RwLock<TextureManager>>,
@@ -27,12 +37,52 @@ pub fn stream_from_file(
     Stream::new(tex_manager, path, config)
 }
 
-#[derive(Clone)]
-pub enum Stream {
-    #[cfg(feature = "gstreamer")]
-    Gst(gst::Stream),
-    #[cfg(feature = "ffmpeg")]
-    Ffmpeg(ffmpeg::Stream),
+pub fn video_from_file(
+    tex_manager: Arc<RwLock<TextureManager>>,
+    path: &Path,
+    config: &Config,
+) -> Result<(FrameBuffer, f64)> {
+    Stream::new(tex_manager, path, config)?.pull_samples()
+}
+
+pub trait MediaStream
+where
+    Self: Sized,
+{
+    fn new(tex_manager: Arc<RwLock<TextureManager>>, path: &Path, config: &Config) -> Result<Self>;
+    fn cloned(
+        &self,
+        frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
+        media_mode: MediaMode,
+        volume: f32,
+    ) -> Result<Self>;
+
+    fn eos(&self) -> bool;
+    fn size(&self) -> [u32; 2];
+    fn framerate(&self) -> f64;
+    fn channels(&self) -> u16;
+    fn duration(&self) -> Duration;
+    fn has_video(&self) -> bool {
+        self.size().iter().sum::<u32>() > 0
+    }
+    fn has_audio(&self) -> bool {
+        self.channels() > 0
+    }
+
+    fn start(&mut self) -> Result<()>;
+    fn restart(&mut self) -> Result<()>;
+    fn pause(&mut self) -> Result<()>;
+    fn pull_samples(&self) -> Result<(FrameBuffer, f64)>;
+    fn process_bus(&mut self, looping: bool) -> Result<bool>;
+}
+
+#[derive(Debug, Clone)]
+pub enum MediaMode {
+    Query,
+    Normal,
+    Muted,
+    SansIntTrigger,
+    WithExtTrigger(PathBuf),
 }
 
 impl Debug for Stream {

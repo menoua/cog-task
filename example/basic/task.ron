@@ -1,3 +1,5 @@
+//@ savage
+
 (
     name: "Basic",
     version: "0.1",
@@ -184,6 +186,7 @@
                 )),
                 math((
                     expr: "(self + 1) % 4",
+                    interpreter: fasteval,
                     in_update: 4,
                     out_result: 5,
                     persistent: true,
@@ -191,6 +194,7 @@
                 clock((step: 0.25, out_tic: 6)),
                 math((
                     expr: "(self + 1) % 4",
+                    interpreter: savage,
                     in_update: 6,
                     out_result: 7,
                     persistent: true,

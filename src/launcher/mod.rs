@@ -12,7 +12,7 @@ use egui::widget_text::RichText;
 use egui_extras::{Size, StripBuilder};
 use heck::ToTitleCase;
 use itertools::Itertools;
-use rfd::FileDialog;
+use native_dialog::FileDialog;
 use std::env::{current_dir, current_exe};
 use std::path::PathBuf;
 use std::thread;
@@ -368,22 +368,36 @@ impl Launcher {
             Interaction::None => {}
             Interaction::LoadTask => {
                 let path = FileDialog::new()
-                    .set_directory(current_dir().unwrap().to_str().unwrap())
-                    .pick_folder();
+                    .set_location(current_dir().unwrap().to_str().unwrap())
+                    .show_open_single_dir();
 
-                if let Some(path) = path {
-                    self.run_task(path);
+                match path {
+                    Ok(Some(path)) => self.run_task(path),
+                    Ok(None) => {}
+                    Err(e) => {
+                        self.status = Status::Result(format!(
+                            "Failed to open file dialog. Are you on a VM?\n\n({e:?})"
+                        ));
+                    }
                 }
             }
             Interaction::LoadTaskRepo => {
                 let path = FileDialog::new()
-                    .set_directory(current_dir().unwrap().to_str().unwrap())
-                    .pick_folder();
+                    .set_location(current_dir().unwrap().to_str().unwrap())
+                    .show_open_single_dir();
 
-                if let Some(path) = path {
-                    let sys_info = self.sys_info.clone();
-                    *self = Self::new(path);
-                    self.sys_info = sys_info;
+                match path {
+                    Ok(Some(path)) => {
+                        let sys_info = self.sys_info.clone();
+                        *self = Self::new(path);
+                        self.sys_info = sys_info;
+                    }
+                    Ok(None) => {}
+                    Err(e) => {
+                        self.status = Status::Result(format!(
+                            "Failed to open file dialog. Are you on a VM?\n\n({e:?})"
+                        ))
+                    }
                 }
             }
             Interaction::ShowSystemInfo => {

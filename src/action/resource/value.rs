@@ -1,16 +1,13 @@
+#[cfg(feature = "audio")]
+use crate::resource::AudioBuffer;
 #[cfg(feature = "stream")]
-use crate::resource::stream::Stream;
+use crate::resource::{FrameBuffer, Stream};
 use eframe::egui::{TextureId, Vec2};
 #[cfg(feature = "audio")]
-use rodio::{buffer::SamplesBuffer, source::Buffered, Source};
+use rodio::Source;
 use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
-
-#[cfg(feature = "stream")]
-pub type FrameBuffer = Arc<Vec<(TextureId, Vec2)>>;
-#[cfg(feature = "audio")]
-pub type AudioBuffer = Buffered<SamplesBuffer<i16>>;
 
 #[derive(Clone)]
 pub enum ResourceValue {

@@ -1,11 +1,13 @@
-use crate::resource::AudioBuffer;
 use crate::server::Config;
 use eyre::{eyre, Context, Result};
 use rodio::buffer::SamplesBuffer;
+use rodio::source::Buffered;
 use rodio::{Decoder, Source};
 use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
+
+pub type AudioBuffer = Buffered<SamplesBuffer<i16>>;
 
 pub fn audio_from_file(path: &Path, _config: &Config) -> Result<AudioBuffer> {
     let decoder = Decoder::new(BufReader::new(
