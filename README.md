@@ -64,12 +64,11 @@ Currently, there are 4 distinct features that can be enabled:
 2. **gstreamer** -- enables the `Stream` and `Video` actions via the gstreamer backend.
 3. **ffmpeg** (_incomplete_) -- enables the `Stream` and `Video` actions via the ffmpeg backend.
 4. **savage** (_enabled by default_) -- enables using the [savage](https://github.com/p-e-w/savage) interpreter for `Math`.
-5. **full** -- a shorthand to enable all features above.
 
 Examples:
-- Stable binaries with full support:<br>
+- Stable binaries with all features:<br>
   ```bash
-  cargo install cog-task@1.0.0-beta --features=full
+  cargo install cog-task@1.0.0-beta --all-features
   ```
 - Nightly binaries with **audio** and **gstreamer** support:<br>
   ```bash
@@ -87,7 +86,7 @@ Examples:
 | **savage**                  | - |
 | **gstreamer**               | `brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server` |
 | **ffmpeg**                  | `brew install ffmpeg` |
-| **full** (*--all-features*) | `brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server ffmpeg` |
+| (*--all-features*)          | `brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server ffmpeg` |
 
 ### Linux
 
@@ -98,7 +97,7 @@ Examples:
 | **savage**                  | - |
 | **gstreamer**               | `sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio` |
 | **ffmpeg**                  | `sudo apt install libavfilter-dev libavdevice-dev ffmpeg` |
-| **full** (*--all-features*) | `sudo apt install build-essential cmake pkg-config libfontconfig1-dev libasound2-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio libavfilter-dev libavdevice-dev ffmpeg` |
+| (*--all-features*)          | `sudo apt install build-essential cmake pkg-config libfontconfig1-dev libasound2-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio libavfilter-dev libavdevice-dev ffmpeg` |
 
 ## Usage
 
