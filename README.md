@@ -43,7 +43,7 @@ Build binaries (choose one):
   ```bash
   cargo install cog-task@1.0.0-beta [--features=...]
   ```
-- Nightly binaries from [github](https://github.com/menoua/cog-task):<br>
+- Nightly binaries from [github](https://github.com/menoua/cog-task) (*preferred*):<br>
   ```bash
   cargo install --git https://github.com/menoua/cog-task [--features=...]
   ```
