@@ -1,6 +1,6 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::comm::{QWriter, Signal};
-use crate::resource::{LoggerSignal, ResourceMap, IO};
+use crate::resource::{IoManager, LoggerSignal, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use chrono::Local;
 use eframe::egui::Ui;
@@ -24,8 +24,8 @@ mod defaults {
 impl Action for KeyLogger {
     fn stateful(
         &self,
-        _io: &IO,
-        _res: &ResourceMap,
+        _io: &IoManager,
+        _res: &ResourceManager,
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,

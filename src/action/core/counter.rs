@@ -1,7 +1,7 @@
 use crate::action::{Action, Props, StatefulAction, VISUAL};
 use crate::comm::{QWriter, Signal};
 use crate::gui::{style_ui, Style};
-use crate::resource::{ResourceMap, IO};
+use crate::resource::{IoManager, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
 use egui_extras::{Size, StripBuilder};
@@ -30,8 +30,8 @@ impl From<u32> for Counter {
 impl Action for Counter {
     fn stateful(
         &self,
-        _io: &IO,
-        _res: &ResourceMap,
+        _io: &IoManager,
+        _res: &ResourceManager,
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,

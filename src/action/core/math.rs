@@ -1,6 +1,6 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{Evaluator, Interpreter, LoggerSignal, ResourceMap, IO};
+use crate::resource::{Evaluator, Interpreter, IoManager, LoggerSignal, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eyre::{eyre, Context, Error, Result};
 use regex::Regex;
@@ -104,8 +104,8 @@ impl Action for Math {
 
     fn stateful(
         &self,
-        _io: &IO,
-        _res: &ResourceMap,
+        _io: &IoManager,
+        _res: &ResourceManager,
         config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,

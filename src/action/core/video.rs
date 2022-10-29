@@ -2,7 +2,7 @@
 
 use crate::action::{Action, Props, StatefulAction, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal};
-use crate::resource::{Color, ResourceAddr, ResourceMap, ResourceValue, IO};
+use crate::resource::{Color, IoManager, ResourceAddr, ResourceManager, ResourceValue};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eframe::egui;
@@ -46,8 +46,8 @@ impl Action for Video {
 
     fn stateful(
         &self,
-        _io: &IO,
-        res: &ResourceMap,
+        _io: &IoManager,
+        res: &ResourceManager,
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,

@@ -6,7 +6,7 @@ pub use p_sync::*;
 
 use crate::action::StatefulAction;
 use crate::comm::QWriter;
-use crate::resource::{LoggerSignal, IO, TAG_ACTION, TAG_CONFIG, TAG_INFO};
+use crate::resource::{LoggerSignal, TAG_ACTION, TAG_CONFIG, TAG_INFO};
 use crate::server::{Config, Info, Server, ServerSignal};
 use eframe::egui;
 use eframe::egui::{CentralPanel, CursorIcon, Frame};
@@ -24,7 +24,6 @@ pub struct Scheduler {
     info: Info,
     last_esc: Option<SystemTime>,
     config: Config,
-    _io: IO,
     ctx: egui::Context,
     sync_writer: QWriter<SyncSignal>,
     async_writer: QWriter<AsyncSignal>,
@@ -33,27 +32,16 @@ pub struct Scheduler {
 
 impl Scheduler {
     pub fn new(server: &Server, ctx: &egui::Context) -> Result<Self> {
+        let env = server.env();
         let task = server.task();
         let block = server.active_block().unwrap();
         let info = Info::new(server, task, block);
-        let resources = server.resources();
         let config = block.config(server.config());
-        let io = IO::new()?;
-        let tree = block.action_tree();
-        let state = block.default_state();
 
         let server_writer = server.callback_channel();
         let mut async_writer = AsyncProcessor::spawn(&info, &config, &server_writer)?;
-        let (mut sync_writer, atomic) = SyncProcessor::spawn(
-            &io,
-            resources,
-            &config,
-            ctx,
-            tree,
-            state,
-            &async_writer,
-            &server_writer,
-        )?;
+        let (sync_writer, atomic) =
+            SyncProcessor::spawn(block, env, &config, ctx, &async_writer, &server_writer)?;
 
         async_writer.push(LoggerSignal::Extend(
             "main".to_owned(),
@@ -72,14 +60,12 @@ impl Scheduler {
                 ),
             ],
         ));
-        sync_writer.push(SyncSignal::UpdateGraph);
 
         Ok(Self {
             atomic,
             info,
             last_esc: None,
             config,
-            _io: io,
             ctx: ctx.clone(),
             sync_writer,
             async_writer,

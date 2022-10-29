@@ -270,11 +270,11 @@ impl<'a> TryFrom<&'a Value> for Serializable<'a> {
             }),
             Value::Tag(TAG_CONFIG, v) => Serializable::Config(match v.as_ref() {
                 Value::Bytes(v) => from_slice::<Config>(v).unwrap(),
-                _ => return Err(eyre!("Failed to deserialize Info struct",)),
+                _ => return Err(eyre!("Failed to deserialize Config struct",)),
             }),
             Value::Tag(TAG_ACTION, v) => Serializable::Action(match v.as_ref() {
                 Value::Bytes(v) => from_slice::<Box<dyn Action>>(v).unwrap(),
-                _ => return Err(eyre!("Failed to deserialize Info struct",)),
+                _ => return Err(eyre!("Failed to deserialize Action struct",)),
             }),
             v => Serializable::Value(v),
         })

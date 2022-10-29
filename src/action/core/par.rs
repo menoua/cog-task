@@ -1,6 +1,6 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{ResourceAddr, ResourceMap, IO};
+use crate::resource::{IoManager, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
 use eyre::Result;
@@ -81,30 +81,26 @@ impl Action for Par {
 
     fn stateful(
         &self,
-        io: &IO,
-        res: &ResourceMap,
+        io: &IoManager,
+        res: &ResourceManager,
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
+        let mut primary = vec![];
+        for c in self.0.iter() {
+            primary.push(c.stateful(io, res, config, sync_writer, async_writer)?);
+        }
+
+        let mut secondary = vec![];
+        for c in self.1.iter() {
+            secondary.push(c.stateful(io, res, config, sync_writer, async_writer)?);
+        }
+
         Ok(Box::new(StatefulPar {
             done: false,
-            primary: self
-                .0
-                .iter()
-                .map(|a| {
-                    a.stateful(io, res, config, sync_writer, async_writer)
-                        .unwrap()
-                })
-                .collect(),
-            secondary: self
-                .1
-                .iter()
-                .map(|a| {
-                    a.stateful(io, res, config, sync_writer, async_writer)
-                        .unwrap()
-                })
-                .collect(),
+            primary,
+            secondary,
             require: self.2,
         }))
     }

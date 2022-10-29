@@ -1,6 +1,6 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{ResourceAddr, ResourceMap, IO};
+use crate::resource::{IoManager, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eframe::egui::Ui;
@@ -39,8 +39,8 @@ impl Action for Delayed {
 
     fn stateful(
         &self,
-        io: &IO,
-        res: &ResourceMap,
+        io: &IoManager,
+        res: &ResourceManager,
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,

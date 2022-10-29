@@ -12,7 +12,7 @@ pub use task::*;
 
 use crate::comm::{QReader, QWriter};
 use crate::gui;
-use crate::resource::{LoggerSignal, ResourceMap};
+use crate::resource::LoggerSignal;
 use crate::util::SystemInfo;
 use chrono::{DateTime, Local, NaiveDateTime};
 use eframe::egui::CentralPanel;
@@ -39,7 +39,6 @@ pub struct Server {
     subject: String,
     scale_factor: f32,
     hold_on_rescale: bool,
-    resources: ResourceMap,
     scheduler: Option<Scheduler>,
     page: Page,
     blocks: Vec<(String, Progress)>,
@@ -71,7 +70,6 @@ impl Server {
             subject: "".to_owned(),
             scale_factor: 1.0,
             hold_on_rescale: false,
-            resources: ResourceMap::new(),
             scheduler: None,
             page: Page::Startup,
             blocks,
@@ -149,11 +147,6 @@ impl Server {
     }
 
     #[inline(always)]
-    pub fn resources(&self) -> &ResourceMap {
-        &self.resources
-    }
-
-    #[inline(always)]
     pub fn config(&self) -> &Config {
         self.task.config()
     }
@@ -176,21 +169,19 @@ impl Server {
         &self.task
     }
 
-    fn process(&mut self, ctx: &egui::Context, signal: ServerSignal) {
+    fn process(&mut self, _ctx: &egui::Context, signal: ServerSignal) {
         match (self.page, signal) {
-            (Page::Loading, ServerSignal::LoadComplete) => match Scheduler::new(self, ctx) {
-                Ok(scheduler) => {
+            (Page::Loading, ServerSignal::LoadComplete) => {
+                if let Some(scheduler) = self.scheduler.as_mut() {
                     self.page = Page::Activity;
-                    self.scheduler = Some(scheduler);
+                    scheduler.sync_writer().push(SyncSignal::Go);
+                } else {
+                    self.page = Page::Selection;
                 }
-                Err(e) => {
-                    self.sync_reader.push(ServerSignal::BlockCrashed(e));
-                }
-            },
+            }
             (Page::Loading, ServerSignal::BlockCrashed(e)) => {
                 self.status = Progress::Failure(Local::now(), e);
-                self.page = Page::Selection;
-                self.cleaning_up = 0;
+                self.drop_scheduler();
             }
             (Page::Activity, ServerSignal::BlockFinished) => {
                 self.status = Progress::Success(Local::now());

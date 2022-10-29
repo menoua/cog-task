@@ -1,6 +1,6 @@
 use crate::action::{Action, Props, StatefulAction, DEFAULT};
 use crate::comm::{QWriter, Signal};
-use crate::resource::{ResourceMap, IO};
+use crate::resource::{IoManager, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eyre::Result;
@@ -24,8 +24,8 @@ impl Wait {
 impl Action for Wait {
     fn stateful(
         &self,
-        _io: &IO,
-        _res: &ResourceMap,
+        _io: &IoManager,
+        _res: &ResourceManager,
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,

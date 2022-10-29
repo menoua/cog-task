@@ -1,10 +1,5 @@
-#[cfg(feature = "audio")]
-use crate::resource::AudioBuffer;
-#[cfg(feature = "stream")]
-use crate::resource::{FrameBuffer, Stream};
+use crate::resource::{AudioBuffer, FrameBuffer, Stream};
 use eframe::egui::{TextureId, Vec2};
-#[cfg(feature = "audio")]
-use rodio::Source;
 use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -14,11 +9,8 @@ pub enum ResourceValue {
     Ref(PathBuf),
     Text(Arc<String>),
     Image(TextureId, Vec2),
-    #[cfg(feature = "audio")]
     Audio(AudioBuffer),
-    #[cfg(feature = "stream")]
     Video(FrameBuffer, f64),
-    #[cfg(feature = "stream")]
     Stream(Stream),
 }
 
@@ -34,20 +26,17 @@ impl Debug for ResourceValue {
             ResourceValue::Image(_, size) => {
                 write!(f, "[Image ({} x {})]", size.x, size.y)
             }
-            #[cfg(feature = "audio")]
             ResourceValue::Audio(buffer) => {
                 write!(
                     f,
                     "[Audio ({:?} @ {}Hz)]",
-                    buffer.total_duration().unwrap(),
+                    buffer.duration(),
                     buffer.sample_rate()
                 )
             }
-            #[cfg(feature = "stream")]
             ResourceValue::Video(frames, fps) => {
                 write!(f, "[Cached video ({} frames @ {}fps)]", frames.len(), fps,)
             }
-            #[cfg(feature = "stream")]
             ResourceValue::Stream(stream) => {
                 write!(
                     f,

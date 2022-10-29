@@ -1,6 +1,6 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{ResourceAddr, ResourceMap, IO};
+use crate::resource::{IoManager, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::approx_eq;
 use eframe::egui;
@@ -61,8 +61,8 @@ impl Action for Switch {
 
     fn stateful(
         &self,
-        io: &IO,
-        res: &ResourceMap,
+        io: &IoManager,
+        res: &ResourceManager,
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,

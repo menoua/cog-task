@@ -1,6 +1,6 @@
 use crate::action::{Action, Props, StatefulAction, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{ResourceMap, IO};
+use crate::resource::{IoManager, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eyre::{eyre, Context, Result};
@@ -46,8 +46,8 @@ impl Action for Clock {
 
     fn stateful(
         &self,
-        _io: &IO,
-        _res: &ResourceMap,
+        _io: &IoManager,
+        _res: &ResourceManager,
         _config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,

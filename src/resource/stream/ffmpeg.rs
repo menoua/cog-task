@@ -1,4 +1,4 @@
-use crate::resource::{FrameBuffer, MediaMode, MediaStream};
+use crate::resource::{FrameBuffer, MediaStream, StreamMode};
 use crate::server::Config;
 use crate::util::spin_sleeper;
 use eframe::egui::mutex::RwLock;
@@ -96,23 +96,23 @@ impl MediaStream for Stream {
     fn cloned(
         &self,
         frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
-        media_mode: MediaMode,
+        media_mode: StreamMode,
         _volume: f32,
     ) -> Result<Self> {
         let (_media_mode, audio_chan) = match (media_mode, self.audio_chan) {
-            (MediaMode::SansIntTrigger, 0) => Err(eyre!(
+            (StreamMode::SansIntTrigger, 0) => Err(eyre!(
                 "Cannot assume integrated trigger due to missing audio stream: {:?}",
                 self.path
             )),
-            (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
-            (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
-            (MediaMode::SansIntTrigger, _) => Err(eyre!(
+            (StreamMode::SansIntTrigger, 1) => Ok((StreamMode::Muted, 0)),
+            (StreamMode::SansIntTrigger, 2) => Ok((StreamMode::SansIntTrigger, 1)),
+            (StreamMode::SansIntTrigger, _) => Err(eyre!(
                 "Cannot use integrated trigger with multichannel (n = {} > 2) audio: {:?}",
                 self.audio_chan,
                 self.path
             )),
-            (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
-            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(eyre!(
+            (StreamMode::WithExtTrigger(t), c @ 0..=1) => Ok((StreamMode::WithExtTrigger(t), c)),
+            (StreamMode::WithExtTrigger(_), c) if c > 1 => Err(eyre!(
                 "Cannot add trigger stream to non-mono (n = {}) audio stream: {:?}",
                 self.audio_chan,
                 self.path

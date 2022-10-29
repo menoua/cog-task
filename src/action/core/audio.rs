@@ -3,13 +3,12 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{
-    drop_channel, interlace_channels, ResourceAddr, ResourceMap, ResourceValue, TimePrecision,
-    Trigger, Volume, IO,
+    AudioSink, IoManager, ResourceAddr, ResourceManager, ResourceValue, TimePrecision, Trigger,
+    Volume,
 };
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eyre::{eyre, Context, Result};
-use rodio::{Sink, Source};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::collections::BTreeSet;
@@ -37,7 +36,7 @@ pub struct Audio {
 stateful_arc!(Audio {
     duration: Duration,
     looping: bool,
-    sink: Arc<Mutex<Option<Sink>>>,
+    sink: Arc<Mutex<Option<AudioSink>>>,
     link: Option<(Sender<()>, Receiver<()>)>,
     in_volume: SignalId,
 });
@@ -62,8 +61,8 @@ impl Action for Audio {
 
     fn stateful(
         &self,
-        io: &IO,
-        res: &ResourceMap,
+        io: &IoManager,
+        res: &ResourceManager,
         config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
@@ -84,25 +83,24 @@ impl Action for Audio {
                     return Err(eyre!("Resource value and address types don't match."));
                 };
 
-                interlace_channels(src, trig)?
+                src.interlace(trig)?
             }
-            (Trigger::Int, false) => drop_channel(src)?,
+            (Trigger::Int, false) => src.drop_last()?,
             _ => src,
         };
 
-        let duration = src.total_duration().unwrap();
+        let duration = src.duration();
         let volume = self.volume.or(&config.volume());
-        let sink = io.audio()?;
+        let mut sink = io.audio()?;
 
-        sink.pause();
-        sink.set_volume(volume.value());
+        sink.set_volume(volume.value())?;
         if self.looping {
-            sink.append(src.repeat_infinite())
+            sink.repeat(src)?;
         } else {
-            sink.append(src)
+            sink.queue(src)?;
         }
 
-        let done = Arc::new(Mutex::new(Ok(sink.empty())));
+        let done = Arc::new(Mutex::new(sink.empty()));
         let sink = Arc::new(Mutex::new(Some(sink)));
         let (tx_start, rx_start) = mpsc::channel();
         let (tx_stop, rx_stop) = mpsc::channel();
@@ -119,8 +117,8 @@ impl Action for Audio {
                     return;
                 }
 
-                if let Some(sink) = sink.lock().unwrap().as_ref() {
-                    sink.play();
+                if let Some(sink) = sink.lock().unwrap().as_mut() {
+                    let _ = sink.play();
                 } else {
                     let _ = tx_stop.send(());
                     return;
@@ -148,25 +146,36 @@ impl Action for Audio {
                         }
                         TimePrecision::RespectIntervals => {
                             if let Some(sink) = sink.lock().unwrap().take() {
-                                sink.detach();
+                                if let Err(e) = sink.detach() {
+                                    *done.lock().unwrap() = Err(e);
+                                } else {
+                                    *done.lock().unwrap() = Ok(true);
+                                }
+                            } else {
+                                *done.lock().unwrap() = Ok(true);
                             }
-                            *done.lock().unwrap() = Ok(true);
                         }
                         TimePrecision::RespectBoundaries => {
                             let mut over = false;
                             let step = Duration::from_micros(50);
                             while !over {
                                 if let Some(sink) = sink.lock().unwrap().as_ref() {
-                                    if sink.empty() {
-                                        over = true;
-                                    } else {
-                                        sleeper.sleep(step);
+                                    match sink.empty() {
+                                        Ok(false) => sleeper.sleep(step),
+                                        Ok(true) => {
+                                            *done.lock().unwrap() = Ok(true);
+                                            over = true;
+                                        }
+                                        Err(e) => {
+                                            *done.lock().unwrap() = Err(e);
+                                            over = true;
+                                        }
                                     }
                                 } else {
+                                    *done.lock().unwrap() = Ok(true);
                                     over = true;
                                 }
                             }
-                            *done.lock().unwrap() = Ok(true);
                         }
                     }
                 }
@@ -240,7 +249,8 @@ impl StatefulAction for StatefulAudio {
         if let Some(Value::Float(vol)) = state.get(&self.in_volume) {
             let vol = vol.clamp(0.0, 1.0) as f32;
             if let Some(sink) = self.sink.lock().unwrap().as_mut() {
-                sink.set_volume(vol);
+                sink.set_volume(vol)
+                    .wrap_err("Failed to set audio volume to new value.")?;
             }
         }
 
@@ -254,8 +264,8 @@ impl StatefulAction for StatefulAudio {
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
     ) -> Result<Signal> {
-        if let Some(sink) = self.sink.lock().unwrap().take() {
-            sink.stop();
+        if let Some(mut sink) = self.sink.lock().unwrap().take() {
+            sink.stop().wrap_err("Failed to stop audio sink.")?;
         }
         *self.done.lock().unwrap() = Ok(true);
         Ok(Signal::none())
@@ -271,8 +281,8 @@ impl StatefulAction for StatefulAudio {
 
 impl Drop for StatefulAudio {
     fn drop(&mut self) {
-        if let Some(sink) = self.sink.lock().unwrap().take() {
-            sink.stop();
+        if let Some(mut sink) = self.sink.lock().unwrap().take() {
+            let _ = sink.stop();
         }
     }
 }

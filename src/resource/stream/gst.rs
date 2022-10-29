@@ -1,4 +1,4 @@
-use crate::resource::{FrameBuffer, MediaMode, MediaStream};
+use crate::resource::{FrameBuffer, MediaStream, StreamMode};
 use crate::server::Config;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{ColorImage, ImageData, TextureFilter, TextureId, Vec2};
@@ -47,7 +47,7 @@ impl MediaStream for Stream {
     ) -> Result<Self> {
         init()?;
 
-        let (source, playbin) = launch(path, &MediaMode::Query, 1.0)?;
+        let (source, playbin) = launch(path, &StreamMode::Query, 1.0)?;
         let bus = source.bus().unwrap();
 
         let video_sink = get_video_sink(&playbin, false);
@@ -94,23 +94,23 @@ impl MediaStream for Stream {
     fn cloned(
         &self,
         frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
-        media_mode: MediaMode,
+        media_mode: StreamMode,
         volume: f32,
     ) -> Result<Self> {
         let (media_mode, audio_chan) = match (media_mode, self.audio_chan) {
-            (MediaMode::SansIntTrigger, 0) => Err(eyre!(
+            (StreamMode::SansIntTrigger, 0) => Err(eyre!(
                 "Cannot assume integrated trigger due to missing audio stream: {:?}",
                 self.path
             )),
-            (MediaMode::SansIntTrigger, 1) => Ok((MediaMode::Muted, 0)),
-            (MediaMode::SansIntTrigger, 2) => Ok((MediaMode::SansIntTrigger, 1)),
-            (MediaMode::SansIntTrigger, _) => Err(eyre!(
+            (StreamMode::SansIntTrigger, 1) => Ok((StreamMode::Muted, 0)),
+            (StreamMode::SansIntTrigger, 2) => Ok((StreamMode::SansIntTrigger, 1)),
+            (StreamMode::SansIntTrigger, _) => Err(eyre!(
                 "Cannot use integrated trigger with multichannel (n = {} > 2) audio: {:?}",
                 self.audio_chan,
                 self.path,
             )),
-            (MediaMode::WithExtTrigger(t), c @ 0..=1) => Ok((MediaMode::WithExtTrigger(t), c)),
-            (MediaMode::WithExtTrigger(_), c) if c > 1 => Err(eyre!(
+            (StreamMode::WithExtTrigger(t), c @ 0..=1) => Ok((StreamMode::WithExtTrigger(t), c)),
+            (StreamMode::WithExtTrigger(_), c) if c > 1 => Err(eyre!(
                 "Cannot add trigger stream to non-mono (n = {}) audio stream: {:?}",
                 self.audio_chan,
                 self.path
@@ -235,7 +235,7 @@ impl MediaStream for Stream {
     }
 
     fn pull_samples(&self) -> Result<(FrameBuffer, f64)> {
-        let (source, playbin) = launch(&self.path, &MediaMode::Query, 1.0)?;
+        let (source, playbin) = launch(&self.path, &StreamMode::Query, 1.0)?;
 
         let video_sink = get_video_sink(&playbin, false);
         if let Some(sink) = video_sink.as_ref() {
@@ -381,7 +381,7 @@ pub fn init() -> Result<()> {
         .wrap_err("Failed to initialize GStreamer: required because there is a video element in this block.")
 }
 
-fn pipeline(path: &Path, mode: &MediaMode) -> Result<String> {
+fn pipeline(path: &Path, mode: &StreamMode) -> Result<String> {
     let mut pipeline = format!(
         "\
         playbin uri=\"file://{}\" name=playbin \
@@ -395,20 +395,20 @@ fn pipeline(path: &Path, mode: &MediaMode) -> Result<String> {
     );
 
     match mode {
-        MediaMode::Query => pipeline.push_str(
+        StreamMode::Query => pipeline.push_str(
             " \
             audio-sink=\"audioconvert ! appsink name=audio_sink caps=audio/x-raw,format=S16LE,layout=interleaved\""
         ),
-        MediaMode::Normal => {},
-        MediaMode::Muted => pipeline.push_str(
+        StreamMode::Normal => {},
+        StreamMode::Muted => pipeline.push_str(
             " \
             audio-sink=\"audioconvert ! fakesink\""
         ),
-        MediaMode::SansIntTrigger => pipeline.push_str(
+        StreamMode::SansIntTrigger => pipeline.push_str(
             " \
             audio-sink=\"audioconvert ! deinterleave name=d ! d.src_0 ! playsink\""
         ),
-        MediaMode::WithExtTrigger(trigger) => write!(
+        StreamMode::WithExtTrigger(trigger) => write!(
             pipeline,
             " \
             audio-sink=\"audioconvert ! audiopanorama panorama=-1 ! playsink\" \
@@ -424,13 +424,13 @@ fn pipeline(path: &Path, mode: &MediaMode) -> Result<String> {
     Ok(pipeline)
 }
 
-fn launch(path: &Path, mode: &MediaMode, volume: f32) -> Result<(gst::Bin, gst::Bin)> {
+fn launch(path: &Path, mode: &StreamMode, volume: f32) -> Result<(gst::Bin, gst::Bin)> {
     let source = gst::parse_launch(&pipeline(path, mode)?)
         .wrap_err_with(|| format!("Failed to parse gstreamer command for video: {path:?}"))?
         .downcast::<gst::Bin>()
         .unwrap();
 
-    let playbin = if matches!(mode, MediaMode::WithExtTrigger(_)) {
+    let playbin = if matches!(mode, StreamMode::WithExtTrigger(_)) {
         source
             .by_name("playbin")
             .unwrap()

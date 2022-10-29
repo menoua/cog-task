@@ -1,6 +1,6 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{ResourceAddr, ResourceMap, IO};
+use crate::resource::{IoManager, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
 use eyre::{eyre, Result};
@@ -51,20 +51,16 @@ impl Action for Seq {
 
     fn stateful(
         &self,
-        io: &IO,
-        res: &ResourceMap,
+        io: &IoManager,
+        res: &ResourceManager,
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        let children: VecDeque<_> = self
-            .0
-            .iter()
-            .map(|a| {
-                a.stateful(io, res, config, sync_writer, async_writer)
-                    .unwrap()
-            })
-            .collect();
+        let mut children: VecDeque<_> = VecDeque::with_capacity(self.0.len());
+        for c in self.0.iter() {
+            children.push_back(c.stateful(io, res, config, sync_writer, async_writer)?);
+        }
 
         for c in children.iter().take(children.len() - 1) {
             if c.props().infinite() {

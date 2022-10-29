@@ -10,7 +10,7 @@ pub use include::*;
 pub use props::*;
 
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{Key, ResourceAddr, ResourceMap, IO};
+use crate::resource::{IoManager, Key, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
 use eyre::Result;
@@ -40,14 +40,15 @@ pub trait Action: Debug + Any {
     }
 
     #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
+    #[allow(unused_variables)]
+    fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         vec![]
     }
 
     fn stateful(
         &self,
-        io: &IO,
-        res: &ResourceMap,
+        io: &IoManager,
+        res: &ResourceManager,
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
@@ -68,31 +69,34 @@ pub trait StatefulAction: Send {
         state: &State,
     ) -> Result<Signal>;
 
+    #[allow(unused_variables)]
     fn update(
         &mut self,
-        _signal: &ActionSignal,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
+        signal: &ActionSignal,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<Signal> {
         Ok(Signal::none())
     }
 
+    #[allow(unused_variables)]
     fn show(
         &mut self,
-        _ui: &mut egui::Ui,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
+        ui: &mut egui::Ui,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<()> {
         Ok(())
     }
 
+    #[allow(unused_variables)]
     fn stop(
         &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+        state: &State,
     ) -> Result<Signal>;
 
     fn debug(&self) -> Vec<(&str, String)> {

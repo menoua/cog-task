@@ -1,5 +1,5 @@
 use crate::resource::VarMap;
-use eyre::Result;
+use eyre::{Context, Result};
 use fasteval::{Compiler, Evaler};
 
 pub struct Evaluator {
@@ -13,7 +13,8 @@ impl Evaluator {
         let parser = fasteval::Parser::new();
         let mut slab = fasteval::Slab::new();
         let instr = parser
-            .parse(expr, &mut slab.ps)?
+            .parse(expr, &mut slab.ps)
+            .wrap_err("Failed to parse math expression with fasteval.")?
             .from(&slab.ps)
             .compile(&slab.ps, &mut slab.cs);
 

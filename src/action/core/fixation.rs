@@ -1,7 +1,7 @@
 use crate::action::image::Image;
 use crate::action::{Action, StatefulAction};
 use crate::comm::QWriter;
-use crate::resource::{Color, ResourceMap, IO};
+use crate::resource::{Color, IoManager, ResourceManager};
 use crate::server::{AsyncSignal, Config, SyncSignal};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -19,8 +19,8 @@ pub struct Fixation {
 impl Action for Fixation {
     fn stateful(
         &self,
-        io: &IO,
-        res: &ResourceMap,
+        io: &IoManager,
+        res: &ResourceManager,
         config: &Config,
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,

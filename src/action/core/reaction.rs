@@ -1,6 +1,6 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{Key, LoggerSignal, ResourceMap, IO};
+use crate::resource::{IoManager, Key, LoggerSignal, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
@@ -90,8 +90,8 @@ impl Action for Reaction {
 
     fn stateful(
         &self,
-        _io: &IO,
-        _res: &ResourceMap,
+        _io: &IoManager,
+        _res: &ResourceManager,
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,

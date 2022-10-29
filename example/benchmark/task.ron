@@ -19,12 +19,12 @@
                     timer((out_duration: 1))
                 ])),
                 math((
-                    expr: "x - 3",
+                    expr: "round((x - 3) * 100000) / 100",
                     in_mapping: { 1: "x" },
                     out_result: 2,
                 )),
                 instruction((
-                    text: "Overhead was ${dur} - 3 = ${diff} seconds.",
+                    text: "Overhead was ${dur}s - 3s = ${diff}ms.",
                     in_mapping: { 1: "dur", 2: "diff" }
                 )),
             ]))
@@ -90,12 +90,12 @@
                     timer((out_duration: 1))
                 ])),
                 math((
-                    expr: "x - 50",
+                    expr: "round((x - 50) * 100000) / 100",
                     in_mapping: { 1: "x" },
                     out_result: 2,
                 )),
                 instruction((
-                    text: "Overhead was ${dur} - 50 = ${diff} seconds.",
+                    text: "Overhead was ${dur}s - 50s = ${diff}ms.",
                     in_mapping: { 1: "dur", 2: "diff" }
                 )),
             ]))
@@ -319,12 +319,12 @@
                     timer((out_duration: 1))
                 ])),
                 math((
-                    expr: "x - 647.0205",
+                    expr: "round((x - 647.0205) * 100000) / 100",
                     in_mapping: { 1: "x" },
                     out_result: 2,
                 )),
                 instruction((
-                    text: "Overhead was ${dur} - 647.0205 = ${diff} seconds.",
+                    text: "Overhead was ${dur}s - 647.0205s = ${diff}ms.",
                     in_mapping: { 1: "dur", 2: "diff" }
                 )),
             ]))
@@ -443,12 +443,12 @@
                     timer((out_duration: 1))
                 ])),
                 math((
-                    expr: "x - 639.1293",
+                    expr: "round((x - 639.1293) * 100000) / 100",
                     in_mapping: { 1: "x" },
                     out_result: 2,
                 )),
                 instruction((
-                    text: "Overhead was ${dur} - 639.1293 = ${diff} seconds.",
+                    text: "Overhead was ${dur}s - 639.1293s = ${diff}ms.",
                     in_mapping: { 1: "dur", 2: "diff" }
                 )),
             ]))

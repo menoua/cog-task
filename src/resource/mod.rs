@@ -1,13 +1,10 @@
 pub mod address;
-#[cfg(feature = "audio")]
 pub mod audio;
 pub mod color;
 pub mod image;
-pub mod io;
 pub mod key;
 pub mod logger;
 pub mod math;
-#[cfg(feature = "stream")]
 pub mod stream;
 pub mod text;
 pub mod trigger;
@@ -15,14 +12,11 @@ pub mod value;
 
 pub use crate::resource::image::*;
 pub use address::*;
-#[cfg(feature = "audio")]
 pub use audio::*;
 pub use color::*;
-pub use io::*;
 pub use key::*;
 pub use logger::*;
 pub use math::*;
-#[cfg(feature = "stream")]
 pub use stream::*;
 pub use text::*;
 pub use trigger::Trigger;
@@ -34,21 +28,21 @@ use eframe::egui::mutex::RwLock;
 use eframe::epaint;
 use eyre::{eyre, Result};
 use std::collections::HashMap;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::sync::{Arc, Mutex};
 
-#[derive(Default, Debug, Clone)]
-pub struct ResourceMap(Arc<Mutex<HashMap<ResourceAddr, ResourceValue>>>);
+#[derive(Debug, Clone)]
+pub struct ResourceManager(Arc<Mutex<HashMap<ResourceAddr, ResourceValue>>>);
 
-impl ResourceMap {
-    #[inline(always)]
-    pub fn new() -> Self {
-        Self::default()
-    }
+#[derive(Clone)]
+pub struct IoManager {
+    audio: Arc<AudioDevice>,
+}
 
+impl ResourceManager {
     #[inline(always)]
-    pub fn clear(&mut self) {
-        self.0.lock().unwrap().clear();
+    pub fn new(_config: &Config) -> Result<Self> {
+        Ok(Self(Default::default()))
     }
 
     pub fn preload_block(
@@ -120,17 +114,14 @@ impl ResourceMap {
                         };
                         ResourceValue::Image(texture, size)
                     }
-                    #[cfg(feature = "audio")]
                     ResourceAddr::Audio(path) => {
                         ResourceValue::Audio(audio_from_file(&path, config)?)
                     }
-                    #[cfg(feature = "stream")]
                     ResourceAddr::Video(path) => {
                         let tex_manager = tex_manager.clone();
                         let (frames, framerate) = video_from_file(tex_manager, &path, config)?;
                         ResourceValue::Video(frames, framerate)
                     }
-                    #[cfg(feature = "stream")]
                     ResourceAddr::Stream(path) => {
                         let tex_manager = tex_manager.clone();
                         ResourceValue::Stream(stream_from_file(tex_manager, &path, config)?)
@@ -165,5 +156,23 @@ impl ResourceMap {
             None => Ok(text.to_owned()),
         }?;
         Ok(text)
+    }
+}
+
+impl Debug for IoManager {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "<IO>")
+    }
+}
+
+impl IoManager {
+    pub fn new(config: &Config) -> Result<Self> {
+        Ok(Self {
+            audio: Arc::new(AudioDevice::new(config)?),
+        })
+    }
+
+    pub fn audio(&self) -> Result<AudioSink> {
+        self.audio.sink()
     }
 }

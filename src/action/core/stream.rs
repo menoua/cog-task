@@ -3,7 +3,7 @@
 use crate::action::{Action, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal};
 use crate::resource::{
-    Color, MediaMode, ResourceAddr, ResourceMap, ResourceValue, Trigger, Volume, IO,
+    Color, IoManager, ResourceAddr, ResourceManager, ResourceValue, StreamMode, Trigger, Volume,
 };
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
@@ -73,8 +73,8 @@ impl Action for Stream {
 
     fn stateful(
         &self,
-        _io: &IO,
-        res: &ResourceMap,
+        _io: &IoManager,
+        res: &ResourceManager,
         config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
@@ -95,10 +95,10 @@ impl Action for Stream {
                 } else {
                     return Err(eyre!("Resource value and address types don't match."));
                 };
-                MediaMode::WithExtTrigger(trig)
+                StreamMode::WithExtTrigger(trig)
             }
-            (Trigger::Int, false) => MediaMode::SansIntTrigger,
-            _ => MediaMode::Normal,
+            (Trigger::Int, false) => StreamMode::SansIntTrigger,
+            _ => StreamMode::Normal,
         };
 
         let frame = Arc::new(Mutex::new(None));

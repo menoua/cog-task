@@ -4,7 +4,7 @@ use crate::gui::{
     center_x, header_body_controls, style_ui, text::body, text::button1, text::inactive, Style,
     TEXT_SIZE_BODY,
 };
-use crate::resource::{parse_text, LoggerSignal, ResourceMap, IO};
+use crate::resource::{parse_text, IoManager, LoggerSignal, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::{f32_with_precision, f64_with_precision};
 use eframe::egui;
@@ -55,8 +55,8 @@ mod defaults {
 impl Action for Question {
     fn stateful(
         &self,
-        _io: &IO,
-        _res: &ResourceMap,
+        _io: &IoManager,
+        _res: &ResourceManager,
         _config: &Config,
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,

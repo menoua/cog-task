@@ -3,11 +3,10 @@ use crate::gui::{
     center_x, header_body_controls, style_ui, Style, CUSTOM_BLUE, CUSTOM_ORANGE, CUSTOM_RED,
     FOREST_GREEN, TEXT_SIZE_DIALOGUE_BODY, TEXT_SIZE_DIALOGUE_TITLE,
 };
-use crate::server::{Page, Progress, Server, ServerSignal};
+use crate::server::{Page, Progress, Scheduler, Server, ServerSignal};
 use eframe::egui;
 use eframe::egui::{Direction, Label, Layout, Pos2, RichText, ScrollArea, Vec2, Window};
 use egui_extras::{Size, StripBuilder};
-use std::thread;
 
 impl Server {
     pub(crate) fn show_selection(&mut self, ui: &mut egui::Ui) {
@@ -171,20 +170,12 @@ impl Server {
                     println!("\nStarting experiment block {i}...");
                     self.active_block = Some(i);
                     self.page = Page::Loading;
-
-                    let env = self.env().clone();
-                    let block = self.task.block(i);
-                    let config = block.config(self.task.config());
-                    let resources = block.resources(&config);
-                    let mut sync_writer = self.sync_reader.writer();
-                    let mut resource_map = self.resources().clone();
-                    let tex_manager = ui.ctx().tex_manager();
-                    thread::spawn(move || {
-                        match resource_map.preload_block(resources, tex_manager, &config, &env) {
-                            Ok(()) => sync_writer.push(ServerSignal::LoadComplete),
-                            Err(e) => sync_writer.push(ServerSignal::BlockCrashed(e)),
-                        }
-                    });
+                    match Scheduler::new(self, ui.ctx()) {
+                        Ok(scheduler) => self.scheduler = Some(scheduler),
+                        Err(e) => self.sync_reader.push(ServerSignal::BlockCrashed(
+                            e.wrap_err("Failed to initialize scheduler."),
+                        )),
+                    }
                 }
             }
         }

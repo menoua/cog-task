@@ -567,7 +567,7 @@
         (
             name: "Cached Video",
             config: (
-                media_backend: gst
+                stream_backend: gst
             ),
             tree: seq(([
                 video((src: "earth-4sec.mp4")),
@@ -581,7 +581,7 @@
         (
             name: "Short Video",
             config: (
-                media_backend: gst
+                stream_backend: gst
             ),
             tree: seq(([
                 stream((src: "earth-4sec.mp4", width: Some(200))),
@@ -593,7 +593,7 @@
         (
             name: "Ffmpeg",
             config: (
-                media_backend: ffmpeg
+                stream_backend: ffmpeg
             ),
             tree: seq(([
                 instruction((text: "This is a 2-minute video...")),
@@ -608,7 +608,7 @@
         (
             name: "Long Video",
             config: (
-                media_backend: gst
+                stream_backend: gst
             ),
             tree: seq(([
                 instruction((
@@ -625,7 +625,7 @@
         (
             name: "Medium Video with Trigger",
             config: (
-                media_backend: gst,
+                stream_backend: gst,
                 use_trigger: yes,
             ),
             tree: seq(([
@@ -642,7 +642,7 @@
         (
             name: "Looping Video",
             config: (
-                media_backend: gst
+                stream_backend: gst
             ),
             tree: timeout((
                 12.0,
@@ -653,7 +653,7 @@
         (
             name: "Streamed Audio",
             config: (
-                media_backend: gst,
+                stream_backend: gst,
                 use_trigger: yes,
             ),
             tree: seq(([
@@ -674,6 +674,9 @@
 
         (
             name: "Backend error",
+            config: (
+                stream_backend: none,
+            ),
             tree: timeout((
                 15.0,
                 video((src: "earth-4sec.mp4", looping: true)),
@@ -683,7 +686,7 @@
         (
             name: "Looping Streams",
             config: (
-                media_backend: gst
+                stream_backend: gst
             ),
             tree: timeout((
                 15.0,
