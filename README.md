@@ -41,7 +41,8 @@ curl https://sh.rustup.rs -sSf | sh
 Build binaries (choose one):
 - Stable binaries from [crates.io](https://crates.io/crates/cog-task):<br>
   ```bash
-  cargo install cog-task@1.0.0-beta [--features=...]
+  # Replace `X` with the latest version on https://crates.io/crates/cog-task/versions
+  cargo install cog-task@1.0.0-beta.X [--features=...]
   ```
 - Nightly binaries from [github](https://github.com/menoua/cog-task) (*preferred*):<br>
   ```bash
@@ -55,19 +56,19 @@ To update the installation to the latest version, you can run the same commands.
 Some types of actions depend on optional features that can be enabled during installation. These features are not enabled by default because they rely on extra system libraries that might not be installed on the OS out-of-the-box.
 
 Currently, there are 4 distinct features that can be enabled:
-1. **audio** -- enables the `Audio` action via the ALSA sound library.
-2. **gstreamer** -- enables the `Stream` and `Video` actions via the gstreamer backend (also enables **audio**).
-3. **ffmpeg** (_incomplete_) -- enables the `Stream` and `Video` actions via the ffmpeg backend (also enables **audio**).
-4. **savage** (_enabled by default_) -- enables using the [savage](https://github.com/p-e-w/savage) interpreter for `Math`.
+1. **rodio** -- allows playing sounds via the CoreAudio sound library on macOS and ALSA on linux.
+2. **gstreamer** -- allows streaming audio/video files via the gstreamer backend.
+3. **ffmpeg** (_incomplete_) -- allows streaming audio/video files via the ffmpeg backend.
+4. **savage** (_enabled by default_) -- enables using the [savage](https://github.com/p-e-w/savage) interpreter for mathematical operations.
 
 Examples:
 - Stable binaries with all features:<br>
   ```bash
   cargo install cog-task@1.0.0-beta --all-features
   ```
-- Nightly binaries with **audio** and **gstreamer** support:<br>
+- Nightly binaries with **rodio** and **gstreamer** support:<br>
   ```bash
-  cargo install --git https://github.com/menoua/cog-task --features=audio,gstreamer
+  cargo install --git https://github.com/menoua/cog-task --features=rodio,gstreamer
   ```
 
 ## Requirements
@@ -77,7 +78,7 @@ Examples:
 |   Feature                   | Requirements |
 | -----------                 | ------------ |
 | (*required*)                | - |
-| **audio**                   | - |
+| **rodio**                   | - |
 | **savage**                  | - |
 | **gstreamer**               | `brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server` |
 | **ffmpeg**                  | `brew install ffmpeg` |
@@ -88,7 +89,7 @@ Examples:
 | Feature                     | Requirements |
 | -------                     | ------------ |
 | (*required*)                | `sudo apt install build-essential cmake pkg-config libfontconfig1-dev` |
-| **audio**                   | `sudo apt install libasound2-dev` |
+| **rodio**                   | `sudo apt install libasound2-dev` |
 | **savage**                  | - |
 | **gstreamer**               | `sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio` |
 | **ffmpeg**                  | `sudo apt install libavfilter-dev libavdevice-dev ffmpeg` |
