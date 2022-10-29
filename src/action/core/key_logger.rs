@@ -106,8 +106,6 @@ impl StatefulAction for StatefulKeyLogger {
             self.group.clone(),
             ("event".to_owned(), Value::Text("stop".to_owned())),
         ));
-
-        self.done = true;
         Ok(Signal::none())
     }
 

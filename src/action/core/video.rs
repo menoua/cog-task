@@ -195,18 +195,6 @@ impl StatefulAction for StatefulVideo {
         Ok(())
     }
 
-    #[inline(always)]
-    fn stop(
-        &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<Signal> {
-        *self.done.lock().unwrap() = Ok(true);
-        sync_writer.push(SyncSignal::Repaint);
-        Ok(Signal::none())
-    }
-
     fn debug(&self) -> Vec<(&str, String)> {
         <dyn StatefulAction>::debug(self)
             .into_iter()

@@ -137,7 +137,6 @@ impl StatefulAction for StatefulDelayed {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Signal> {
-        self.done = true;
         if *self.wait_over.lock().unwrap() {
             self.inner.stop(sync_writer, async_writer, state)
         } else {

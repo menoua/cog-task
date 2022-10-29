@@ -90,7 +90,6 @@ impl StatefulAction for StatefulTimer {
             ));
         }
 
-        self.done = true;
         if self.out_duration > 0 {
             Ok(vec![(self.out_duration, Value::Float(duration.as_secs_f64()))].into())
         } else {

@@ -124,7 +124,6 @@ impl StatefulAction for StatefulTimeout {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Signal> {
-        self.done = true;
         self.inner.stop(sync_writer, async_writer, state)
     }
 }

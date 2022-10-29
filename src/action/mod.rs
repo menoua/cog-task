@@ -60,14 +60,22 @@ pub trait StatefulAction: Send {
 
     fn type_str(&self) -> String;
 
-    fn props(&self) -> Props;
+    fn props(&self) -> Props {
+        DEFAULT.into()
+    }
 
+    #[allow(unused_variables)]
     fn start(
         &mut self,
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Signal>;
+    ) -> Result<Signal> {
+        if self.props().visual() {
+            sync_writer.push(SyncSignal::Repaint);
+        }
+        Ok(Signal::none())
+    }
 
     #[allow(unused_variables)]
     fn update(
@@ -97,7 +105,12 @@ pub trait StatefulAction: Send {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<Signal>;
+    ) -> Result<Signal> {
+        if self.props().visual() {
+            sync_writer.push(SyncSignal::Repaint);
+        }
+        Ok(Signal::none())
+    }
 
     fn debug(&self) -> Vec<(&str, String)> {
         vec![

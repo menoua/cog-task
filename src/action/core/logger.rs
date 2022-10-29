@@ -59,15 +59,6 @@ impl StatefulAction for StatefulLogger {
         INFINITE.into()
     }
 
-    fn start(
-        &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<Signal> {
-        Ok(Signal::none())
-    }
-
     fn update(
         &mut self,
         signal: &ActionSignal,
@@ -87,16 +78,6 @@ impl StatefulAction for StatefulLogger {
         }
 
         async_writer.push(LoggerSignal::Extend(self.group.clone(), entries));
-        Ok(Signal::none())
-    }
-
-    fn stop(
-        &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<Signal> {
-        self.done = true;
         Ok(Signal::none())
     }
 }

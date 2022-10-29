@@ -267,7 +267,6 @@ impl StatefulAction for StatefulAudio {
         if let Some(mut sink) = self.sink.lock().unwrap().take() {
             sink.stop().wrap_err("Failed to stop audio sink.")?;
         }
-        *self.done.lock().unwrap() = Ok(true);
         Ok(Signal::none())
     }
 

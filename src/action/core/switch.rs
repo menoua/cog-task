@@ -188,10 +188,9 @@ impl StatefulAction for StatefulSwitch {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Signal> {
-        self.done = true;
         match self.decision {
             Decision::Final(true) => self.if_true.stop(sync_writer, async_writer, state),
-            Decision::Final(false) => self.if_true.stop(sync_writer, async_writer, state),
+            Decision::Final(false) => self.if_false.stop(sync_writer, async_writer, state),
             Decision::Temporary(_) => Ok(Signal::none()),
         }
     }

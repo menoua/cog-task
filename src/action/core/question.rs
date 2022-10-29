@@ -81,16 +81,6 @@ impl StatefulAction for StatefulQuestion {
         VISUAL.into()
     }
 
-    fn start(
-        &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<Signal> {
-        sync_writer.push(SyncSignal::Repaint);
-        Ok(Signal::none())
-    }
-
     fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -111,18 +101,6 @@ impl StatefulAction for StatefulQuestion {
         });
 
         Ok(())
-    }
-
-    #[inline(always)]
-    fn stop(
-        &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<Signal> {
-        self.done = true;
-        sync_writer.push(SyncSignal::Repaint);
-        Ok(Signal::none())
     }
 }
 

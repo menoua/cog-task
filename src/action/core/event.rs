@@ -58,8 +58,6 @@ impl StatefulAction for StatefulEvent {
             "event".to_owned(),
             (self.name.clone(), Value::Text("stop".to_owned())),
         ));
-
-        self.done = true;
         Ok(Signal::none())
     }
 }

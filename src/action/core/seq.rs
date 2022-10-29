@@ -162,7 +162,6 @@ impl StatefulAction for StatefulSeq {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Signal> {
-        self.done = true;
         if let Some(c) = self.children.get_mut(0) {
             c.stop(sync_writer, async_writer, state)
         } else {

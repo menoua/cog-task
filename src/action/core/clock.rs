@@ -101,14 +101,4 @@ impl StatefulAction for StatefulClock {
             .wrap_err("Failed to communicate with the clock thread.")?;
         Ok(Signal::none())
     }
-
-    fn stop(
-        &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<Signal> {
-        self.done = true;
-        Ok(Signal::none())
-    }
 }

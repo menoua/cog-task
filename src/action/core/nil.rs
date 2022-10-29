@@ -20,7 +20,7 @@ impl Action for Nil {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        Ok(Box::new(StatefulNil { done: false }))
+        Ok(Box::new(StatefulNil::new()))
     }
 }
 
@@ -38,31 +38,6 @@ impl Default for Nil {
 
 impl StatefulAction for StatefulNil {
     impl_stateful!();
-
-    fn props(&self) -> Props {
-        DEFAULT.into()
-    }
-
-    fn start(
-        &mut self,
-        sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<Signal> {
-        self.done = true;
-        sync_writer.push(SyncSignal::UpdateGraph);
-        Ok(Signal::none())
-    }
-
-    fn stop(
-        &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<Signal> {
-        self.done = true;
-        Ok(Signal::none())
-    }
 }
 
 impl StatefulNil {

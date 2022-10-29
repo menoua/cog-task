@@ -235,7 +235,6 @@ impl StatefulAction for StatefulPar {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Signal> {
-        self.done = true;
         let mut news = vec![];
         let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
         for c in children {

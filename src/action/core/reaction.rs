@@ -223,7 +223,6 @@ impl StatefulAction for StatefulReaction {
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
     ) -> Result<Signal> {
-        self.done = true;
         let accuracy = self.accuracy();
         let mean_rt = self.mean_rt();
         let recall = self.recall();

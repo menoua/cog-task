@@ -190,7 +190,6 @@ impl StatefulAction for StatefulView {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Signal> {
-        self.done = true;
         let mut news = vec![];
         for c in self.children.iter_mut() {
             news.extend(c.stop(sync_writer, async_writer, state)?);

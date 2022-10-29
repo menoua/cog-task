@@ -193,7 +193,6 @@ impl StatefulAction for StatefulBranch {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Signal> {
-        self.done = true;
         if let Decision::Final(i) = self.decision {
             self.children[i].stop(sync_writer, async_writer, state)
         } else {

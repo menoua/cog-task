@@ -40,11 +40,6 @@ impl Action for Wait {
 impl StatefulAction for StatefulWait {
     impl_stateful!();
 
-    #[inline(always)]
-    fn props(&self) -> Props {
-        DEFAULT.into()
-    }
-
     #[inline]
     fn start(
         &mut self,
@@ -60,17 +55,6 @@ impl StatefulAction for StatefulWait {
             *done.lock().unwrap() = Ok(true);
             sync_writer.push(SyncSignal::UpdateGraph);
         });
-        Ok(Signal::none())
-    }
-
-    #[inline(always)]
-    fn stop(
-        &mut self,
-        _sync_writer: &mut QWriter<SyncSignal>,
-        _async_writer: &mut QWriter<AsyncSignal>,
-        _state: &State,
-    ) -> Result<Signal> {
-        *self.done.lock().unwrap() = Ok(true);
         Ok(Signal::none())
     }
 }
