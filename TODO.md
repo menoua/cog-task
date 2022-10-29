@@ -1,6 +1,5 @@
 ## To-do
 
-- [ ] Verify all signals are connected. Add a collect_signals(..) -> (in, out) function and verify they are equal as sets.
 - [ ] Add a `Math`-like action that takes in the path to an external compiled FFI (C/Rust/Python/Matlab/etc.) and behaves very similarly to `Math`. This is for when you have functions written in a different language. This is only used for eval. For FfiPython if typed calling doesn't work can implement an interpreter calling with PyO3 and populate the function call arguments with string replacement like in Instruction. Candidates: [cpython](https://github.com/dgrunwald/rust-cpython) for calling user-defined python, [cc](https://dev.to/xphoniex/how-to-call-c-code-from-rust-56do) for including C functions at compile time.
 - [ ] Add a `Process` function which runs an externally compiled Rust/C/Python and maintains a comms channel.
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
