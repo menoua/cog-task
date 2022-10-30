@@ -1,4 +1,4 @@
-use crate::action::{Action, Props, StatefulAction, DEFAULT};
+use crate::action::{Action, StatefulAction};
 use crate::comm::{QWriter, Signal};
 use crate::resource::{IoManager, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};

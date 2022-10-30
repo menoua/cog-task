@@ -20,8 +20,8 @@ pub struct Config {
     log_format: LogFormat,
     #[serde(default = "defaults::time_precision")]
     time_precision: TimePrecision,
-    #[serde(default = "defaults::math_interpreter")]
-    math_interpreter: Interpreter,
+    #[serde(default = "defaults::interpreter")]
+    interpreter: Interpreter,
     #[serde(default = "defaults::audio_backend")]
     audio_backend: AudioBackend,
     #[serde(default = "defaults::stream_backend")]
@@ -68,7 +68,7 @@ mod defaults {
     }
 
     #[inline(always)]
-    pub fn math_interpreter() -> Interpreter {
+    pub fn interpreter() -> Interpreter {
         Interpreter::Fasteval
     }
 
@@ -108,7 +108,7 @@ impl Config {
         self.use_trigger = self.use_trigger.or(&defaults::use_trigger());
         self.time_precision = self.time_precision.or(&defaults::time_precision());
         self.log_format = self.log_format.or(&defaults::log_format());
-        self.math_interpreter = self.math_interpreter.or(&defaults::math_interpreter());
+        self.interpreter = self.interpreter.or(&defaults::interpreter());
         self.audio_backend = self.audio_backend.or(&defaults::audio_backend());
         self.stream_backend = self.stream_backend.or(&defaults::stream_backend());
         self.background = self.background.or(&defaults::background());
@@ -154,8 +154,8 @@ impl Config {
     }
 
     #[inline(always)]
-    pub fn math_interpreter(&self) -> Interpreter {
-        self.math_interpreter
+    pub fn interpreter(&self) -> Interpreter {
+        self.interpreter
     }
 
     #[inline(always)]
@@ -186,7 +186,7 @@ pub struct OptionalConfig {
     #[serde(default)]
     time_precision: TimePrecision,
     #[serde(default)]
-    math_interpreter: Interpreter,
+    interpreter: Interpreter,
     #[serde(default)]
     audio_backend: AudioBackend,
     #[serde(default)]
@@ -202,7 +202,7 @@ impl OptionalConfig {
         config.use_trigger = self.use_trigger.or(&base_config.use_trigger);
         config.time_precision = self.time_precision.or(&config.time_precision);
         config.log_format = self.log_format.or(&base_config.log_format);
-        config.math_interpreter = self.math_interpreter.or(&config.math_interpreter);
+        config.interpreter = self.interpreter.or(&config.interpreter);
         config.audio_backend = self.audio_backend.or(&config.audio_backend);
         config.stream_backend = self.stream_backend.or(&config.stream_backend);
         config.background = self.background.or(&config.background);

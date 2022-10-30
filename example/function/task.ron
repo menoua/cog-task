@@ -1,0 +1,180 @@
+//@ savage
+//@ python
+
+(
+    name: "Basic",
+    version: "0.1",
+    description: r#"This is a basic task demonstrating the use of "fasteval", "savage", and "python" interpreters."#,
+
+    config: (
+        blocks_per_row: 3,
+    ),
+
+    blocks: [
+        (
+            name: "fasteval",
+            config: (
+                interpreter: fasteval
+            ),
+            tree: seq(([
+                par(([
+                    instruction((
+                        header: "Factorials",
+                        text: "${n}-th factorial: ${x}",
+                        in_mapping: { 2: "n", 3: "x" }
+                    ))
+                ], [
+                    clock((
+                        step: 1,
+                        out_tic: 1,
+                    )),
+                    function((
+                        expr: "self + 1",
+                        vars: { "self": 0 },
+                        in_update: 1,
+                        out_result: 2,
+                        persistent: true,
+                    )),
+                    function((
+                        expr: "self * n",
+                        vars: { "self": 1, "n": 1 },
+                        in_mapping: { 2: "n" },
+                        out_result: 3,
+                        persistent: true,
+                    ))
+                ]))
+            ]))
+        ),
+
+        (
+            name: "Savage",
+            config: (
+                interpreter: savage
+            ),
+            tree: seq(([
+                par(([
+                    instruction((
+                        header: "Factorials",
+                        text: "${n}-th factorial: ${x}",
+                        in_mapping: { 2: "n", 3: "x" }
+                    ))
+                ], [
+                    clock((
+                        step: 1,
+                        out_tic: 1,
+                    )),
+                    function((
+                        expr: "self + 1",
+                        vars: { "self": 0 },
+                        in_update: 1,
+                        out_result: 2,
+                        persistent: true,
+                    )),
+                    function((
+                        expr: "factorial(n)",
+                        vars: { "n": 1 },
+                        in_mapping: { 2: "n" },
+                        out_result: 3,
+                        persistent: true,
+                    ))
+                ])),
+
+                par(([
+                    instruction((
+                        header: "Factorials",
+                        text: "${n}-th prime: ${x}",
+                        in_mapping: { 5: "n", 6: "x" }
+                    ))
+                ], [
+                    clock((
+                        step: 1,
+                        out_tic: 4,
+                    )),
+                    function((
+                        expr: "self + 1",
+                        vars: { "self": 0 },
+                        in_update: 4,
+                        out_result: 5,
+                        persistent: true,
+                    )),
+                    function((
+                        expr: "nth_prime(n)",
+                        vars: { "n": 1 },
+                        in_mapping: { 5: "n" },
+                        out_result: 6,
+                        persistent: true,
+                    ))
+                ]))
+            ]))
+        ),
+
+        (
+            name: "Python",
+            config: (
+                interpreter: python
+            ),
+            tree: seq(([
+                par(([
+                    instruction((
+                        header: "Factorials",
+                        text: "${n}-th factorial: ${x}",
+                        in_mapping: { 2: "n", 3: "x" }
+                    ))
+                ], [
+                    clock((
+                        step: 1,
+                        out_tic: 1,
+                    )),
+                    function((
+                        expr: "self + 1",
+                        vars: { "self": 0 },
+                        interpreter: fasteval,
+                        in_update: 1,
+                        out_result: 2,
+                        persistent: true,
+                    )),
+                    function((
+                        init_src: "factorials.py",
+                        expr: "next_factorial()",
+                        vars: { "self": 1 },
+                        in_update: 1,
+                        out_result: 3,
+                        persistent: true,
+                    ))
+                ])),
+
+                function((
+                    src: "primes.py"
+                )),
+                par(([
+                    instruction((
+                        header: "Primes",
+                        text: "${n}-th prime: ${x}",
+                        in_mapping: { 5: "n", 6: "x" }
+                    ))
+                ], [
+                    clock((
+                        step: 1,
+                        out_tic: 4,
+                    )),
+                    function((
+                        expr: "self + 1",
+                        vars: { "self": 0 },
+                        interpreter: fasteval,
+                        in_update: 4,
+                        out_result: 5,
+                        persistent: true,
+                    )),
+                    function((
+                        init_src: "primes.py",
+                        expr: "next_prime(self)",
+                        vars: { "self": 1 },
+                        in_update: 4,
+                        out_result: 6,
+                        persistent: true,
+                    ))
+                ]))
+            ]))
+        ),
+    ]
+)

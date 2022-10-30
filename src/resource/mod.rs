@@ -1,10 +1,10 @@
 pub mod address;
 pub mod audio;
 pub mod color;
+pub mod function;
 pub mod image;
 pub mod key;
 pub mod logger;
-pub mod math;
 pub mod stream;
 pub mod text;
 pub mod trigger;
@@ -14,9 +14,9 @@ pub use crate::resource::image::*;
 pub use address::*;
 pub use audio::*;
 pub use color::*;
+pub use function::*;
 pub use key::*;
 pub use logger::*;
-pub use math::*;
 pub use stream::*;
 pub use text::*;
 pub use trigger::Trigger;
@@ -141,21 +141,6 @@ impl ResourceManager {
         } else {
             Err(eyre!("Tried to fetch unexpected resource: {src:?}"))
         }
-    }
-
-    pub fn fetch_text(&self, text: &str) -> Result<String> {
-        let text: String = match text_or_file(text) {
-            Some(src) => {
-                let src = ResourceAddr::Text(src);
-                if let ResourceValue::Text(text) = self.fetch(&src)? {
-                    Ok((*text).clone())
-                } else {
-                    Err(eyre!("Tried to read non-text file as text: {src:?}"))
-                }
-            }
-            None => Ok(text.to_owned()),
-        }?;
-        Ok(text)
     }
 }
 

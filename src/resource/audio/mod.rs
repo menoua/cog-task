@@ -1,6 +1,3 @@
-#[cfg(all(feature = "audio", not(any(feature = "rodio"))))]
-compile_error!("Cannot enable feature \"audio\" without a backend (\"rodio\").");
-
 use crate::server::Config;
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};

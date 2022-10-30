@@ -27,7 +27,7 @@
                     event(("countdown")),
                 ])),
                 par(([
-                    audio((src: "../../full/data/sample-6s.wav")),
+                    audio((src: "../../audio_video/data/sample-6s.wav")),
                     instruction((
                         text: "Either wait until the end of the audio or press \"Next\".",
                     )),
@@ -41,9 +41,9 @@
                 )),
                 par(([
                     seq(([
-                        audio((src: "../../full/data/sample-6s.wav", volume: 1.0)),
-                        audio((src: "../../full/data/sample-6s.wav", volume: 0.25)),
-                        audio((src: "../../full/data/sample-6s.wav", volume: 2.0)),
+                        audio((src: "../../audio_video/data/sample-6s.wav", volume: 1.0)),
+                        audio((src: "../../audio_video/data/sample-6s.wav", volume: 0.25)),
+                        audio((src: "../../audio_video/data/sample-6s.wav", volume: 2.0)),
                     ]))
                 ], [
                     event(("three_audios")),
@@ -65,8 +65,8 @@
             ),
             tree: par(([
                 audio((
-                    src: "../../full/data/sample-6s+.wav",
-                    trigger: ext("../../full/data/sample-6s+.trig.wav"),
+                    src: "../../audio_video/data/sample-6s+.wav",
+                    trigger: ext("../../audio_video/data/sample-6s+.trig.wav"),
                 ))
             ], [
                 instruction((
@@ -83,7 +83,7 @@
                 log_format: ron,
             ),
             tree: par(([
-                audio((src: "../../full/data/sample-6s-with-silence1.wav", trigger: int))
+                audio((src: "../../audio_video/data/sample-6s-with-silence1.wav", trigger: int))
                 ], [
                 instruction((
                     text:  "You should be hearing audio from the right speaker only.",

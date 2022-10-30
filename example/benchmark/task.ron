@@ -18,8 +18,9 @@
                 ], [
                     timer((out_duration: 1))
                 ])),
-                math((
+                function((
                     expr: "round((x - 3) * 100000) / 100",
+                    vars: { "x": 0 },
                     in_mapping: { 1: "x" },
                     out_result: 2,
                 )),
@@ -89,8 +90,9 @@
                 ], [
                     timer((out_duration: 1))
                 ])),
-                math((
+                function((
                     expr: "round((x - 50) * 100000) / 100",
+                    vars: { "x": 0 },
                     in_mapping: { 1: "x" },
                     out_result: 2,
                 )),
@@ -318,8 +320,9 @@
                 ], [
                     timer((out_duration: 1))
                 ])),
-                math((
+                function((
                     expr: "round((x - 647.0205) * 100000) / 100",
+                    vars: { "x": 0 },
                     in_mapping: { 1: "x" },
                     out_result: 2,
                 )),
@@ -442,8 +445,9 @@
                 ], [
                     timer((out_duration: 1))
                 ])),
-                math((
+                function((
                     expr: "round((x - 639.1293) * 100000) / 100",
+                    vars: { "x": 0 },
                     in_mapping: { 1: "x" },
                     out_result: 2,
                 )),

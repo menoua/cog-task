@@ -295,11 +295,6 @@ impl SyncProcessor {
             self.sync_writer.push(SyncSignal::from(news));
         }
 
-        if tree.is_over()? {
-            self.server_writer.push(ServerSignal::BlockFinished);
-            self.ctx.request_repaint();
-        }
-
         Ok(())
     }
 }

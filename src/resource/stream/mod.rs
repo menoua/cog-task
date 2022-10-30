@@ -1,9 +1,3 @@
-#[cfg(all(
-    feature = "stream",
-    not(any(feature = "gstreamer", feature = "ffmpeg"))
-))]
-compile_error!("Cannot enable feature \"stream\" without a backend (\"gstreamer\" or \"ffmpeg\").");
-
 use crate::server::Config;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{TextureId, Vec2};

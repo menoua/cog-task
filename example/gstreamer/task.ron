@@ -15,20 +15,20 @@
         (
             name: "Cached Video",
             tree: seq(([
-                video((src: "../full/data/earth-4sec.mp4")),
-                video((src: "../full/data/earth-4sec.mp4", width: Some(200))),
-                video((src: "../full/data/earth-4sec.mp4", width: Some(300))),
-                video((src: "../full/data/earth-4sec.mp4", width: Some(600))),
-                timeout((15, video((src: "../full/data/giphy.gif", width: Some(600), looping: true)))),
+                video((src: "../audio_video/data/earth-4sec.mp4")),
+                video((src: "../audio_video/data/earth-4sec.mp4", width: Some(200))),
+                video((src: "../audio_video/data/earth-4sec.mp4", width: Some(300))),
+                video((src: "../audio_video/data/earth-4sec.mp4", width: Some(600))),
+                timeout((15, video((src: "../audio_video/data/giphy.gif", width: Some(600), looping: true)))),
             ]))
         ),
 
         (
             name: "Short Video",
             tree: seq(([
-                stream((src: "../full/data/earth-4sec.mp4", width: Some(200))),
-                stream((src: "../full/data/earth-4sec.mp4", width: Some(300))),
-                stream((src: "../full/data/earth-4sec.mp4", width: Some(600))),
+                stream((src: "../audio_video/data/earth-4sec.mp4", width: Some(200))),
+                stream((src: "../audio_video/data/earth-4sec.mp4", width: Some(300))),
+                stream((src: "../audio_video/data/earth-4sec.mp4", width: Some(600))),
             ]))
         ),
 
@@ -36,11 +36,11 @@
             name: "Medium Video",
             tree: seq(([
                 instruction((text: "This is a 2-minute video...")),
-                stream((src: "../full/data/video.webm", background: black)),
+                stream((src: "../audio_video/data/video.webm", background: black)),
                 instruction((
                     text: "This is the same video, but cached. Note that cached videos don't have sound.",
                 )),
-                video((src: "../full/data/video.mpg")),
+                video((src: "../audio_video/data/video.mpg")),
             ]))
         ),
 
@@ -51,10 +51,10 @@
                     text: "What comes next is a static video repeated #{0x01} times.\nQuickly press Escape twice to cancel the experiment block.",
                     params: {}
                 )),
-                stream((src: "../full/data/big_buck_bunny_720_stereo-720p.mp4", width: Some(1920))),
-                stream((src: "../full/data/big_buck_bunny_720_stereo-720p.mp4")),
-                stream((src: "../full/data/big_buck_bunny_720_stereo-720p.mp4")),
-                stream((src: "../full/data/big_buck_bunny_720_stereo-720p.mp4")),
+                stream((src: "../audio_video/data/big_buck_bunny_720_stereo-720p.mp4", width: Some(1920))),
+                stream((src: "../audio_video/data/big_buck_bunny_720_stereo-720p.mp4")),
+                stream((src: "../audio_video/data/big_buck_bunny_720_stereo-720p.mp4")),
+                stream((src: "../audio_video/data/big_buck_bunny_720_stereo-720p.mp4")),
             ]))
         ),
 
@@ -69,19 +69,19 @@
                 )),
                 stream((
                     src: "video.mono.mov",
-                    trigger: ext("../full/data/video.mono.trig.wav")
+                    trigger: ext("../audio_video/data/video.mono.trig.wav")
                 )),
                 stream((
                     src: "video.mono.mov",
-                    trigger: ext("../full/data/video.mono.trig.wav")
+                    trigger: ext("../audio_video/data/video.mono.trig.wav")
                 )),
                 stream((
                     src: "video.mono.mov",
-                    trigger: ext("../full/data/video.mono.trig.wav")
+                    trigger: ext("../audio_video/data/video.mono.trig.wav")
                 )),
                 stream((
                     src: "video.mono.mov",
-                    trigger: ext("../full/data/video.mono.trig.wav")
+                    trigger: ext("../audio_video/data/video.mono.trig.wav")
                 )),
             ]))
         ),
@@ -90,7 +90,7 @@
             name: "Looping Video",
             tree: timeout((
                 12.0,
-                video((src: "../full/data/earth-4sec.mp4", looping: true))
+                video((src: "../audio_video/data/earth-4sec.mp4", looping: true))
             ))
         ),
 
@@ -100,10 +100,10 @@
                 use_trigger: yes,
             ),
             tree: seq(([
-                stream((src: "../full/data/sample-6s.wav")),
-                stream((src: "../full/data/sample-6s.wav", volume: 0.75)),
-                stream((src: "../full/data/sample-6s.wav", volume: 0.5)),
-                stream((src: "../full/data/sample-6s.wav", volume: 0.25)),
+                stream((src: "../audio_video/data/sample-6s.wav")),
+                stream((src: "../audio_video/data/sample-6s.wav", volume: 0.75)),
+                stream((src: "../audio_video/data/sample-6s.wav", volume: 0.5)),
+                stream((src: "../audio_video/data/sample-6s.wav", volume: 0.25)),
             ]))
         ),
 
@@ -114,7 +114,7 @@
             ),
             tree: timeout((
                 15.0,
-                video((src: "../full/data/earth-4sec.mp4", looping: true)),
+                video((src: "../audio_video/data/earth-4sec.mp4", looping: true)),
             ))
         ),
 
@@ -123,8 +123,8 @@
             tree: timeout((
                 15.0,
                 par(([
-                    stream((src: "../full/data/sample-6s.wav", looping: true)),
-                    stream((src: "../full/data/earth-4sec.mp4", looping: true)),
+                    stream((src: "../audio_video/data/sample-6s.wav", looping: true)),
+                    stream((src: "../audio_video/data/earth-4sec.mp4", looping: true)),
                 ])),
             ))
         ),

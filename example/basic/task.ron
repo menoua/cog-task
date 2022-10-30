@@ -1,5 +1,3 @@
-//@ savage
-
 (
     name: "Basic",
     version: "0.1",
@@ -62,8 +60,9 @@
                     text: "Accuracy: ${acc}\nRecall: ${rec}\nMean RT: ${mean_rt_10}",
                     in_mapping: { 1: "acc", 2: "rec", 3: "mean_rt_10" }
                 )),
-                math((
+                function((
                     expr: "(x > 0.99) && (y > 0.99)",
+                    vars: { "x": 0, "y": 0 },
                     in_mapping: { 1: "x", 2: "y" },
                     out_result: 4,
                     name: "condition",
@@ -97,7 +96,7 @@
         (
             name: "Stylized text",
             tree: seq(([
-                instruction((text: "!![instruction-1.txt]", header: "From file")),
+                instruction((src: "instruction-1.txt", header: "From file")),
                 timeout((
                     1.5,
                     instruction((
@@ -140,20 +139,23 @@
                     step: 0.5,
                     out_tic: 1,
                 )),
-                math((
+                function((
                     expr: "self + 1",
+                    vars: { "self": 0 },
                     in_update: 1,
                     out_result: 2,
                     persistent: true,
                 )),
-                math((
+                function((
                     expr: "n ^ 2",
+                    vars: { "n": 0 },
                     in_mapping: { 2: "n" },
                     out_result: 3,
                     persistent: true,
                 )),
-                math((
+                function((
                     expr: "n ^ 3",
+                    vars: { "n": 0 },
                     in_mapping: { 2: "n" },
                     out_result: 4,
                     persistent: true,
@@ -184,17 +186,17 @@
                     in_many: [1, 2, 3],
                     out_one: 4,
                 )),
-                math((
+                function((
                     expr: "(self + 1) % 4",
-                    interpreter: fasteval,
+                    vars: { "self": 0 },
                     in_update: 4,
                     out_result: 5,
                     persistent: true,
                 )),
                 clock((step: 0.25, out_tic: 6)),
-                math((
+                function((
                     expr: "(self + 1) % 4",
-                    interpreter: savage,
+                    vars: { "self": 0 },
                     in_update: 6,
                     out_result: 7,
                     persistent: true,

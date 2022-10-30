@@ -1,5 +1,5 @@
 use crate::action::{Action, Props, StatefulAction, VISUAL};
-use crate::comm::{QWriter, Signal};
+use crate::comm::QWriter;
 use crate::gui::{
     center_x, header_body_controls, style_ui, text::body, text::button1, text::inactive, Style,
     TEXT_SIZE_BODY,

@@ -102,7 +102,7 @@
         (
             name: "Stylized text",
             tree: seq(([
-                instruction((text: "!![instruction-1.txt]", header: "From file")),
+                instruction((src: "instruction-1.txt", header: "From file")),
                 timeout((
                     1.5,
                     instruction((

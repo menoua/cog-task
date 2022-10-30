@@ -50,6 +50,7 @@ paste = "1.0"
 rustybuzz = "0.5, <0.5.3" # 0.5.3 leads to compilation error in usvg
 fasteval = "0.2.4"
 savage_core = { version = "0.2.0", optional = true }
+cpython = { version = "0.7.1", optional = true, features = ["serde-convert", "default", "python3-sys"] }
 cfg-if = "1.0.0"
 
 [build-dependencies]
@@ -63,6 +64,7 @@ rodio = ["dep:rodio", "audio"]
 gstreamer = ["dep:gstreamer", "dep:gstreamer-app", "dep:glib", "stream"]
 ffmpeg = ["dep:ffmpeg-next", "stream"]
 savage = ["dep:savage_core"]
+python = ["dep:cpython"]
 audio = []
 stream = []
 

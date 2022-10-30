@@ -1,4 +1,4 @@
-use crate::action::{Action, Props, StatefulAction, DEFAULT};
+use crate::action::{Action, StatefulAction};
 use crate::comm::{QWriter, Signal};
 use crate::resource::{IoManager, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
@@ -38,6 +38,17 @@ impl Default for Nil {
 
 impl StatefulAction for StatefulNil {
     impl_stateful!();
+
+    fn start(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        _async_writer: &mut QWriter<AsyncSignal>,
+        _state: &State,
+    ) -> Result<Signal> {
+        self.done = true;
+        sync_writer.push(SyncSignal::UpdateGraph);
+        Ok(Signal::none())
+    }
 }
 
 impl StatefulNil {

@@ -1,5 +1,5 @@
 use crate::action::{Action, Props, StatefulAction, INFINITE, VISUAL};
-use crate::comm::{QWriter, Signal};
+use crate::comm::QWriter;
 use crate::resource::{Color, IoManager, ResourceAddr, ResourceManager, ResourceValue};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
