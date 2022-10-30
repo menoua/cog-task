@@ -50,8 +50,7 @@
             name: "Long Video",
             tree: seq(([
                 instruction((
-                    text: "What comes next is a static video repeated #{0x01} times.\nQuickly press Escape twice to cancel the experiment block.",
-                    params: {}
+                    text: "What comes next is a static video repeated 4 times.\nQuickly press Escape twice to cancel the experiment block.",
                 )),
                 stream((src: "../audio_video/data/big_buck_bunny_720_stereo-720p.mp4", width: Some(1920))),
                 stream((src: "../audio_video/data/big_buck_bunny_720_stereo-720p.mp4")),
@@ -70,19 +69,19 @@
                     text: "What comes next is a static video repeated 4 times.\nQuickly press Escape twice to cancel the experiment block.",
                 )),
                 stream((
-                    src: "video.mono.mov",
+                    src: "../audio_video/data/video.mono.mov",
                     trigger: ext("../audio_video/data/video.mono.trig.wav")
                 )),
                 stream((
-                    src: "video.mono.mov",
+                    src: "../audio_video/data/video.mono.mov",
                     trigger: ext("../audio_video/data/video.mono.trig.wav")
                 )),
                 stream((
-                    src: "video.mono.mov",
+                    src: "../audio_video/data/video.mono.mov",
                     trigger: ext("../audio_video/data/video.mono.trig.wav")
                 )),
                 stream((
-                    src: "video.mono.mov",
+                    src: "../audio_video/data/video.mono.mov",
                     trigger: ext("../audio_video/data/video.mono.trig.wav")
                 )),
             ]))
