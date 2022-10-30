@@ -1,7 +1,8 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{
-    Evaluator, Interpreter, IoManager, LoggerSignal, ResourceAddr, ResourceManager, ResourceValue,
+    Evaluator, Interpreter, IoManager, LoggerSignal, OptionalPath, OptionalString, ResourceAddr,
+    ResourceManager, ResourceValue,
 };
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eyre::{eyre, Context, Error, Result};
@@ -9,7 +10,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -17,13 +17,13 @@ pub struct Function {
     #[serde(default)]
     name: String,
     #[serde(default)]
-    expr: String,
+    expr: OptionalString,
     #[serde(default)]
-    src: PathBuf,
+    src: OptionalPath,
     #[serde(default)]
-    init_expr: String,
+    init_expr: OptionalString,
     #[serde(default)]
-    init_src: PathBuf,
+    init_src: OptionalPath,
     #[serde(default)]
     vars: BTreeMap<String, Value>,
     #[serde(default)]
@@ -70,17 +70,13 @@ impl Action for Function {
     where
         Self: 'static + Sized,
     {
-        let has_expr = !self.expr.is_empty();
-        let has_src = !self.src.as_os_str().is_empty();
-        match (has_expr, has_src) {
+        match (self.expr.is_some(), self.src.is_some()) {
             (false, false) => Err(eyre!("`expr` and `src` cannot both be empty."))?,
             (true, true) => Err(eyre!("Only one of `expr` and `src` should be set."))?,
             _ => {}
         };
 
-        let has_init_expr = !self.init_expr.is_empty();
-        let has_init_src = !self.init_src.as_os_str().is_empty();
-        if has_init_expr && has_init_src {
+        if self.init_expr.is_some() && self.init_src.is_some() {
             return Err(eyre!(
                 "Only one of `init_expr` and `init_src` should be set."
             ));
@@ -124,11 +120,11 @@ impl Action for Function {
 
     fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
         let mut resources = vec![];
-        if !self.src.as_os_str().is_empty() {
-            resources.push(ResourceAddr::Text(self.src.clone()));
+        if let OptionalPath::Some(src) = &self.src {
+            resources.push(ResourceAddr::Text(src.clone()));
         }
-        if !self.init_src.as_os_str().is_empty() {
-            resources.push(ResourceAddr::Text(self.init_src.clone()));
+        if let OptionalPath::Some(src) = &self.init_src {
+            resources.push(ResourceAddr::Text(src.clone()));
         }
         resources
     }
@@ -143,24 +139,28 @@ impl Action for Function {
     ) -> Result<Box<dyn StatefulAction>> {
         let interpreter = self.interpreter.or(&config.interpreter());
 
-        let init = if !self.init_src.as_os_str().is_empty() {
-            match res.fetch(&ResourceAddr::Text(self.init_src.clone()))? {
+        let init = if let OptionalPath::Some(src) = &self.init_src {
+            match res.fetch(&ResourceAddr::Text(src.clone()))? {
                 ResourceValue::Text(expr) => (*expr).clone(),
                 _ => return Err(eyre!("Resource address and value types don't match.")),
             }
+        } else if let OptionalString::Some(expr) = &self.init_expr {
+            expr.clone()
         } else {
-            self.init_expr.clone()
+            "".to_owned()
         }
         .trim()
         .to_owned();
 
-        let expr = if !self.src.as_os_str().is_empty() {
-            match res.fetch(&ResourceAddr::Text(self.src.clone()))? {
+        let expr = if let OptionalPath::Some(src) = &self.src {
+            match res.fetch(&ResourceAddr::Text(src.clone()))? {
                 ResourceValue::Text(expr) => (*expr).clone(),
                 _ => return Err(eyre!("Resource address and value types don't match.")),
             }
+        } else if let OptionalString::Some(expr) = &self.expr {
+            expr.clone()
         } else {
-            self.expr.clone()
+            "".to_owned()
         }
         .trim()
         .to_owned();

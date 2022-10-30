@@ -1,7 +1,10 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal, SignalId};
 use crate::gui::{center_x, header_body_controls, style_ui, text::button1, Style};
-use crate::resource::{parse_text, IoManager, ResourceAddr, ResourceManager, ResourceValue};
+use crate::resource::{
+    parse_text, IoManager, OptionalPath, OptionalString, ResourceAddr, ResourceManager,
+    ResourceValue,
+};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::f64_with_precision;
 use eframe::egui;
@@ -12,15 +15,14 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::PathBuf;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Instruction {
     #[serde(default)]
-    text: String,
+    text: OptionalString,
     #[serde(default)]
-    src: PathBuf,
+    src: OptionalPath,
     #[serde(default)]
     header: String,
     #[serde(default)]
@@ -52,10 +54,7 @@ impl Action for Instruction {
     where
         Self: 'static + Sized,
     {
-        let has_text = !self.text.is_empty();
-        let has_src = !self.src.as_os_str().is_empty();
-
-        match (has_text, has_src) {
+        match (self.text.is_some(), self.src.is_some()) {
             (false, false) => Err(eyre!("`text` and `src` cannot both be empty.")),
             (true, true) => Err(eyre!("Only one of `text` and `src` should be set.")),
             _ => Ok(Box::new(self)),
@@ -69,8 +68,8 @@ impl Action for Instruction {
 
     #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
-        if !self.src.as_os_str().is_empty() {
-            vec![ResourceAddr::Text(self.src.clone())]
+        if let OptionalPath::Some(src) = &self.src {
+            vec![ResourceAddr::Text(src.clone())]
         } else {
             vec![]
         }
@@ -84,13 +83,15 @@ impl Action for Instruction {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        let text = if !self.src.as_os_str().is_empty() {
-            match res.fetch(&ResourceAddr::Text(self.src.clone()))? {
+        let text = if let OptionalPath::Some(src) = &self.src {
+            match res.fetch(&ResourceAddr::Text(src.clone()))? {
                 ResourceValue::Text(text) => (*text).clone(),
                 _ => return Err(eyre!("Resource address and value types don't match.")),
             }
+        } else if let OptionalString::Some(text) = &self.text {
+            text.clone()
         } else {
-            self.text.clone()
+            "".to_owned()
         };
 
         let mut params = self.params.clone();
