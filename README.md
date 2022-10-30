@@ -100,13 +100,13 @@ Examples:
 
 ### //@ python
 
-Enabling the **python** feature can be tricky. You need a working installation of python3. But you might also need to set up the PYTHONHOME environment variable (only do if compilation fails at first). The variable needs to be set to the location of the desired python environment. For example, for a conda environment, you might want to set:
+Enabling the **python** feature can be tricky. You need a working installation of python3, which generally comes preinstalled with recent versions of both macOS and Linux. If you do have python installed but compilation fails anyway, you might also need to set up the PYTHONHOME environment variable (especially if you have multiple installations of python on your system). The variable needs to be set to the location of the desired python environment. For example, for a conda environment, you might want to set:
 
 ```bash
 export PYTHONHOME=$HOME/opt/anaconda3/
 ```
 
-Before running `cargo install ...`. It might need some trial and error to get it going.
+This should be set before running `cargo install ...`. It might need some trial and error to get it going.
 
 ## Usage
 
