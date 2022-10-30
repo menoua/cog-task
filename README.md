@@ -41,8 +41,7 @@ curl https://sh.rustup.rs -sSf | sh
 Build binaries (choose one):
 - Stable binaries from [crates.io](https://crates.io/crates/cog-task):<br>
   ```bash
-  # Replace `X` with the latest version on https://crates.io/crates/cog-task/versions
-  cargo install cog-task@1.0.0-beta.X [--features=...]
+  cargo install cog-task [--features=...]
   ```
 - Nightly binaries from [github](https://github.com/menoua/cog-task) (*preferred*):<br>
   ```bash
@@ -65,7 +64,7 @@ Currently, there are 5 distinct features that can be enabled:
 Examples:
 - Stable binaries with all features:<br>
   ```bash
-  cargo install cog-task@1.0.0-beta --all-features
+  cargo install cog-task --all-features
   ```
 - Nightly binaries with **rodio** and **gstreamer** support:<br>
   ```bash
