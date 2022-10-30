@@ -126,3 +126,9 @@ Alternatively, you can run:
 cog-launcher
 ```
 Then use the leftmost control icon to load the [*example/basic/*](https://github.com/menoua/cog-task/tree/master/example/basic/) directory. Or, you can use the second button to open the parent [*example/*](https://github.com/menoua/cog-task/tree/master/example/) directory which contains all the example tasks within. The former, directly runs `cog-server` on the chosen task. The latter, displays a list of all tasks located in the chosen directory, which can be started by clicking the corresponding button.
+
+## Changelog
+
+**v1.0.1**:
+- `Clock` now sends incrementing tic number instead of a null in its output signal.
+- `Clock` has `on_start` attribute that determines whether a "zero" signal will be emitted at start of action.
