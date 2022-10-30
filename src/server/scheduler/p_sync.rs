@@ -200,8 +200,10 @@ impl SyncProcessor {
 
                             let mut changed = BTreeSet::new();
                             for (k, v) in signal.into_iter() {
-                                state.insert(k, v);
-                                changed.insert(k);
+                                if k > 0 {
+                                    state.insert(k, v);
+                                    changed.insert(k);
+                                }
                             }
 
                             tree.update(
