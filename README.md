@@ -18,7 +18,7 @@ A general-purpose low-latency tool for designing cognitive tasks.
 
 This tool provides an easy way to write and execute different types of interactive actions that are usually useful in experiments involving cognitive sciences. E.g., display an image/video, play sounds, show text, measure reactions to events (through key presses or clicks), measure action completion times, ask questions, etc.
 
-This application is written in [Rust](https://www.rust-lang.org/) using the [egui](https://github.com/emilk/egui) graphical framework. To generate a task, a description file in the rust object notation (RON) format should be created by the experiment designer. The task file consists of three main fields: name, configuration, and blocks (self-contained pieces of the experiment that should be run in one sitting). Each block in itself consists of three main fields: name, configuration (overriding the task configuration), and actions. The actions are specified in the form of a tree (graph) with nodes of type `Action`.
+This application is written in [Rust](https://www.rust-lang.org/) using the [egui](https://github.com/emilk/egui) graphical framework. To generate a task, a description file in the rust object notation ([RON](https://github.com/ron-rs/ron); see "Tooling" section of its README for syntax highlighting) format should be created by the experiment designer. The task file consists of three main fields: name, configuration, and blocks (self-contained pieces of the experiment that should be run in one sitting). Each block in itself consists of three main fields: name, configuration (overriding the task configuration), and actions. The actions are specified in the form of a tree (graph) with nodes of type `Action`.
 
 `Action`s are the fundamental building blocks of experiment design. There are many [types](https://github.com/menoua/cog-task/tree/master/src/action/core) of actions:
 * Some actions are containers, i.e., they contain other actions within. Container actions are how the tree is constructed. For example, the action `Seq` is a sequence container which stores a list of sub-actions that will be run in sequence, one after the other. Another example is the `Par` action which is a parallel container, storing a list of sub-actions that will start at the same time (but might end at different times).
@@ -106,7 +106,7 @@ Enabling the **python** feature can be tricky. You need a working installation o
 export PYTHONHOME=$HOME/opt/anaconda3/
 ```
 
-This should be set before running `cargo install ...`. It might need some trial and error to get it going.
+This should be set before running `cog-launcher` or `cog-server` in the same shell environment. It might need some trial and error to get it going.
 
 ## Usage
 
