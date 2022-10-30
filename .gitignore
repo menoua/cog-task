@@ -4,6 +4,7 @@
 /cog-launcher
 /cog-server
 /bin
+/LOGO*.svg
 Cargo.lock
 .DS_Store
 .idea
