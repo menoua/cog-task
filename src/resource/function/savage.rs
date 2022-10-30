@@ -13,7 +13,7 @@ impl Evaluator {
     pub fn new(_init: &str, expr: &str, _vars: &mut VarMap) -> Result<Self> {
         let expression = expr
             .parse::<Expression>()
-            .map_err(|e| eyre!("Failed to parse `savage` expression ({e:?})."))?;
+            .map_err(|e| eyre!("Failed to parse `savage` expression ({e:#?})."))?;
 
         let index = unsafe {
             if SAVAGE_EXPR.is_none() {
@@ -65,7 +65,7 @@ impl Evaluator {
 
         let result = expression
             .evaluate(hash_vars)
-            .map_err(|e| eyre!("Failed to evaluate mathematical expression ({e:?})."))?;
+            .map_err(|e| eyre!("Failed to evaluate mathematical expression ({e:#?})."))?;
 
         match result {
             Expression::Integer(x) => {

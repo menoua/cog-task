@@ -129,43 +129,37 @@
                 instruction((
                     text: "n=${num}\tn^2=${sqr}\tn^3=${cub}",
                     in_mapping: {
-                        2: "num",
-                        3: "sqr",
-                        4: "cub",
+                        1: "num",
+                        2: "sqr",
+                        3: "cub",
                     },
                 ))
             ], [
                 clock((
                     step: 0.5,
+                    on_start: true,
                     out_tic: 1,
-                )),
-                function((
-                    expr: "self + 1",
-                    vars: { "self": 0 },
-                    in_update: 1,
-                    out_result: 2,
-                    persistent: true,
                 )),
                 function((
                     expr: "n ^ 2",
                     vars: { "n": 0 },
-                    in_mapping: { 2: "n" },
-                    out_result: 3,
+                    in_mapping: { 1: "n" },
+                    out_result: 2,
                     persistent: true,
                 )),
                 function((
                     expr: "n ^ 3",
                     vars: { "n": 0 },
-                    in_mapping: { 2: "n" },
-                    out_result: 4,
+                    in_mapping: { 1: "n" },
+                    out_result: 3,
                     persistent: true,
                 )),
                 logger((
                     group: "numbers",
                     in_mapping: {
-                        2: "integer",
-                        3: "square",
-                        4: "cube",
+                        1: "integer",
+                        2: "square",
+                        3: "cube",
                     }
                 ))
             ]))

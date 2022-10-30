@@ -16,6 +16,10 @@ const MIN_STEP_DELAY: f32 = 0.010;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Clock {
     step: f32,
+    #[serde(default)]
+    from: i64,
+    #[serde(default)]
+    on_start: bool,
     out_tic: SignalId,
 }
 
@@ -56,7 +60,9 @@ impl Action for Clock {
 
         {
             let step = Duration::from_secs_f32(self.step);
+            let on_start = self.on_start;
             let out_tic = self.out_tic;
+            let mut tics = self.from as i128;
             let mut sync_writer = sync_writer.clone();
 
             thread::spawn(move || {
@@ -66,11 +72,19 @@ impl Action for Clock {
                     return;
                 }
 
+                if on_start {
+                    sync_writer.push(SyncSignal::Emit(
+                        Instant::now(),
+                        vec![(out_tic, Value::Integer(tics))].into(),
+                    ));
+                }
+
                 while let Err(TryRecvError::Empty) | Ok(()) = rx.try_recv() {
+                    tics += 1;
                     sleeper.sleep(step);
                     sync_writer.push(SyncSignal::Emit(
                         Instant::now(),
-                        vec![(out_tic, Value::Null)].into(),
+                        vec![(out_tic, Value::Integer(tics))].into(),
                     ));
                 }
             });

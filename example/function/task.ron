@@ -21,25 +21,20 @@
                     instruction((
                         header: "Factorials",
                         text: "${n}-th factorial: ${x}",
-                        in_mapping: { 2: "n", 3: "x" }
+                        in_mapping: { 1: "n", 2: "x" }
                     ))
                 ], [
                     clock((
                         step: 1,
+                        from: 1,
+                        on_start: true,
                         out_tic: 1,
-                    )),
-                    function((
-                        expr: "self + 1",
-                        vars: { "self": 0 },
-                        in_update: 1,
-                        out_result: 2,
-                        persistent: true,
                     )),
                     function((
                         expr: "self * n",
                         vars: { "self": 1, "n": 1 },
-                        in_mapping: { 2: "n" },
-                        out_result: 3,
+                        in_mapping: { 1: "n" },
+                        out_result: 2,
                         persistent: true,
                     ))
                 ]))
@@ -56,25 +51,20 @@
                     instruction((
                         header: "Factorials",
                         text: "${n}-th factorial: ${x}",
-                        in_mapping: { 2: "n", 3: "x" }
+                        in_mapping: { 1: "n", 2: "x" }
                     ))
                 ], [
                     clock((
                         step: 1,
+                        from: 1,
+                        on_start: true,
                         out_tic: 1,
-                    )),
-                    function((
-                        expr: "self + 1",
-                        vars: { "self": 0 },
-                        in_update: 1,
-                        out_result: 2,
-                        persistent: true,
                     )),
                     function((
                         expr: "factorial(n)",
                         vars: { "n": 1 },
-                        in_mapping: { 2: "n" },
-                        out_result: 3,
+                        in_mapping: { 1: "n" },
+                        out_result: 2,
                         persistent: true,
                     ))
                 ])),
@@ -83,25 +73,20 @@
                     instruction((
                         header: "Factorials",
                         text: "${n}-th prime: ${x}",
-                        in_mapping: { 5: "n", 6: "x" }
+                        in_mapping: { 3: "n", 4: "x" }
                     ))
                 ], [
                     clock((
                         step: 1,
-                        out_tic: 4,
-                    )),
-                    function((
-                        expr: "self + 1",
-                        vars: { "self": 0 },
-                        in_update: 4,
-                        out_result: 5,
-                        persistent: true,
+                        from: 1,
+                        on_start: true,
+                        out_tic: 3,
                     )),
                     function((
                         expr: "nth_prime(n)",
                         vars: { "n": 1 },
-                        in_mapping: { 5: "n" },
-                        out_result: 6,
+                        in_mapping: { 3: "n" },
+                        out_result: 4,
                         persistent: true,
                     ))
                 ]))
@@ -147,27 +132,21 @@
                     instruction((
                         header: "Primes",
                         text: "${n}-th prime: ${x}",
-                        in_mapping: { 5: "n", 6: "x" }
+                        params: { "n": "1" },
+                        in_mapping: { 4: "n", 5: "x" }
                     ))
                 ], [
                     clock((
                         step: 1,
+                        from: 1,
                         out_tic: 4,
-                    )),
-                    function((
-                        expr: "self + 1",
-                        vars: { "self": 0 },
-                        interpreter: fasteval,
-                        in_update: 4,
-                        out_result: 5,
-                        persistent: true,
                     )),
                     function((
                         init_src: "primes_init.py",
                         src: "primes_eval.py",
                         vars: { "self": 1 },
                         in_update: 4,
-                        out_result: 6,
+                        out_result: 5,
                         persistent: true,
                     ))
                 ]))
