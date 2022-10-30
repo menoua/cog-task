@@ -38,7 +38,7 @@ pub struct Launcher {
 
 impl Default for Launcher {
     fn default() -> Self {
-        let root_dir = current_exe()
+        let root_dir = current_dir()
             .expect("Unable to get current directory.")
             .parent()
             .unwrap()
@@ -98,7 +98,7 @@ impl Launcher {
     pub fn window_size(&self) -> Vec2 {
         let count = self.task_paths.len() as u32;
         let width = 580;
-        let height = (200 + count * 75).max(280).min(700);
+        let height = (180 + count * 75).max(260).min(700);
         Vec2::from([width as f32, height as f32])
     }
 
@@ -266,6 +266,7 @@ impl Launcher {
                     .size(Size::exact(4.0))
                     .size(Size::exact(20.0))
                     .size(Size::remainder())
+                    .size(Size::exact(20.0))
                     .vertical(|mut strip| {
                         strip.empty();
 
@@ -312,6 +313,8 @@ impl Launcher {
                         strip.empty();
 
                         strip.cell(|ui| self.show_tasks(ui));
+
+                        strip.empty();
                     });
             });
         });
@@ -368,7 +371,7 @@ impl Launcher {
             Interaction::None => {}
             Interaction::LoadTask => {
                 let path = FileDialog::new()
-                    .set_location(current_dir().unwrap().to_str().unwrap())
+                    .set_location(&self.root_dir)
                     .show_open_single_dir();
 
                 match path {
@@ -383,7 +386,7 @@ impl Launcher {
             }
             Interaction::LoadTaskRepo => {
                 let path = FileDialog::new()
-                    .set_location(current_dir().unwrap().to_str().unwrap())
+                    .set_location(&self.root_dir)
                     .show_open_single_dir();
 
                 match path {
@@ -424,10 +427,8 @@ impl Launcher {
             .collect();
 
         if task_buttons.is_empty() {
-            ui.horizontal_centered(|ui| {
-                ui.vertical_centered(|ui| {
-                    ui.label("(No tasks found in task directory)");
-                });
+            ui.centered_and_justified(|ui| {
+                ui.label("(No tasks found in task directory)");
             });
         } else {
             egui::ScrollArea::vertical().show(ui, |ui| {
