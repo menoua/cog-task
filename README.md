@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="LOGO.svg" height="128px"  alt="rusty brain logo"/>
+<img src="LOGO.png" height="128px"  alt="rusty brain logo"/>
 
 # CogTask
 
