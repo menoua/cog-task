@@ -80,12 +80,11 @@ impl Action for Function {
 
         let has_init_expr = !self.init_expr.is_empty();
         let has_init_src = !self.init_src.as_os_str().is_empty();
-        match (has_init_expr, has_init_src) {
-            (true, true) => Err(eyre!(
+        if has_init_expr && has_init_src {
+            return Err(eyre!(
                 "Only one of `init_expr` and `init_src` should be set."
-            ))?,
-            _ => {}
-        };
+            ));
+        }
 
         let re = Regex::new(r"^[[:alpha:]][[:word:]]*$").unwrap();
         for (_, var) in self.in_mapping.iter() {

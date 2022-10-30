@@ -26,7 +26,7 @@ use crate::assets::{IMAGE_FIXATION, IMAGE_RUSTACEAN};
 use crate::server::{Config, Env};
 use eframe::egui::mutex::RwLock;
 use eframe::epaint;
-use eyre::{eyre, Result};
+use eyre::{eyre, Context, Result};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::sync::{Arc, Mutex};
@@ -63,9 +63,7 @@ impl ResourceManager {
         map.entry(src.clone()).or_insert({
             let tex_manager = tex_manager.clone();
             let (texture, size) = svg_from_bytes(tex_manager, IMAGE_FIXATION, src.path())?;
-            let data = ResourceValue::Image(texture, size);
-            println!("+ default fixation : {data:?}");
-            data
+            ResourceValue::Image(texture, size)
         });
         let mut default_fixation = true;
 
@@ -74,9 +72,7 @@ impl ResourceManager {
         map.entry(src.clone()).or_insert({
             let tex_manager = tex_manager.clone();
             let (texture, size) = svg_from_bytes(tex_manager, IMAGE_RUSTACEAN, src.path())?;
-            let data = ResourceValue::Image(texture, size);
-            println!("+ default rustacean : {data:?}");
-            data
+            ResourceValue::Image(texture, size)
         });
         let mut default_rustacean = true;
 
@@ -103,28 +99,41 @@ impl ResourceManager {
                 let data = match src.prefix(env.resource()) {
                     ResourceAddr::Ref(path) => ResourceValue::Ref(path),
                     ResourceAddr::Text(path) => {
-                        let text = std::fs::read_to_string(path)?;
+                        let text = std::fs::read_to_string(&path)
+                            .wrap_err_with(|| eyre!("Failed to load text resource ({path:?})"))?;
                         ResourceValue::Text(Arc::new(text))
                     }
                     ResourceAddr::Image(path) => {
                         let tex_manager = tex_manager.clone();
                         let (texture, size) = match src.extension().as_deref() {
-                            Some("svg") => svg_from_file(tex_manager, &path)?,
-                            _ => image_from_file(tex_manager, &path)?,
+                            Some("svg") => {
+                                svg_from_file(tex_manager, &path).wrap_err_with(|| {
+                                    eyre!("Failed to load SVG resource ({path:?})")
+                                })?
+                            }
+                            _ => image_from_file(tex_manager, &path).wrap_err_with(|| {
+                                eyre!("Failed to load image resource ({path:?})")
+                            })?,
                         };
                         ResourceValue::Image(texture, size)
                     }
-                    ResourceAddr::Audio(path) => {
-                        ResourceValue::Audio(audio_from_file(&path, config)?)
-                    }
+                    ResourceAddr::Audio(path) => ResourceValue::Audio(
+                        audio_from_file(&path, config)
+                            .wrap_err_with(|| eyre!("Failed to load audio resource ({path:?})"))?,
+                    ),
                     ResourceAddr::Video(path) => {
                         let tex_manager = tex_manager.clone();
-                        let (frames, framerate) = video_from_file(tex_manager, &path, config)?;
+                        let (frames, framerate) = video_from_file(tex_manager, &path, config)
+                            .wrap_err_with(|| eyre!("Failed to load video resource ({path:?})"))?;
                         ResourceValue::Video(frames, framerate)
                     }
                     ResourceAddr::Stream(path) => {
                         let tex_manager = tex_manager.clone();
-                        ResourceValue::Stream(stream_from_file(tex_manager, &path, config)?)
+                        ResourceValue::Stream(
+                            stream_from_file(tex_manager, &path, config).wrap_err_with(|| {
+                                eyre!("Failed to load stream resource ({path:?})")
+                            })?,
+                        )
                     }
                 };
                 println!("+ {src:?} : {data:?}");

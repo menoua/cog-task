@@ -11,5 +11,3 @@ def next_prime(i):
         i += 1
 
     return i
-
-None

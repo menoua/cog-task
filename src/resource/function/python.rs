@@ -14,7 +14,8 @@ pub enum PyValue {
 }
 
 pub struct Evaluator {
-    expr: String,
+    run: String,
+    eval: String,
     vars: PyDict,
 }
 
@@ -38,12 +39,17 @@ impl Evaluator {
         }
 
         if !init.is_empty() {
-            py.run(&init, None, Some(&dict))
+            py.run(init, None, Some(&dict))
                 .map_err(|e| eyre!("Failed to run python code:\n{e:#?}"))?;
         }
 
+        let lines: Vec<_> = expr.trim().lines().collect();
+        let run = lines[0..lines.len() - 1].join("\n");
+        let eval = lines[lines.len() - 1].to_owned();
+
         Ok(Self {
-            expr: expr.to_owned(),
+            run,
+            eval,
             vars: dict,
         })
     }
@@ -65,17 +71,13 @@ impl Evaluator {
             .map_err(|e| eyre!("Failed to set variable ({name:?}) in python dict:\n{e:#?}"))?;
         }
 
-        let lines: Vec<_> = self.expr.trim().lines().collect();
-        let run = lines[0..lines.len() - 1].join("\n");
-        let eval = lines[lines.len() - 1];
-
-        if !run.is_empty() {
-            py.run(&run, None, Some(&self.vars))
+        if !self.run.is_empty() {
+            py.run(&self.run, None, Some(&self.vars))
                 .map_err(|e| eyre!("Failed to run python code:\n{e:#?}"))?;
         }
 
         let result: Value = py
-            .eval(eval, None, Some(&self.vars))
+            .eval(&self.eval, None, Some(&self.vars))
             .map_err(|e| eyre!("Failed to evaluate python expression:\n{e:#?}"))?
             .extract::<PyValue>(py)
             .map_err(|e| eyre!("Failed to extract python result:\n{e:#?}"))?

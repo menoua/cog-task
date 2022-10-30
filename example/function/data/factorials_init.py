@@ -6,5 +6,3 @@ def next_factorial():
     i += 1
     factorial *= i
     return factorial
-
-None

@@ -134,7 +134,7 @@
                         persistent: true,
                     )),
                     function((
-                        init_src: "factorials.py",
+                        init_src: "factorials_init.py",
                         expr: "next_factorial()",
                         vars: { "self": 1 },
                         in_update: 1,
@@ -143,9 +143,6 @@
                     ))
                 ])),
 
-                function((
-                    src: "primes.py"
-                )),
                 par(([
                     instruction((
                         header: "Primes",
@@ -166,8 +163,8 @@
                         persistent: true,
                     )),
                     function((
-                        init_src: "primes.py",
-                        expr: "next_prime(self)",
+                        init_src: "primes_init.py",
+                        src: "primes_eval.py",
                         vars: { "self": 1 },
                         in_update: 4,
                         out_result: 6,
