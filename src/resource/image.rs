@@ -57,7 +57,7 @@ pub fn svg_from_bytes(
 
     let rtree = usvg::Tree::from_data(bytes, &opt.to_ref())
         .wrap_err_with(|| format!("Failed to decode SVG: {path:?}"))?;
-    let orig_size = rtree.size;
+    let orig_size = rtree.svg_node().size;
 
     let [width, height] = [1920, 1080];
     let scale = (width as f64 / orig_size.width()).min(height as f64 / orig_size.height());
