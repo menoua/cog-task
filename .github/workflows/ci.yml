@@ -121,10 +121,10 @@ jobs:
           COG_TASK_TMP=$(mktemp /tmp/cog_taskXXX.txt) || echo "::error::mktemp error"
           echo "COG_TASK_TMP=$COG_TASK_TMP" >> $GITHUB_ENV
           cargo publish --token $CRATESIO_TOKEN 2> $COG_TASK_TMP
-      - name: Check if crate is already published
-        run: |
-          empty=0
-          COG_TASK_TMP="${{ env.COG_TASK_TMP }}"
-          grep -q '[^[:space:]]' < $COG_TASK_TMP || empty=1
-          [ $empty -eq 0 ] && cat $COG_TASK_TMP
-          [ $empty -eq 1 ] || grep -q "is already uploaded" < $COG_TASK_TMP
+      # - name: Check if crate is already published
+      #   run: |
+      #     empty=0
+      #     COG_TASK_TMP="${{ env.COG_TASK_TMP }}"
+      #     grep -q '[^[:space:]]' < $COG_TASK_TMP || empty=1
+      #     [ $empty -eq 0 ] && cat $COG_TASK_TMP
+      #     [ $empty -eq 1 ] || grep -q "is already uploaded" < $COG_TASK_TMP
