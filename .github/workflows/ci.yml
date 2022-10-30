@@ -46,14 +46,19 @@ jobs:
         run: cargo fmt --all -- --check
 
       - name: Cargo clippy (no features)
-        run: cargo clippy --no-default-features -- -D warnings
+        run: cargo clippy -- -D warnings
       - name: Cargo test (no features)
-        run: cargo test --no-default-features --all-targets
+        run: cargo test --all-targets
 
       - name: Cargo clippy (savage)
         run: cargo clippy --features=savage -- -D warnings
       - name: Cargo test (savage)
         run: cargo test --features=savage --all-targets
+
+      - name: Cargo clippy (python)
+        run: cargo clippy --features=python -- -D warnings
+      - name: Cargo test (python)
+        run: cargo test --features=python --all-targets
 
       - name: Install linux deps (rodio)
         run: |
