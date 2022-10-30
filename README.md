@@ -55,11 +55,12 @@ To update the installation to the latest version, you can run the same commands.
 
 Some types of actions depend on optional features that can be enabled during installation. These features are not enabled by default because they rely on extra system libraries that might not be installed on the OS out-of-the-box.
 
-Currently, there are 4 distinct features that can be enabled:
+Currently, there are 5 distinct features that can be enabled:
 1. **rodio** -- allows playing sounds via the CoreAudio sound library on macOS and ALSA on linux.
 2. **gstreamer** -- allows streaming audio/video files via the gstreamer backend.
 3. **ffmpeg** (_incomplete_) -- allows streaming audio/video files via the ffmpeg backend.
-4. **savage** (_enabled by default_) -- enables using the [savage](https://github.com/p-e-w/savage) interpreter for mathematical operations.
+4. **savage** -- enables using the [savage](https://github.com/p-e-w/savage) interpreter for mathematical operations.
+5. **python** -- enables using python code snippets to perform calculations.
 
 Examples:
 - Stable binaries with all features:<br>
@@ -82,6 +83,7 @@ Examples:
 | **savage**                  | - |
 | **gstreamer**               | `brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server` |
 | **ffmpeg**                  | `brew install ffmpeg` |
+| **python**                  | (needs a working python installation; see below) |
 | (*--all-features*)          | `brew install gstreamer gst-plugins-base gst-plugins-good gst-plugins-bad gst-plugins-ugly gst-libav gst-rtsp-server ffmpeg` |
 
 ### Linux
@@ -93,7 +95,18 @@ Examples:
 | **savage**                  | - |
 | **gstreamer**               | `sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio` |
 | **ffmpeg**                  | `sudo apt install libavfilter-dev libavdevice-dev ffmpeg` |
+| **python**                  | (needs a working python installation; see below) |
 | (*--all-features*)          | `sudo apt install build-essential cmake pkg-config libfontconfig1-dev libasound2-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev libgstreamer-plugins-bad1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav gstreamer1.0-tools gstreamer1.0-alsa gstreamer1.0-pulseaudio libavfilter-dev libavdevice-dev ffmpeg` |
+
+### //@ python
+
+Enabling the **python** feature can be tricky. You need a working installation of python3. But you might also need to set up the PYTHONHOME environment variable (only do if compilation fails at first). The variable needs to be set to the location of the desired python environment. For example, for a conda environment, you might want to set:
+
+```bash
+export PYTHONHOME=$HOME/opt/anaconda3/
+```
+
+Before running `cargo install ...`. It might need some trial and error to get it going.
 
 ## Usage
 
