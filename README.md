@@ -129,6 +129,8 @@ Then use the leftmost control icon to load the [*example/basic/*](https://github
 
 ## Changelog
 
+The SemVer versioning will follow the following guidelines. If the new version is backwards compatible (task written for last version will behave the same on the new version), even if there are new attributes introduced for an existing action type in the new version, the third number will increase. If there is a new action type entirely or an existing action's attributes (or their default values) have changed such that it is no longer backwards compatible, the second number will increase. If there is a fundamental change to the structure of the program (how tasks/actions are defined or executed), the first number will increase. Bug fixes will generally increase the third number, unless they are big, in which case they will increase the second number.
+
 **v1.0.1**:
 - `Clock` now sends incrementing tic number instead of a null in its output signal.
 - `Clock` has `on_start` attribute that determines whether a "zero" signal will be emitted at start of action.
