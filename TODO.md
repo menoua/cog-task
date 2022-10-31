@@ -1,7 +1,8 @@
 ## To-do
 
-- [ ] Save the binaries generated for macOS and Linux by CI for specific cases (base, audio, audio+gstreamer, full).
 - [ ] Add a `Process` function which runs an externally compiled binary and maintains a comms channel. Use [this](https://play.rust-lang.org/?code=%23!%5Ballow(unused)%5D%0Afn%20main()%20%7B%0Ause%20std%3A%3Aio%3A%3AWrite%3B%0Ause%20std%3A%3Aprocess%3A%3A%7BCommand%2C%20Stdio%7D%3B%0A%0Alet%20mut%20child%20%3D%20Command%3A%3Anew(%22rev%22)%0A%20%20%20%20.stdin(Stdio%3A%3Apiped())%0A%20%20%20%20.stdout(Stdio%3A%3Apiped())%0A%20%20%20%20.spawn()%0A%20%20%20%20.expect(%22Failed%20to%20spawn%20child%20process%22)%3B%0A%0Alet%20mut%20stdin%20%3D%20child.stdin.take().expect(%22Failed%20to%20open%20stdin%22)%3B%0Astd%3A%3Athread%3A%3Aspawn(move%20%7C%7C%20%7B%0A%20%20%20%20stdin.write_all(%22Hello%2C%20world!%22.as_bytes()).expect(%22Failed%20to%20write%20to%20stdin%22)%3B%0A%7D)%3B%0A%0Alet%20output%20%3D%20child.wait_with_output().expect(%22Failed%20to%20read%20stdout%22)%3B%0Aassert_eq!(String%3A%3Afrom_utf8_lossy(%26output.stdout)%2C%20%22!dlrow%20%2ColleH%22)%3B%0A%7D&edition=2021) code base.
+- [ ] Add `blocking` feature to `Function` and `Process`, which determines whether to wait for response or let a separate thread handle it.
+- [ ] Save the binaries generated for macOS and Linux by CI for specific cases (base, audio, audio+gstreamer, full).
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.
 - [ ] Consider relegating compile-time asset management to [rust-embed](https://github.com/pyrossh/rust-embed).
