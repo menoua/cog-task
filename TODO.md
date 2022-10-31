@@ -1,5 +1,6 @@
 ## To-do
 
+- [ ] Save the binaries generated for macOS and Linux by CI for specific cases (base, audio, audio+gstreamer, full).
 - [ ] Add a `Process` function which runs an externally compiled binary and maintains a comms channel.
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.
