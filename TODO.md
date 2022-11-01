@@ -16,12 +16,9 @@
 - [ ] Make the logger a trait so users can implement their own versions. Maybe add a derive macro that takes care of the basics, which is optional.
 - [ ] Implement a logger with an embedded database, like SQLite or sled.
 - [ ] Improve the default widgets styles.
-- [ ] Add an external function action (`Ffi`). `StatefulFfi` runs the proper application in a separate thread and maintains a communication link with it. Emitted `Signal`'s will be sent to the thread using that comm link. The `Ffi` will send back data through a similar communication link.
 - [ ] Add option for audio cross-fade just in case.
 - [ ] A persistent (across `Server` instantiation) channel to external programs will be needed to handle communication with recording devices, etc.
 - [ ] Add `Direction` task: show virtual head with Left/Right/Front marked on screen. Two modes: Continuous and Quantized(n: u32). If continuous, do math and draw line wherever mouse is pointing. If quantized, divide space into n equal sized slices. Pointer selects slice. Allow for limiting the range of angles? At least front-only (180°) and front-and-back (360°).
-- [ ] Docs.rs fails to build due to missing dependencies. There must be a way to solve this. For now, disabled all features on the docs.rs build.
-- [ ] Connected with the docs build issue, `nix`+`flake` might be the solution to both building docs and also taking care of external dependencies (ALSA, gstreamer, ffmpeg).
 
 ## Waiting on upstream
 
