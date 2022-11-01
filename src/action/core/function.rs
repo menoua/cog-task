@@ -113,8 +113,7 @@ impl Action for Function {
     #[inline]
     fn in_signals(&self) -> BTreeSet<SignalId> {
         let mut signals: BTreeSet<_> = self.in_mapping.keys().cloned().collect();
-        signals.insert(self.in_update);
-        signals.insert(self.lo_lazy);
+        signals.extend([self.in_update, self.lo_lazy]);
         signals
     }
 
@@ -225,12 +224,12 @@ impl StatefulAction for StatefulFunction {
             }
         }
 
-        if self.once && self.lo_lazy == 0 {
-            self.done = true;
-            sync_writer.push(SyncSignal::UpdateGraph);
-        }
-
         if self.on_start {
+            if self.once && self.lo_lazy == 0 {
+                self.done = true;
+                sync_writer.push(SyncSignal::UpdateGraph);
+            }
+
             self.eval(sync_writer, async_writer)
                 .wrap_err("Failed to evaluate function.")
         } else {
