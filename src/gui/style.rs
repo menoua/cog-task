@@ -4,6 +4,7 @@ use eframe::egui;
 use eframe::egui::{FontId, TextStyle};
 use egui::{Color32, FontData, FontDefinitions, FontFamily, Rgba, Rounding, Stroke, Vec2};
 use std::convert::Into;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 pub const SCREEN_SIZE: Vec2 = Vec2::new(1920.0, 1080.0);
@@ -283,7 +284,7 @@ pub fn init(ctx: &egui::Context) {
 }
 
 pub fn set_fullscreen_scale(ctx: &egui::Context, scale: f32) {
-    static mut RESCALE_TIMER: Option<Instant> = None;
+    static mut RESCALE_TIMER: Option<Arc<Mutex<Instant>>> = None;
 
     let curr = ctx.pixels_per_point();
     let size = ctx.input().screen_rect().size();
@@ -293,16 +294,16 @@ pub fn set_fullscreen_scale(ctx: &egui::Context, scale: f32) {
     if (scale - 1.0).abs() > 1e-6 {
         let now = Instant::now();
         unsafe {
-            match RESCALE_TIMER {
-                None => {
-                    println!("Rescaling UI {curr}*{scale}={}", curr * scale);
-                    RESCALE_TIMER = Some(now);
-                }
-                Some(timer) if timer.elapsed() > Duration::from_millis(500) => {
-                    println!("Rescaling UI {curr}*{scale}={}", curr * scale);
-                    RESCALE_TIMER = Some(now);
-                }
-                _ => scale = 1.0,
+            if RESCALE_TIMER.is_none() {
+                RESCALE_TIMER = Some(Arc::new(Mutex::new(Instant::now())));
+            }
+
+            let mut timer = RESCALE_TIMER.as_ref().unwrap().lock().unwrap();
+            if timer.elapsed() > Duration::from_millis(500) {
+                println!("Rescaling UI {curr}*{scale}={}", curr * scale);
+                *timer = now;
+            } else {
+                scale = 1.0;
             }
         }
     } else {

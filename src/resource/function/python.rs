@@ -1,8 +1,9 @@
-use crate::resource::VarMap;
-use cpython::{exc, FromPyObject, PyDict, PyErr, PyNone, PyObject, PyResult, Python};
+use crate::resource::{LoopbackError, LoopbackResult, VarMap};
+use cpython::{exc, FromPyObject, PyClone, PyDict, PyErr, PyNone, PyObject, PyResult, Python};
 use eyre::{eyre, Context, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
+use std::thread;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum PyValue {
@@ -85,6 +86,73 @@ impl Evaluator {
             .wrap_err("Failed to convert python result to Value.")?;
 
         Ok(result)
+    }
+
+    pub fn eval_lazy(
+        &self,
+        vars: &mut VarMap,
+        loopback: LoopbackResult,
+        error: LoopbackError,
+    ) -> Result<()> {
+        let gil = Python::acquire_gil();
+        let py = gil.python();
+
+        for (name, value) in vars.iter() {
+            match value {
+                Value::Null => self.vars.set_item(py, name, PyNone),
+                Value::Bool(v) => self.vars.set_item(py, name, v),
+                Value::Integer(v) => self.vars.set_item(py, name, *v as i64),
+                Value::Float(v) => self.vars.set_item(py, name, v),
+                Value::Bytes(v) => self.vars.set_item(py, name, v),
+                Value::Text(v) => self.vars.set_item(py, name, v),
+                _ => return Err(eyre!("Cannot convert value ({value:?}) to python object.")),
+            }
+            .map_err(|e| eyre!("Failed to set variable ({name:?}) in python dict:\n{e:#?}"))?;
+        }
+
+        let run = self.run.clone();
+        let eval = self.eval.clone();
+        let vars = self.vars.clone_ref(py);
+
+        thread::spawn(move || {
+            let gil = Python::acquire_gil();
+            let py = gil.python();
+
+            if !run.is_empty() {
+                if let Err(e) = py.run(&run, None, Some(&vars)) {
+                    error(eyre!("Failed to run python code:\n{e:#?}"));
+                    return;
+                }
+            }
+
+            let result = match py.eval(&eval, None, Some(&vars)) {
+                Ok(r) => r,
+                Err(e) => {
+                    error(eyre!("Failed to evaluate python expression:\n{e:#?}"));
+                    return;
+                }
+            };
+
+            let result: PyValue = match result.extract(py) {
+                Ok(r) => r,
+                Err(e) => {
+                    error(eyre!("Failed to extract python result:\n{e:#?}"));
+                    return;
+                }
+            };
+
+            let result = match result.try_into() {
+                Ok(r) => r,
+                Err(e) => {
+                    error(eyre!("Failed to convert python result to Value:\n{e:#?}"));
+                    return;
+                }
+            };
+
+            loopback(result);
+        });
+
+        Ok(())
     }
 }
 

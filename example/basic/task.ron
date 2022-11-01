@@ -66,6 +66,7 @@
                     in_mapping: { 1: "x", 2: "y" },
                     out_result: 4,
                     name: "condition",
+                    once: true,
                 )),
                 switch((
                     in_control: 4,
@@ -145,14 +146,12 @@
                     vars: { "n": 0 },
                     in_mapping: { 1: "n" },
                     out_result: 2,
-                    persistent: true,
                 )),
                 function((
                     expr: "n ^ 3",
                     vars: { "n": 0 },
                     in_mapping: { 1: "n" },
                     out_result: 3,
-                    persistent: true,
                 )),
                 logger((
                     group: "numbers",
@@ -185,7 +184,6 @@
                     vars: { "self": 0 },
                     in_update: 4,
                     out_result: 5,
-                    persistent: true,
                 )),
                 clock((step: 0.25, out_tic: 6)),
                 function((
@@ -193,7 +191,6 @@
                     vars: { "self": 0 },
                     in_update: 6,
                     out_result: 7,
-                    persistent: true,
                 )),
             ]))
         ),

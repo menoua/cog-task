@@ -10,6 +10,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::collections::{BTreeMap, BTreeSet};
+use std::time::Instant;
 
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -33,11 +34,13 @@ pub struct Function {
     #[serde(default = "defaults::on_change")]
     on_change: bool,
     #[serde(default)]
-    persistent: bool,
+    once: bool,
     #[serde(default)]
     in_mapping: BTreeMap<SignalId, String>,
     #[serde(default)]
     in_update: SignalId,
+    #[serde(default)]
+    lo_lazy: SignalId,
     #[serde(default)]
     out_result: SignalId,
 }
@@ -48,9 +51,10 @@ stateful!(Function {
     evaluator: Evaluator,
     on_start: bool,
     on_change: bool,
-    persistent: bool,
+    once: bool,
     in_mapping: BTreeMap<SignalId, String>,
     in_update: SignalId,
+    lo_lazy: SignalId,
     out_result: SignalId,
 });
 
@@ -110,12 +114,13 @@ impl Action for Function {
     fn in_signals(&self) -> BTreeSet<SignalId> {
         let mut signals: BTreeSet<_> = self.in_mapping.keys().cloned().collect();
         signals.insert(self.in_update);
+        signals.insert(self.lo_lazy);
         signals
     }
 
     #[inline]
     fn out_signals(&self) -> BTreeSet<SignalId> {
-        BTreeSet::from([self.out_result])
+        BTreeSet::from([self.lo_lazy, self.out_result])
     }
 
     fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
@@ -189,9 +194,10 @@ impl Action for Function {
             evaluator,
             on_start: self.on_start,
             on_change: self.on_change,
-            persistent: self.persistent,
+            once: self.once,
             in_mapping: self.in_mapping.clone(),
             in_update: self.in_update,
+            lo_lazy: self.lo_lazy,
             out_result: self.out_result,
         }))
     }
@@ -202,7 +208,7 @@ impl StatefulAction for StatefulFunction {
 
     #[inline(always)]
     fn props(&self) -> Props {
-        if self.persistent { INFINITE } else { DEFAULT }.into()
+        if self.once { DEFAULT } else { INFINITE }.into()
     }
 
     fn start(
@@ -219,13 +225,13 @@ impl StatefulAction for StatefulFunction {
             }
         }
 
-        if !self.persistent {
+        if self.once && self.lo_lazy == 0 {
             self.done = true;
             sync_writer.push(SyncSignal::UpdateGraph);
         }
 
         if self.on_start {
-            self.eval(async_writer)
+            self.eval(sync_writer, async_writer)
                 .wrap_err("Failed to evaluate function.")
         } else {
             Ok(Signal::none())
@@ -235,10 +241,11 @@ impl StatefulAction for StatefulFunction {
     fn update(
         &mut self,
         signal: &ActionSignal,
-        _sync_writer: &mut QWriter<SyncSignal>,
+        sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Signal> {
+        let mut news: Vec<(SignalId, Value)> = vec![];
         let mut changed = false;
         let mut updated = false;
         if let ActionSignal::StateChanged(_, signal) = signal {
@@ -249,6 +256,27 @@ impl StatefulAction for StatefulFunction {
                     }
                     changed = true;
                 }
+
+                if *id == self.lo_lazy {
+                    let result = state.get(id).unwrap();
+                    self.vars.insert("self".to_owned(), result.clone());
+
+                    if !self.name.is_empty() {
+                        async_writer.push(LoggerSignal::Append(
+                            "math".to_owned(),
+                            (self.name.clone(), result.clone()),
+                        ));
+                    }
+
+                    if self.out_result > 0 {
+                        news.push((self.out_result, result.clone()));
+                    }
+
+                    if self.once {
+                        self.done = true;
+                        sync_writer.push(SyncSignal::UpdateGraph);
+                    }
+                }
             }
 
             if signal.contains(&self.in_update) {
@@ -257,11 +285,13 @@ impl StatefulAction for StatefulFunction {
         }
 
         if (changed && self.on_change) || updated {
-            self.eval(async_writer)
-                .wrap_err("Failed to evaluate function.")
-        } else {
-            Ok(Signal::none())
+            news.extend(
+                self.eval(sync_writer, async_writer)
+                    .wrap_err("Failed to evaluate function.")?,
+            );
         }
+
+        Ok(news.into())
     }
 
     fn debug(&self) -> Vec<(&str, String)> {
@@ -273,7 +303,20 @@ impl StatefulAction for StatefulFunction {
 }
 
 impl StatefulFunction {
-    fn eval(&mut self, async_writer: &mut QWriter<AsyncSignal>) -> Result<Signal> {
+    #[inline(always)]
+    fn eval(
+        &mut self,
+        sync_writer: &mut QWriter<SyncSignal>,
+        async_writer: &mut QWriter<AsyncSignal>,
+    ) -> Result<Signal> {
+        if self.lo_lazy > 0 {
+            self.eval_lazy(sync_writer)
+        } else {
+            self.eval_blocking(async_writer)
+        }
+    }
+
+    fn eval_blocking(&mut self, async_writer: &mut QWriter<AsyncSignal>) -> Result<Signal> {
         let result = self.evaluator.eval(&mut self.vars)?;
 
         self.vars.insert("self".to_owned(), result.clone());
@@ -290,5 +333,30 @@ impl StatefulFunction {
         } else {
             Ok(Signal::none())
         }
+    }
+
+    fn eval_lazy(&mut self, sync_writer: &mut QWriter<SyncSignal>) -> Result<Signal> {
+        let loopback = {
+            let signal_id = self.lo_lazy;
+            let mut sync_writer = sync_writer.clone();
+
+            Box::new(move |value: Value| {
+                sync_writer.push(SyncSignal::Emit(
+                    Instant::now(),
+                    Signal::from(vec![(signal_id, value)]),
+                ));
+            })
+        };
+
+        let error = {
+            let mut sync_writer = sync_writer.clone();
+
+            Box::new(move |e: Error| {
+                sync_writer.push(SyncSignal::Error(e));
+            })
+        };
+
+        self.evaluator.eval_lazy(&mut self.vars, loopback, error)?;
+        Ok(Signal::none())
     }
 }

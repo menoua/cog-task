@@ -1,4 +1,4 @@
-use eyre::{eyre, Result};
+use eyre::{eyre, Error, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
 use std::collections::BTreeMap;
@@ -10,6 +10,8 @@ mod python;
 mod savage;
 
 pub type VarMap = BTreeMap<String, Value>;
+pub type LoopbackResult = Box<dyn FnOnce(Value) + Send>;
+pub type LoopbackError = Box<dyn FnOnce(Error) + Send>;
 
 #[derive(Debug, Clone, Copy, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -67,6 +69,21 @@ impl Evaluator {
             Evaluator::Savage(evaler) => evaler.eval(vars),
             #[cfg(feature = "python")]
             Evaluator::Python(evaler) => evaler.eval(vars),
+        }
+    }
+
+    pub fn eval_lazy(
+        &self,
+        vars: &mut VarMap,
+        loopback: LoopbackResult,
+        error: LoopbackError,
+    ) -> Result<()> {
+        match self {
+            Evaluator::Fasteval(evaler) => evaler.eval_lazy(vars, loopback, error),
+            #[cfg(feature = "savage")]
+            Evaluator::Savage(evaler) => evaler.eval_lazy(vars, loopback, error),
+            #[cfg(feature = "python")]
+            Evaluator::Python(evaler) => evaler.eval_lazy(vars, loopback, error),
         }
     }
 }

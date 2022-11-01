@@ -4,18 +4,19 @@ use crate::comm::{QReader, QWriter, Signal, MAX_QUEUE_SIZE};
 use crate::resource::{IoManager, Key, LoggerSignal, ResourceManager};
 use crate::server::{AsyncSignal, Atomic, Block, Config, Env, ServerSignal};
 use eframe::egui;
-use eyre::{eyre, Context, Result};
+use eyre::{eyre, Context, Error, Result};
 use serde_cbor::{from_slice, Value};
 use std::collections::{BTreeSet, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum SyncSignal {
     UpdateGraph,
     KeyPress(Instant, BTreeSet<Key>),
     Emit(Instant, Signal),
+    Error(Error),
     Repaint,
     Finish,
     Go,
@@ -214,6 +215,7 @@ impl SyncProcessor {
                             )
                             .wrap_err("Failed to emit signal.")
                         }
+                        SyncSignal::Error(e) => Err(e),
                         SyncSignal::Repaint => {
                             proc.ctx.request_repaint();
                             Ok(Signal::none())

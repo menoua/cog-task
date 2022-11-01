@@ -35,7 +35,6 @@
                         vars: { "self": 1, "n": 1 },
                         in_mapping: { 1: "n" },
                         out_result: 2,
-                        persistent: true,
                     ))
                 ]))
             ]))
@@ -65,7 +64,6 @@
                         vars: { "n": 1 },
                         in_mapping: { 1: "n" },
                         out_result: 2,
-                        persistent: true,
                     ))
                 ])),
 
@@ -87,7 +85,6 @@
                         vars: { "n": 1 },
                         in_mapping: { 3: "n" },
                         out_result: 4,
-                        persistent: true,
                     ))
                 ]))
             ]))
@@ -116,7 +113,6 @@
                         interpreter: fasteval,
                         in_update: 1,
                         out_result: 2,
-                        persistent: true,
                     )),
                     function((
                         init_src: "factorials_init.py",
@@ -124,7 +120,6 @@
                         vars: { "self": 1 },
                         in_update: 1,
                         out_result: 3,
-                        persistent: true,
                     ))
                 ])),
 
@@ -147,10 +142,38 @@
                         vars: { "self": 1 },
                         in_update: 4,
                         out_result: 5,
-                        persistent: true,
                     ))
                 ]))
             ]))
         ),
+
+        (
+            name: "Non-blocking",
+            tree: par(([
+                instruction((
+                    text: "Blocking update: ${b}\nNon-blocking update: ${nb}",
+                    in_mapping: { 2: "b", 4: "nb" }
+                ))
+            ], [
+                function((
+                    src: "blocking_update.py",
+                    vars: { "self": 0 },
+                    interpreter: python,
+                    on_start: true,
+                    in_update: 1,
+                    lo_lazy: 1,
+                    out_result: 2,
+                )),
+                function((
+                    src: "lazy_update.py",
+                    vars: { "self": 0 },
+                    interpreter: python,
+                    on_start: true,
+                    in_update: 3,
+                    lo_lazy: 3,
+                    out_result: 4,
+                ))
+            ]))
+        )
     ]
 )

@@ -1,5 +1,5 @@
-use crate::resource::VarMap;
-use eyre::{Context, Result};
+use crate::resource::{LoopbackError, LoopbackResult, VarMap};
+use eyre::{eyre, Context, Result};
 use fasteval::{Compiler, Evaler};
 use serde_cbor::Value;
 use std::collections::BTreeMap;
@@ -55,5 +55,16 @@ impl Evaluator {
             self.slab.as_ref(),
             &mut vars
         )))
+    }
+
+    pub fn eval_lazy(
+        &self,
+        _vars: &mut VarMap,
+        _loopback: LoopbackResult,
+        _error: LoopbackError,
+    ) -> Result<()> {
+        Err(eyre!(
+            "Fasteval interpreter does not support non-blocking execution."
+        ))
     }
 }

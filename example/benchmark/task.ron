@@ -23,6 +23,7 @@
                     vars: { "x": 0 },
                     in_mapping: { 1: "x" },
                     out_result: 2,
+                    once: true,
                 )),
                 instruction((
                     text: "Overhead was ${dur}s - 3s = ${diff}ms.",
@@ -95,6 +96,7 @@
                     vars: { "x": 0 },
                     in_mapping: { 1: "x" },
                     out_result: 2,
+                    once: true,
                 )),
                 instruction((
                     text: "Overhead was ${dur}s - 50s = ${diff}ms.",
@@ -325,6 +327,7 @@
                     vars: { "x": 0 },
                     in_mapping: { 1: "x" },
                     out_result: 2,
+                    once: true,
                 )),
                 instruction((
                     text: "Overhead was ${dur}s - 647.0205s = ${diff}ms.",
@@ -450,6 +453,7 @@
                     vars: { "x": 0 },
                     in_mapping: { 1: "x" },
                     out_result: 2,
+                    once: true,
                 )),
                 instruction((
                     text: "Overhead was ${dur}s - 639.1293s = ${diff}ms.",
