@@ -100,9 +100,8 @@ impl StatefulAction for StatefulDelayed {
     ) -> Result<Signal> {
         if *self.wait_over.lock().unwrap() {
             let news = if !self.has_begun {
-                self.inner.start(sync_writer, async_writer, state)?;
                 self.has_begun = true;
-                Signal::none()
+                self.inner.start(sync_writer, async_writer, state)?
             } else {
                 self.inner
                     .update(signal, sync_writer, async_writer, state)?
