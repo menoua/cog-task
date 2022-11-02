@@ -40,7 +40,7 @@ pub struct Function {
     #[serde(default)]
     in_update: SignalId,
     #[serde(default)]
-    lo_lazy: SignalId,
+    lo_response: SignalId,
     #[serde(default)]
     out_result: SignalId,
 }
@@ -54,7 +54,7 @@ stateful!(Function {
     once: bool,
     in_mapping: BTreeMap<SignalId, String>,
     in_update: SignalId,
-    lo_lazy: SignalId,
+    lo_response: SignalId,
     out_result: SignalId,
 });
 
@@ -113,13 +113,13 @@ impl Action for Function {
     #[inline]
     fn in_signals(&self) -> BTreeSet<SignalId> {
         let mut signals: BTreeSet<_> = self.in_mapping.keys().cloned().collect();
-        signals.extend([self.in_update, self.lo_lazy]);
+        signals.extend([self.in_update, self.lo_response]);
         signals
     }
 
     #[inline]
     fn out_signals(&self) -> BTreeSet<SignalId> {
-        BTreeSet::from([self.lo_lazy, self.out_result])
+        BTreeSet::from([self.lo_response, self.out_result])
     }
 
     fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
@@ -196,7 +196,7 @@ impl Action for Function {
             once: self.once,
             in_mapping: self.in_mapping.clone(),
             in_update: self.in_update,
-            lo_lazy: self.lo_lazy,
+            lo_response: self.lo_response,
             out_result: self.out_result,
         }))
     }
@@ -225,7 +225,7 @@ impl StatefulAction for StatefulFunction {
         }
 
         if self.on_start {
-            if self.once && self.lo_lazy == 0 {
+            if self.once && self.lo_response == 0 {
                 self.done = true;
                 sync_writer.push(SyncSignal::UpdateGraph);
             }
@@ -256,7 +256,7 @@ impl StatefulAction for StatefulFunction {
                     changed = true;
                 }
 
-                if *id == self.lo_lazy {
+                if *id == self.lo_response {
                     let result = state.get(id).unwrap();
                     self.vars.insert("self".to_owned(), result.clone());
 
@@ -308,7 +308,7 @@ impl StatefulFunction {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<Signal> {
-        if self.lo_lazy > 0 {
+        if self.lo_response > 0 {
             self.eval_lazy(sync_writer)
         } else {
             self.eval_blocking(async_writer)
@@ -336,7 +336,7 @@ impl StatefulFunction {
 
     fn eval_lazy(&mut self, sync_writer: &mut QWriter<SyncSignal>) -> Result<Signal> {
         let loopback = {
-            let signal_id = self.lo_lazy;
+            let signal_id = self.lo_response;
             let mut sync_writer = sync_writer.clone();
 
             Box::new(move |value: Value| {
