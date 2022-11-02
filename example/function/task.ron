@@ -2,7 +2,7 @@
 //@ python
 
 (
-    name: "Basic",
+    name: "Function",
     version: "0.1",
     description: r#"This is a basic task demonstrating the use of "fasteval", "savage", and "python" interpreters."#,
 

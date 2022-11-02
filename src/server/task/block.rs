@@ -33,10 +33,10 @@ impl Block {
         } else if !self
             .name
             .chars()
-            .all(|c| c.is_alphabetic() || c.is_alphanumeric() | "+-_ ".contains(c))
+            .all(|c| c.is_alphabetic() || c.is_alphanumeric() | "+-_() ".contains(c))
         {
             Err(eyre!(
-                "Block `name` characters need to be alphanumeric or one of (+-_ ): '{}'",
+                "Block `name` characters need to be alphanumeric or one of (+-_() ): '{}'",
                 self.name
             ))
         } else {

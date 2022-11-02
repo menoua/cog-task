@@ -17,6 +17,7 @@ pub mod logger;
 pub mod merge;
 pub mod nil;
 pub mod par;
+pub mod process;
 pub mod question;
 pub mod reaction;
 pub mod seq;
