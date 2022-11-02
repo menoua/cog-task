@@ -1,0 +1,67 @@
+//@ savage
+//@ python
+
+(
+    name: "Process",
+    version: "0.1",
+    description: r#"This is a basic task demonstrating the use of "fasteval", "savage", and "python" interpreters."#,
+
+    config: (
+        blocks_per_row: 3,
+    ),
+
+    blocks: [
+        (
+            name: "Go (blocking)",
+            tree: par(([
+                delayed((
+                    2.0,
+                    process((
+                        src: "repeater",
+                        on_start: true,
+                        lo_incoming: 1001,
+                        out_result: 1,
+                    ))
+                ))
+            ], [
+                clock((
+                    step: 0.1,
+                    out_tic: 2,
+                )),
+                instruction((
+                    text: "Clock: ${time}\nResponse: ${response}",
+                    params: { "response": "Waiting...", "time": "0" },
+                    in_mapping: { 1: "response", 2: "time" },
+                    static: true,
+                ))
+            ]))
+        ),
+
+        (
+            name: "Go (non-blocking)",
+            tree: par(([
+                delayed((
+                    2.0,
+                    process((
+                        src: "repeater",
+                        on_start: true,
+                        blocking: false,
+                        lo_incoming: 1001,
+                        out_result: 1,
+                    ))
+                ))
+            ], [
+                clock((
+                    step: 0.1,
+                    out_tic: 2,
+                )),
+                instruction((
+                    text: "Clock: ${time}\nResponse: ${response}",
+                    params: { "response": "Waiting...", "time": "0" },
+                    in_mapping: { 1: "response", 2: "time" },
+                    static: true,
+                ))
+            ]))
+        ),
+    ]
+)
