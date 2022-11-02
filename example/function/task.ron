@@ -161,7 +161,7 @@
                     interpreter: python,
                     on_start: true,
                     in_update: 1,
-                    lo_lazy: 1,
+                    lo_response: 1,
                     out_result: 2,
                 )),
                 function((
@@ -170,7 +170,7 @@
                     interpreter: python,
                     on_start: true,
                     in_update: 3,
-                    lo_lazy: 3,
+                    lo_response: 3,
                     out_result: 4,
                 ))
             ]))
