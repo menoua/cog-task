@@ -131,6 +131,12 @@ Then use the leftmost control icon to load the [*example/basic/*](https://github
 
 The SemVer version will follow these guidelines: If the new version is backwards compatible (task written for last version will behave the same on the new version), even if there are (1) new action types, or (2) new attributes for an existing action type introduced, the third number will increase. If an existing action type is removed entirely or an existing action's attributes (or their default values) have changed such that it is no longer backwards compatible, the second number will increase. If there is a fundamental change to the structure of the program (how tasks/actions are defined or executed), the first number will increase. Bug fixes will generally increase the third number, unless they are big, in which case they will increase the second number.
 
+**v1.1.0**:
+- New action `Process` that can run an externally compiled binary in blocking or non-blocking mode. 
+- `Function` now has a `lo_response` attribute which if set, will run in non-blocking mode.
+- `Function` attribute `persistent` is replaced by the opposite attribute `once`, which if true will only run the function once (be it at start or update).
+- Fixed a bug in `Delayed`.
+
 **v1.0.1**:
 - `Clock` now sends incrementing tic number instead of a null in its output signal.
 - `Clock` has `on_start` attribute that determines whether a "zero" signal will be emitted at start of action.
