@@ -3,7 +3,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main, master]
+    branches: [master]
     paths:
       - .github/workflows/ci.yml
       - src/**
@@ -20,6 +20,9 @@ jobs:
     name: Tests
     runs-on: ${{ matrix.os }}
     continue-on-error: ${{ matrix.toolchain == 'nightly' }}
+
+    env:
+      CRATESIO_TOKEN: ${{ secrets.CRATESIO_TOKEN }}
 
     strategy:
       fail-fast: false
@@ -104,27 +107,10 @@ jobs:
       - name: Cargo test (full)
         run: cargo test --all-features --all-targets
 
-  cargo-publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    env:
-      CRATESIO_TOKEN: ${{ secrets.CRATESIO_TOKEN }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Update apt
-        run: sudo apt update
-      - name: Install alsa
-        run: sudo apt install -y --no-install-recommends libasound2-dev pkg-config
-      - name: Run cargo publish for crate
+      - name: Publish crate
         continue-on-error: true
         run: |
           COG_TASK_TMP=$(mktemp /tmp/cog_taskXXX.txt) || echo "::error::mktemp error"
           echo "COG_TASK_TMP=$COG_TASK_TMP" >> $GITHUB_ENV
           cargo publish --token $CRATESIO_TOKEN 2> $COG_TASK_TMP
-      # - name: Check if crate is already published
-      #   run: |
-      #     empty=0
-      #     COG_TASK_TMP="${{ env.COG_TASK_TMP }}"
-      #     grep -q '[^[:space:]]' < $COG_TASK_TMP || empty=1
-      #     [ $empty -eq 0 ] && cat $COG_TASK_TMP
-      #     [ $empty -eq 1 ] || grep -q "is already uploaded" < $COG_TASK_TMP
+        if: contains(matrix.os, 'ubuntu-latest')
