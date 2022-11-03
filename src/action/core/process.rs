@@ -19,6 +19,12 @@ pub struct Process {
     name: String,
     src: PathBuf,
     #[serde(default)]
+    args: Vec<String>,
+    #[serde(default)]
+    passive: bool,
+    #[serde(default)]
+    response_type: ResponseType,
+    #[serde(default)]
     vars: BTreeMap<String, Value>,
     #[serde(default = "defaults::on_start")]
     on_start: bool,
@@ -39,6 +45,7 @@ pub struct Process {
 
 stateful!(Process {
     name: String,
+    passive: bool,
     vars: BTreeMap<String, Value>,
     on_start: bool,
     on_change: bool,
@@ -73,13 +80,39 @@ enum Response {
     End,
 }
 
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum ResponseType {
+    Value,
+    Raw,
+    RawAll,
+}
+
+impl Default for ResponseType {
+    fn default() -> Self {
+        Self::Value
+    }
+}
+
 impl Action for Process {
-    fn init(self) -> Result<Box<dyn Action>>
+    fn init(mut self) -> Result<Box<dyn Action>>
     where
         Self: 'static + Sized,
     {
+        if matches!(self.response_type, ResponseType::RawAll) {
+            self.once = true;
+        }
+
         if self.lo_incoming == 0 {
             return Err(eyre!("`lo_incoming`for Process cannot be zero."));
+        }
+
+        if self.passive && !self.in_mapping.is_empty() {
+            return Err(eyre!("Setting `in_mapping`for passive Process is useless."));
+        }
+
+        if self.passive && !self.vars.is_empty() {
+            return Err(eyre!("Setting `vars`for passive Process is useless."));
         }
 
         Ok(Box::new(self))
@@ -113,6 +146,7 @@ impl Action for Process {
         };
 
         let mut child = Command::new(src)
+            .args(&self.args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .spawn()
@@ -131,54 +165,78 @@ impl Action for Process {
         let (tx, rx) = mpsc::channel();
 
         let lo_incoming = self.lo_incoming;
+        let response_type = self.response_type;
         let mut sync_writer = sync_writer.clone();
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
 
             loop {
-                let mut response = String::with_capacity(1024);
-                if let Err(e) = reader.read_line(&mut response) {
-                    sync_writer.push(SyncSignal::Error(eyre!(
-                        "Failed to receive response from child process:\n{e:#?}"
-                    )));
-                    break;
-                }
+                let response = match response_type {
+                    ResponseType::Value => {
+                        let mut response = String::with_capacity(1024);
+                        if let Err(e) = reader.read_line(&mut response) {
+                            sync_writer.push(SyncSignal::Error(eyre!(
+                                "Failed to receive response from child process:\n{e:#?}"
+                            )));
+                            break;
+                        }
 
-                let response = response.strip_suffix('\n').unwrap();
-                let (typ, value) = match response.split_once(' ') {
-                    Some(pair) => pair,
-                    None => (response, ""),
-                };
+                        let response = response.strip_suffix('\n').unwrap();
+                        let (typ, value) = match response.split_once(' ') {
+                            Some(pair) => pair,
+                            None => (response, ""),
+                        };
 
-                let response = match typ {
-                    "nil" => Response::Result(Value::Null),
-                    "true" => Response::Result(Value::Bool(true)),
-                    "false" => Response::Result(Value::Bool(false)),
-                    "i64" => value.parse::<i128>().map_or_else(
-                        |e| {
-                            Response::Error(eyre!(
+                        match typ {
+                            "nil" => Response::Result(Value::Null),
+                            "true" => Response::Result(Value::Bool(true)),
+                            "false" => Response::Result(Value::Bool(false)),
+                            "i64" => value.parse::<i128>().map_or_else(
+                                |e| {
+                                    Response::Error(eyre!(
                                 "Failed to parse (claimed) i64 response from child process:\n{e:?}"
                             ))
-                        },
-                        |v| Response::Result(Value::Integer(v)),
-                    ),
-                    "f64" => value.parse::<f64>().map_or_else(
-                        |e| {
-                            Response::Error(eyre!(
+                                },
+                                |v| Response::Result(Value::Integer(v)),
+                            ),
+                            "f64" => value.parse::<f64>().map_or_else(
+                                |e| {
+                                    Response::Error(eyre!(
                                 "Failed to parse (claimed) f64 response from child process:\n{e:?}"
                             ))
-                        },
-                        |v| Response::Result(Value::Float(v)),
-                    ),
-                    "str" => Response::Result(Value::Text(value.replace("\\n", "\n"))),
-                    "err" => Response::Error(eyre!(value.replace("\\n", "\n"))),
-                    "end" => Response::End,
-                    _ => {
-                        Response::Error(eyre!("Unknown response type ({typ}) from child process."))
+                                },
+                                |v| Response::Result(Value::Float(v)),
+                            ),
+                            "str" => Response::Result(Value::Text(value.replace("\\n", "\n"))),
+                            "err" => Response::Error(eyre!(value.replace("\\n", "\n"))),
+                            "end" => Response::End,
+                            _ => Response::Error(eyre!(
+                                "Unknown response type ({typ}) from child process."
+                            )),
+                        }
+                    }
+                    ResponseType::Raw => {
+                        let mut response = String::with_capacity(1024);
+                        if let Err(_) = reader.read_line(&mut response) {
+                            Response::End
+                        } else {
+                            let response = response.strip_suffix('\n').unwrap();
+                            Response::Result(Value::Text(response.to_owned()))
+                        }
+                    }
+                    ResponseType::RawAll => {
+                        let mut response = String::with_capacity(1024);
+                        while let Ok(i) = reader.read_line(&mut response) {
+                            if i == 0 {
+                                break;
+                            }
+                        }
+                        Response::Result(Value::Text(response))
                     }
                 };
 
-                let end = matches!(response, Response::End | Response::Error(_));
+                let end = matches!(response, Response::End | Response::Error(_))
+                    || matches!(response_type, ResponseType::RawAll);
 
                 if tx.send(response).is_err() {
                     break;
@@ -196,6 +254,7 @@ impl Action for Process {
         Ok(Box::new(StatefulProcess {
             done: false,
             name: self.name.clone(),
+            passive: self.passive,
             vars: self.vars.clone(),
             on_start: self.on_start,
             on_change: self.on_change,
@@ -281,11 +340,10 @@ impl StatefulAction for StatefulProcess {
                             return Err(eyre!("Child process died without informing about it."));
                         }
                     };
-                    self.vars.insert("self".to_owned(), result.clone());
 
                     if !self.name.is_empty() {
                         async_writer.push(LoggerSignal::Append(
-                            "math".to_owned(),
+                            "process".to_owned(),
                             (self.name.clone(), result.clone()),
                         ));
                     }
@@ -337,25 +395,30 @@ impl StatefulProcess {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
     ) -> Result<Signal> {
-        let mut inputs = format!("with {}\n", self.vars.len());
-        for (name, value) in self.vars.iter() {
-            let value = match value {
-                Value::Null => "nil".to_owned(),
-                Value::Bool(true) => "true".to_owned(),
-                Value::Bool(false) => "false".to_owned(),
-                Value::Integer(i) => format!("i64 {i}"),
-                Value::Float(f) => format!("f64 {f}"),
-                Value::Text(s) => format!("str {}", s.replace('\n', "\\n")),
-                v => return Err(eyre!("Cannot send value ({v:?}) to child process.")),
-            };
+        if !self.passive {
+            let mut inputs = String::new();
+            if !self.vars.is_empty() {
+                inputs.push_str(&format!("with {}\n", self.vars.len()));
+                for (name, value) in self.vars.iter() {
+                    let value = match value {
+                        Value::Null => "nil".to_owned(),
+                        Value::Bool(true) => "true".to_owned(),
+                        Value::Bool(false) => "false".to_owned(),
+                        Value::Integer(i) => format!("i64 {i}"),
+                        Value::Float(f) => format!("f64 {f}"),
+                        Value::Text(s) => format!("str {}", s.replace('\n', "\\n")),
+                        v => return Err(eyre!("Cannot send value ({v:?}) to child process.")),
+                    };
 
-            inputs.push_str(&format!("{name} {value}\n"));
+                    inputs.push_str(&format!("{name} {value}\n"));
+                }
+            }
+            inputs.push_str("go\n");
+
+            self.stdin
+                .write_all(inputs.as_bytes())
+                .wrap_err("Failed to run child process step.")?;
         }
-        inputs.push_str("go\n");
-
-        self.stdin
-            .write_all(inputs.as_bytes())
-            .wrap_err("Failed to run child process step.")?;
 
         let mut news = vec![];
         if self.blocking {
@@ -373,11 +436,10 @@ impl StatefulProcess {
                     return Err(eyre!("Child process died without informing about it."))
                 }
             };
-            self.vars.insert("self".to_owned(), result.clone());
 
             if !self.name.is_empty() {
                 async_writer.push(LoggerSignal::Append(
-                    "math".to_owned(),
+                    "process".to_owned(),
                     (self.name.clone(), result.clone()),
                 ));
             }

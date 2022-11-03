@@ -262,7 +262,7 @@ impl StatefulAction for StatefulFunction {
 
                     if !self.name.is_empty() {
                         async_writer.push(LoggerSignal::Append(
-                            "math".to_owned(),
+                            "function".to_owned(),
                             (self.name.clone(), result.clone()),
                         ));
                     }
@@ -322,7 +322,7 @@ impl StatefulFunction {
 
         if !self.name.is_empty() {
             async_writer.push(LoggerSignal::Append(
-                "math".to_owned(),
+                "function".to_owned(),
                 (self.name.clone(), result.clone()),
             ));
         }
