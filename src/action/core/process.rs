@@ -217,7 +217,7 @@ impl Action for Process {
                     }
                     ResponseType::Raw => {
                         let mut response = String::with_capacity(1024);
-                        if let Err(_) = reader.read_line(&mut response) {
+                        if reader.read_line(&mut response).is_err() {
                             Response::End
                         } else {
                             let response = response.strip_suffix('\n').unwrap();
