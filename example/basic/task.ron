@@ -95,6 +95,26 @@
         ),
 
         (
+            name: "Stacked",
+            tree: seq(([
+                timeout((
+                    5.0,
+                    horizontal(([
+                        image((src: "rustacean.svg", background: yellow, width: Some(200.0))),
+                        vertical(([
+                            fixation((background: yellow)),
+                            image((src: "rustacean.svg", width: Some(600.0))),
+                            fixation((background: blue)),
+                        ], [
+                            0.15, 0.5, 0.15
+                        ])),
+                        image((src: "rustacean.svg", background: blue, width: Some(400.0))),
+                    ]))
+                )),
+            ]))
+        ),
+
+        (
             name: "Stylized text",
             tree: seq(([
                 instruction((src: "instruction-1.txt", header: "From file")),

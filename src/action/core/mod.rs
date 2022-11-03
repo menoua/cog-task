@@ -10,6 +10,7 @@ pub mod delayed;
 pub mod event;
 pub mod fixation;
 pub mod function;
+pub mod horizontal;
 pub mod image;
 pub mod instruction;
 pub mod key_logger;
@@ -21,12 +22,14 @@ pub mod process;
 pub mod question;
 pub mod reaction;
 pub mod seq;
+pub mod stack;
 #[cfg(feature = "stream")]
 pub mod stream;
 pub mod switch;
 pub mod template;
 pub mod timeout;
 pub mod timer;
+pub mod vertical;
 #[cfg(feature = "stream")]
 pub mod video;
 pub mod view;
