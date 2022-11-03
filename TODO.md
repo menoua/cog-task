@@ -1,9 +1,9 @@
 ## To-do
 
-- [ ] Add `args` to Process so that "/usr/bin/env command" can be used.
 - [ ] Save the binaries generated for macOS and Linux by CI for specific cases (base, audio, audio+gstreamer, full).
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.
+- [ ] Consider replacing the current message broadcast system with a spmc channel (check out the "bus" crate).
 - [ ] Consider relegating compile-time asset management to [rust-embed](https://github.com/pyrossh/rust-embed).
 - [ ] Fix `ffmpeg` implementation. Currently this backend is missing a lot of functionality (sound, looping, trigger, etc.).
 - [ ] Build one of the media backends (probably `ffmpeg`) as a static dependency.
