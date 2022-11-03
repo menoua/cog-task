@@ -217,7 +217,7 @@ impl StatefulAction for StatefulStack {
                 for c in self.children.iter_mut() {
                     strip.cell(|ui| {
                         if let Err(e) = c.show(ui, sync_writer, async_writer, state) {
-                            let _ = sync_writer.push(SyncSignal::Error(e));
+                            sync_writer.push(SyncSignal::Error(e));
                         }
                     });
                 }
@@ -228,7 +228,7 @@ impl StatefulAction for StatefulStack {
                 for c in self.children.iter_mut() {
                     strip.cell(|ui| {
                         if let Err(e) = c.show(ui, sync_writer, async_writer, state) {
-                            let _ = sync_writer.push(SyncSignal::Error(e));
+                            sync_writer.push(SyncSignal::Error(e));
                         }
                     });
                 }
