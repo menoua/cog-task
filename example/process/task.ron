@@ -145,7 +145,7 @@
                     out_tic: 2,
                 )),
                 instruction((
-                    text: "!!<easy_mark> Clock: ${time}\nDirectory content:\n${response}",
+                    text: "!!<easy_mark> Clock: ${time}\nDirectory content:\n```\n${response}\n```",
                     params: { "response": "Waiting...", "time": "0" },
                     in_mapping: { 1: "response", 2: "time" },
                     static: true,
