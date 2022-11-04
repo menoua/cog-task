@@ -72,7 +72,7 @@ impl Sink {
 impl Buffer {
     pub fn new(path: &Path, _config: &Config) -> Result<Self> {
         let decoder = Decoder::new(BufReader::new(
-            File::open(&path).wrap_err_with(|| format!("Failed to open audio file: {path:?}"))?,
+            File::open(path).wrap_err_with(|| format!("Failed to open audio file: {path:?}"))?,
         ))
         .wrap_err_with(|| format!("Failed to decode audio file: {path:?}"))?;
 

@@ -44,7 +44,7 @@ impl MediaStream for Stream {
     ) -> Result<Self> {
         init()?;
 
-        let context = input(&path)?;
+        let context = input(path)?;
 
         let video = context.streams().best(Type::Video);
         let (video_index, width, height, frame_rate) = if let Some(stream) = video {
@@ -197,7 +197,7 @@ impl MediaStream for Stream {
                                 .expect("Failed to run scaler");
                             *frame.lock().unwrap() = Some((
                                 tex_manager.write().alloc(
-                                    format!("{:?}:@:[current]", path),
+                                    format!("{path:?}:@:[current]"),
                                     ImageData::Color(ColorImage::from_rgba_unmultiplied(
                                         [rgba_frame.width() as _, rgba_frame.height() as _],
                                         rgba_frame.data(0),

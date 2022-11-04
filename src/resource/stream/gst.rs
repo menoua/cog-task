@@ -73,7 +73,7 @@ impl MediaStream for Stream {
 
         source
             .set_state(gst::State::Null)
-            .wrap_err_with(|| "Failed to close video graciously ({path:?})")?;
+            .wrap_err_with(|| eyre!("Failed to close video graciously ({path:?})"))?;
 
         Ok(Stream {
             path: path.to_owned(),
@@ -138,7 +138,7 @@ impl MediaStream for Stream {
 
                             *frame.lock().map_err(|_| gst::FlowError::Error)? = Some((
                                 tex_manager.write().alloc(
-                                    format!("{:?}:@:[current]", path),
+                                    format!("{path:?}:@:[current]"),
                                     ImageData::Color(ColorImage::from_rgba_unmultiplied(
                                         [width as _, height as _],
                                         map.as_slice(),
