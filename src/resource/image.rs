@@ -11,7 +11,7 @@ pub fn image_from_file(
     tex_manager: Arc<RwLock<epaint::TextureManager>>,
     path: &Path,
 ) -> Result<(TextureId, Vec2)> {
-    let bytes = fs::read(&path).wrap_err_with(|| format!("Failed to read image file: {path:?}"))?;
+    let bytes = fs::read(path).wrap_err_with(|| format!("Failed to read image file: {path:?}"))?;
     image_from_bytes(tex_manager, &bytes, path)
 }
 
@@ -42,7 +42,7 @@ pub fn svg_from_file(
     tex_manager: Arc<RwLock<epaint::TextureManager>>,
     path: &Path,
 ) -> Result<(TextureId, Vec2)> {
-    let bytes = fs::read(&path).wrap_err_with(|| format!("Failed to read image file: {path:?}"))?;
+    let bytes = fs::read(path).wrap_err_with(|| format!("Failed to read image file: {path:?}"))?;
     svg_from_bytes(tex_manager, &bytes, path)
 }
 
