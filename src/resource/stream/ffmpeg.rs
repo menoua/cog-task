@@ -44,7 +44,7 @@ impl MediaStream for Stream {
     ) -> Result<Self> {
         init()?;
 
-        let context = input(path)?;
+        let context = input(&path)?;
 
         let video = context.streams().best(Type::Video);
         let (video_index, width, height, frame_rate) = if let Some(stream) = video {
