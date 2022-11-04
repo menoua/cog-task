@@ -5,7 +5,7 @@
 - [ ] Build a proper documentation for developers and users alike.
 - [ ] Consider replacing the current message broadcast system with a spmc channel (check out the "bus" crate).
 - [ ] Consider relegating compile-time asset management to [rust-embed](https://github.com/pyrossh/rust-embed).
-- [ ] Fix `ffmpeg` implementation. Currently this backend is missing a lot of functionality (sound, looping, trigger, etc.).
+- [ ] Fix `ffmpeg` implementation. Currently, this backend is missing a lot of functionality (sound, looping, trigger, etc.).
 - [ ] Build one of the media backends (probably `ffmpeg`) as a static dependency.
 - [ ] Find alternative icon font to "font awesome" with open source thin/light icons. 
 - [ ] Support audio fade-in/out by providing duration (global, block, and local -- like volume):

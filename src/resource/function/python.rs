@@ -1,9 +1,12 @@
 use crate::resource::{LoopbackError, LoopbackResult, VarMap};
 use cpython::{exc, FromPyObject, PyClone, PyDict, PyErr, PyNone, PyObject, PyResult, Python};
 use eyre::{eyre, Context, Error, Result};
+use once_cell::sync::OnceCell;
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
-use std::thread;
+use std::{env, thread};
+
+static PYTHON_INIT: OnceCell<()> = OnceCell::new();
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub enum PyValue {
@@ -22,6 +25,8 @@ pub struct Evaluator {
 
 impl Evaluator {
     pub fn new(init: &str, expr: &str, vars: &mut VarMap) -> Result<Self> {
+        init_python()?;
+
         let gil = Python::acquire_gil();
         let py = gil.python();
 
@@ -202,4 +207,24 @@ impl TryFrom<Value> for PyValue {
             _ => Err(eyre!("Failed to convert serde Value to PyValue.")),
         }
     }
+}
+
+pub fn init_python() -> Result<()> {
+    if PYTHON_INIT.get().is_some() {
+        return Ok(());
+    }
+
+    let python_env = "PYTHONHOME";
+    if env::var(python_env).is_err() {
+        if let Ok(conda) = env::var("CONDA_PREFIX") {
+            env::set_var(python_env, conda);
+        }
+    }
+
+    let gil = Python::acquire_gil();
+    let _ = gil.python();
+
+    PYTHON_INIT
+        .set(())
+        .map_err(|_| eyre!("Tried to init python environment twice."))
 }

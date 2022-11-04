@@ -99,13 +99,12 @@ Examples:
 
 ### //@ python
 
-Enabling the **python** feature can be tricky. You need a working installation of python3, which generally comes preinstalled with recent versions of both macOS and Linux. If you do have python installed but compilation fails anyway, you might also need to set up the PYTHONHOME environment variable (especially if you have multiple installations of python on your system). The variable needs to be set to the location of the desired python environment. For example, for a conda environment, you might want to set:
-
+Enabling the **python** feature can be tricky. You need a working installation of python3, which generally comes preinstalled with recent versions of both macOS and Linux. If you installed python using anaconda, you generally don't need to do anything else. If you installed python using a different method, you might need to set up the PYTHONHOME environment variable manually. The variable needs to be set to the location of the desired python environment:
 ```bash
-export PYTHONHOME=$HOME/opt/anaconda3/
+export PYTHONHOME=path_to_python_env
 ```
 
-This should be set before running `cog-launcher` or `cog-server` in the same shell environment. It might need some trial and error to get it going.
+This should be set before running `cog-launcher` or `cog-server` in the same shell environment. It might take some trial and error to get it going.
 
 ## Usage
 
@@ -130,6 +129,9 @@ Then use the leftmost control icon to load the [*example/basic/*](https://github
 ## Changelog
 
 The SemVer version will follow these guidelines: If the new version is backwards compatible (task written for last version will behave the same on the new version), even if there are (1) new action types, or (2) new attributes for an existing action type introduced, the third number will increase. If an existing action type is removed entirely or an existing action's attributes (or their default values) have changed such that it is no longer backwards compatible, the second number will increase. If there is a fundamental change to the structure of the program (how tasks/actions are defined or executed), the first number will increase. Bug fixes will generally increase the third number, unless they are big, in which case they will increase the second number.
+
+**v1.1.3**:
+- Using a python function no longer requires manually setting the `PYTHONHOME` environment variable IF python has been set up using anaconda.
 
 **v1.1.2**:
 - New action `Stack` runs actions in parallel and displays them either in a horizontal or vertical stack.
