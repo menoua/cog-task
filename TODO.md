@@ -1,5 +1,7 @@
 ## To-do
 
+- [ ] Introduce global variables at the `Server` level which populate the state of scheduler at start, and are written back to Server only after successful completion.
+- [ ] Introduce "requires" attribute to `Block` which means a block can only run after the required blocks. This shouldn't be used for order since it can't be circumvented if necessary.
 - [ ] Save the binaries generated for macOS and Linux by CI for specific cases (base, audio, audio+gstreamer, full).
 - [ ] Improve error messages by taking advantage of `eyre`'s contextualized error reports.
 - [ ] Build a proper documentation for developers and users alike.
