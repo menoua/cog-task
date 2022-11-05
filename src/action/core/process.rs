@@ -248,12 +248,12 @@ impl Action for Process {
                     }
                 };
 
-                if drop_early && !*started_clone.lock().unwrap() {
-                    continue;
-                }
-
                 let end = matches!(response, Response::End | Response::Error(_))
                     || matches!(response_type, ResponseType::RawAll);
+
+                if !end && drop_early && !*started_clone.lock().unwrap() {
+                    continue;
+                }
 
                 if tx.send(response).is_err() {
                     break;
@@ -339,7 +339,11 @@ impl StatefulAction for StatefulProcess {
                 }
                 Err(TryRecvError::Empty) => break,
                 Err(TryRecvError::Disconnected) => {
-                    return Err(eyre!("Child process died without informing about it."));
+                    if self.done {
+                        break;
+                    } else {
+                        return Err(eyre!("Child process died without informing about it."));
+                    }
                 }
             };
 
