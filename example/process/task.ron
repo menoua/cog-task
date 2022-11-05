@@ -152,5 +152,34 @@
                 ))
             ]))
         ),
+
+        (
+            name: "watch date",
+            tree: par(([
+                seq(([
+                    wait((2.0)),
+                    process((
+                        src: "watch",
+                        passive: true,
+                        blocking: false,
+                        response_type: raw,
+                        drop_early: true,
+                        lo_incoming: 1001,
+                        out_result: 1,
+                    )),
+                ]))
+            ], [
+                clock((
+                    step: 0.1,
+                    out_tic: 2,
+                )),
+                instruction((
+                    text: "Clock: ${time}\nTime: ${response}",
+                    params: { "response": "Waiting...", "time": "0" },
+                    in_mapping: { 1: "response", 2: "time" },
+                    static: true,
+                ))
+            ]))
+        ),
     ]
 )

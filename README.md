@@ -130,6 +130,10 @@ Then use the leftmost control icon to load the [*example/basic/*](https://github
 
 The SemVer version will follow these guidelines: If the new version is backwards compatible (task written for last version will behave the same on the new version), even if there are (1) new action types, or (2) new attributes for an existing action type introduced, the third number will increase. If an existing action type is removed entirely or an existing action's attributes (or their default values) have changed such that it is no longer backwards compatible, the second number will increase. If there is a fundamental change to the structure of the program (how tasks/actions are defined or executed), the first number will increase. Bug fixes will generally increase the third number, unless they are big, in which case they will increase the second number.
 
+**v1.1.4**:
+- `Process` now has a `drop_early` attribute which if set will drop/ignore all incoming responses before the corresponding action starts. This is incompatible with response_type of raw_all.
+- Fixed a bug in `Porcess` which if multiple responses were received before action started, only one was consumed, keeping a list of unconsumed responses forever.
+
 **v1.1.3**:
 - Using a python function no longer requires manually setting the `PYTHONHOME` environment variable IF python has been set up using anaconda.
 

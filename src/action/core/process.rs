@@ -10,6 +10,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::mpsc::{self, Receiver, RecvError, TryRecvError};
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Instant;
 
@@ -35,6 +36,8 @@ pub struct Process {
     #[serde(default = "defaults::blocking")]
     blocking: bool,
     #[serde(default)]
+    drop_early: bool,
+    #[serde(default)]
     in_mapping: BTreeMap<SignalId, String>,
     #[serde(default)]
     in_update: SignalId,
@@ -58,6 +61,7 @@ stateful!(Process {
     child: Child,
     stdin: ChildStdin,
     link: Receiver<Response>,
+    started: Arc<Mutex<bool>>,
 });
 
 mod defaults {
@@ -115,6 +119,12 @@ impl Action for Process {
             return Err(eyre!("Setting `vars`for passive Process is useless."));
         }
 
+        if self.drop_early && matches!(self.response_type, ResponseType::RawAll) {
+            return Err(eyre!(
+                "Process cannot have drop_early=True and response_type=raw_all simultaneously."
+            ));
+        }
+
         Ok(Box::new(self))
     }
 
@@ -164,9 +174,12 @@ impl Action for Process {
 
         let (tx, rx) = mpsc::channel();
 
+        let started = Arc::new(Mutex::new(false));
+        let drop_early = self.drop_early;
         let lo_incoming = self.lo_incoming;
         let response_type = self.response_type;
         let mut sync_writer = sync_writer.clone();
+        let started_clone = started.clone();
         thread::spawn(move || {
             let mut reader = BufReader::new(stdout);
 
@@ -235,6 +248,10 @@ impl Action for Process {
                     }
                 };
 
+                if drop_early && !*started_clone.lock().unwrap() {
+                    continue;
+                }
+
                 let end = matches!(response, Response::End | Response::Error(_))
                     || matches!(response_type, ResponseType::RawAll);
 
@@ -267,6 +284,7 @@ impl Action for Process {
             child,
             stdin,
             link: rx,
+            started,
         }))
     }
 }
@@ -292,17 +310,57 @@ impl StatefulAction for StatefulProcess {
             }
         }
 
-        if self.on_start {
+        *self.started.lock().unwrap() = true;
+
+        let mut news = if self.on_start {
             if self.once && self.blocking {
                 self.done = true;
                 sync_writer.push(SyncSignal::UpdateGraph);
             }
 
             self.run(sync_writer, async_writer)
-                .wrap_err("Failed to evaluate function.")
+                .wrap_err("Failed to evaluate function.")?
+                .into_iter()
+                .collect()
         } else {
-            Ok(Signal::none())
+            vec![]
+        };
+
+        loop {
+            let result = match self.link.try_recv() {
+                Ok(Response::Result(v)) => v,
+                Ok(Response::Error(e)) => {
+                    return Err(eyre!("Child process returned error:\n{e:#?}"));
+                }
+                Ok(Response::End) => {
+                    self.done = true;
+                    sync_writer.push(SyncSignal::UpdateGraph);
+                    break;
+                }
+                Err(TryRecvError::Empty) => break,
+                Err(TryRecvError::Disconnected) => {
+                    return Err(eyre!("Child process died without informing about it."));
+                }
+            };
+
+            if !self.name.is_empty() {
+                async_writer.push(LoggerSignal::Append(
+                    "process".to_owned(),
+                    (self.name.clone(), result.clone()),
+                ));
+            }
+
+            if self.out_result > 0 {
+                news.push((self.out_result, result.clone()));
+            }
+
+            if self.once {
+                self.done = true;
+                sync_writer.push(SyncSignal::UpdateGraph);
+            }
         }
+
+        Ok(news.into())
     }
 
     fn update(
