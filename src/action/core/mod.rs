@@ -21,6 +21,7 @@ pub mod par;
 pub mod process;
 pub mod question;
 pub mod reaction;
+pub mod repeat;
 pub mod seq;
 pub mod stack;
 #[cfg(feature = "stream")]
@@ -29,6 +30,7 @@ pub mod switch;
 pub mod template;
 pub mod timeout;
 pub mod timer;
+pub mod until;
 pub mod vertical;
 #[cfg(feature = "stream")]
 pub mod video;

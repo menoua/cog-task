@@ -34,9 +34,8 @@ use std::sync::{Arc, Mutex};
 #[derive(Debug, Clone)]
 pub struct ResourceManager(Arc<Mutex<HashMap<ResourceAddr, ResourceValue>>>);
 
-#[derive(Clone)]
 pub struct IoManager {
-    audio: Arc<AudioDevice>,
+    audio: AudioDevice,
 }
 
 impl ResourceManager {
@@ -162,7 +161,13 @@ impl Debug for IoManager {
 impl IoManager {
     pub fn new(config: &Config) -> Result<Self> {
         Ok(Self {
-            audio: Arc::new(AudioDevice::new(config)?),
+            audio: AudioDevice::new(config)?,
+        })
+    }
+
+    pub fn try_clone(&self) -> Result<Self> {
+        Ok(Self {
+            audio: self.audio.try_clone()?,
         })
     }
 

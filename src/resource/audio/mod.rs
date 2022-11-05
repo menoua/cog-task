@@ -36,6 +36,16 @@ pub enum AudioDevice {
     Rodio(rodio::Device),
 }
 
+impl AudioDevice {
+    pub fn try_clone(&self) -> Result<Self> {
+        match self {
+            AudioDevice::None => Ok(AudioDevice::None),
+            #[cfg(feature = "rodio")]
+            AudioDevice::Rodio(_) => rodio::Device::new().map(AudioDevice::Rodio),
+        }
+    }
+}
+
 impl Default for AudioBackend {
     #[inline(always)]
     fn default() -> Self {

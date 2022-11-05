@@ -28,8 +28,8 @@
                     )),
                 ], [
                     event(("some_event")),
-                    key_logger(("section1")),
-                    key_logger(("all_keys")),
+                    key_logger((group: "section1")),
+                    key_logger((group: "all_keys")),
                     fixation(()),
                 ],
                     any
@@ -111,6 +111,27 @@
                         image((src: "rustacean.svg", background: blue, width: Some(400.0))),
                     ]))
                 )),
+            ]))
+        ),
+
+        (
+            name: "Repeat until keypress",
+            tree: par(([
+                until((
+                    in_event: 1,
+                    inner: repeat((
+                        seq(([
+                            timeout((0.5, fixation((width: Some(50.0))))),
+                            timeout((0.5, fixation((width: Some(150.0))))),
+                            timeout((0.5, fixation((width: Some(600.0))))),
+                            timeout((0.5, image((src: "rustacean.svg", width: Some(50.0))))),
+                            timeout((0.5, image((src: "rustacean.svg", width: Some(150.0))))),
+                            timeout((0.5, image((src: "rustacean.svg", width: Some(600.0))))),
+                        ]))
+                    ))
+                ))
+            ], [
+                key_logger((out_key: 1))
             ]))
         ),
 

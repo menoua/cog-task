@@ -35,8 +35,8 @@
                     )),
                 ], [
                     event(("one_audio")),
-                    key_logger(("section1")),
-                    key_logger(("all_keys")),
+                    key_logger((group: "section1")),
+                    key_logger((group: "all_keys")),
                     fixation(()),
                 ],
                     any
@@ -49,8 +49,8 @@
                     ]))
                 ], [
                     event(("three_audios")),
-                    key_logger(("section2")),
-                    key_logger(("all_keys")),
+                    key_logger((group: "section2")),
+                    key_logger((group: "all_keys")),
                     instruction((
                         text: "Key presses will be logged until the end of this audio",
                         static: true

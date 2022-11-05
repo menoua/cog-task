@@ -1,7 +1,6 @@
 ## To-do
 
 - [ ] Add Pointer action which wraps its internal element and records the position of the click. If an optional mask image is provided, it will measure if click was within mask. Sends out reaction_time, accuracy, and position.
-- [ ] Add Loop action which indefinitely repeats its internal action. Maybe keep two internal Stateful copies so they can be swapped out with small overhead. Although the replacement would need to be replaced, which will ideally happen without blocking.
 - [ ] Introduce global variables at the `Server` level which populate the state of scheduler at start, and are written back to Server only after successful completion.
 - [ ] Introduce "requires" attribute to `Block` which means a block can only run after the required blocks. This shouldn't be used for order since it can't be circumvented if necessary.
 - [ ] Save the binaries generated for macOS and Linux by CI for specific cases (base, audio, audio+gstreamer, full).

@@ -130,6 +130,12 @@ Then use the leftmost control icon to load the [*example/basic/*](https://github
 
 The SemVer version will follow these guidelines: If the new version is backwards compatible (task written for last version will behave the same on the new version), even if there are (1) new action types, or (2) new attributes for an existing action type introduced, the third number will increase. If an existing action type is removed entirely or an existing action's attributes (or their default values) have changed such that it is no longer backwards compatible, the second number will increase. If there is a fundamental change to the structure of the program (how tasks/actions are defined or executed), the first number will increase. Bug fixes will generally increase the third number, unless they are big, in which case they will increase the second number.
 
+**v1.2.0**:
+- New action `Until` which wraps another (usually infinite) action and ends it when a signal arrives or condition is met.
+- New action `Repeat` which wraps another finite action and restarts it as soon as it ends.
+- `KeyLogger` now has a `out_key` attribute which emits the name of the pressed key as a string.
+- `KeyLogger` is now in map form instead of tuple form, so `group` should be provided as a key-value pair.
+
 **v1.1.5**:
 - Fixed a bug recently introduced in v1.1.4 where block would crash if `Process` ended before the action started,
 
