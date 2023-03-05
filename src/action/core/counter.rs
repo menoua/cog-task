@@ -4,6 +4,7 @@ use crate::gui::{style_ui, Style};
 use crate::resource::{IoManager, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
+use eframe::egui::{CursorIcon, Response};
 use egui_extras::{Size, StripBuilder};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -73,7 +74,7 @@ impl StatefulAction for StatefulCounter {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Response> {
         enum Interaction {
             None,
             Decrement,
@@ -83,7 +84,7 @@ impl StatefulAction for StatefulCounter {
 
         let button = egui::Button::new(format!("Click me {} more times", self.count));
 
-        StripBuilder::new(ui)
+        let response = StripBuilder::new(ui)
             .size(Size::remainder())
             .size(Size::exact(420.0))
             .size(Size::remainder())
@@ -121,7 +122,9 @@ impl StatefulAction for StatefulCounter {
             }
         }
 
-        Ok(())
+        ui.output().cursor_icon = CursorIcon::Default;
+
+        Ok(response)
     }
 
     fn debug(&self) -> Vec<(&str, String)> {

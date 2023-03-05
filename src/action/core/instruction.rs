@@ -8,7 +8,7 @@ use crate::resource::{
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::f64_with_precision;
 use eframe::egui;
-use eframe::egui::{CursorIcon, ScrollArea};
+use eframe::egui::{CursorIcon, Response, ScrollArea};
 use egui_extras::{Size, StripBuilder};
 use eyre::{eyre, Result};
 use regex::Regex;
@@ -195,7 +195,7 @@ impl StatefulAction for StatefulInstruction {
         sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Response> {
         let mut text = self.text.clone();
 
         for (k, v) in self.params.iter() {
@@ -205,7 +205,7 @@ impl StatefulAction for StatefulInstruction {
                 .to_string();
         }
 
-        header_body_controls(ui, |strip| {
+        let response = header_body_controls(ui, |strip| {
             strip.cell(|ui| {
                 ui.centered_and_justified(|ui| ui.heading(&self.header));
             });
@@ -235,11 +235,11 @@ impl StatefulAction for StatefulInstruction {
             });
         });
 
-        if self.persistent {
-            ui.output().cursor_icon = CursorIcon::None;
+        if !self.persistent {
+            ui.output().cursor_icon = CursorIcon::Default;
         }
 
-        Ok(())
+        Ok(response)
     }
 }
 

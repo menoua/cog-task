@@ -4,6 +4,7 @@ use crate::resource::{IoManager, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::approx_eq;
 use eframe::egui;
+use eframe::egui::Response;
 use eyre::{eyre, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -173,11 +174,11 @@ impl StatefulAction for StatefulSwitch {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Response> {
         match self.decision {
             Decision::Final(true) => self.if_true.show(ui, sync_writer, async_writer, state),
             Decision::Final(false) => self.if_false.show(ui, sync_writer, async_writer, state),
-            Decision::Temporary(_) => Ok(()),
+            Decision::Temporary(_) => Ok(ui.label("")),
         }
     }
 

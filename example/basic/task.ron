@@ -84,13 +84,13 @@
             name: "Scaling",
             tree: seq(([
                 timeout((1.0, fixation(()))),
-                timeout((1.0, fixation((width: Some(50.0))))),
-                timeout((1.0, fixation((width: Some(150.0))))),
-                timeout((1.0, fixation((width: Some(600.0))))),
+                timeout((1.0, fixation((width: 50.0)))),
+                timeout((1.0, fixation((width: 150.0)))),
+                timeout((1.0, fixation((width: 600.0)))),
                 timeout((1.0, image((src: "rustacean.svg", background: transparent)))),
-                timeout((1.0, image((src: "rustacean.svg", background: yellow, width: Some(50.0))))),
-                timeout((1.0, image((src: "rustacean.svg", background: green, width: Some(150.0))))),
-                timeout((1.0, image((src: "rustacean.svg", background: blue, width: Some(600.0))))),
+                timeout((1.0, image((src: "rustacean.svg", background: yellow, width: 50.0)))),
+                timeout((1.0, image((src: "rustacean.svg", background: green, width: 150.0)))),
+                timeout((1.0, image((src: "rustacean.svg", background: blue, width: 600.0)))),
             ]))
         ),
 
@@ -100,17 +100,47 @@
                 timeout((
                     5.0,
                     horizontal(([
-                        image((src: "rustacean.svg", background: yellow, width: Some(200.0))),
+                        image((src: "rustacean.svg", background: yellow, width: 200.0)),
                         vertical(([
                             fixation((background: yellow)),
-                            image((src: "rustacean.svg", width: Some(600.0))),
+                            image((src: "rustacean.svg", width: 600.0)),
                             fixation((background: blue)),
                         ], [
                             0.15, 0.5, 0.15
                         ])),
-                        image((src: "rustacean.svg", background: blue, width: Some(400.0))),
+                        image((src: "rustacean.svg", background: blue, width: 400.0)),
                     ]))
                 )),
+            ]))
+        ),
+
+        (
+            name: "Pointer",
+            tree: seq(([
+                rect((
+                    (200, 133.3),
+                    pointer((
+                        inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                        group: "click",
+                    )),
+                    red
+                )),
+                rect((
+                    (200, 133.3),
+                    pointer((
+                        inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                        group: "click",
+                    )),
+                    blue
+                )),
+                rect((
+                    (200, 133.3),
+                    pointer((
+                        inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                        group: "click",
+                    )),
+                    yellow
+                ))
             ]))
         ),
 
@@ -121,12 +151,12 @@
                     in_event: 1,
                     inner: repeat((
                         seq(([
-                            timeout((0.5, fixation((width: Some(50.0))))),
-                            timeout((0.5, fixation((width: Some(150.0))))),
-                            timeout((0.5, fixation((width: Some(600.0))))),
-                            timeout((0.5, image((src: "rustacean.svg", width: Some(50.0))))),
-                            timeout((0.5, image((src: "rustacean.svg", width: Some(150.0))))),
-                            timeout((0.5, image((src: "rustacean.svg", width: Some(600.0))))),
+                            timeout((0.5, fixation((width: 50.0)))),
+                            timeout((0.5, fixation((width: 150.0)))),
+                            timeout((0.5, fixation((width: 600.0)))),
+                            timeout((0.5, image((src: "rustacean.svg", width: 50.0)))),
+                            timeout((0.5, image((src: "rustacean.svg", width: 150.0)))),
+                            timeout((0.5, image((src: "rustacean.svg", width: 600.0)))),
                         ]))
                     ))
                 ))

@@ -23,11 +23,6 @@ stateful!(Timer {
 });
 
 impl Action for Timer {
-    #[inline]
-    fn out_signals(&self) -> BTreeSet<SignalId> {
-        BTreeSet::from([self.out_duration])
-    }
-
     fn init(self) -> Result<Box<dyn Action>>
     where
         Self: 'static + Sized,
@@ -39,6 +34,11 @@ impl Action for Timer {
         } else {
             Ok(Box::new(self))
         }
+    }
+
+    #[inline]
+    fn out_signals(&self) -> BTreeSet<SignalId> {
+        BTreeSet::from([self.out_duration])
     }
 
     #[inline(always)]

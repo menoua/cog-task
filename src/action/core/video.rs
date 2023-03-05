@@ -2,11 +2,13 @@
 
 use crate::action::{Action, Props, StatefulAction, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal};
-use crate::resource::{Color, IoManager, ResourceAddr, ResourceManager, ResourceValue};
+use crate::resource::{
+    Color, IoManager, OptionalFloat, ResourceAddr, ResourceManager, ResourceValue,
+};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eframe::egui;
-use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
+use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, Response, TextureId, Vec2};
 use eyre::{eyre, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -20,11 +22,13 @@ use std::time::Duration;
 pub struct Video {
     src: PathBuf,
     #[serde(default)]
-    width: Option<u16>,
+    width: OptionalFloat,
     #[serde(default)]
     looping: bool,
     #[serde(default)]
     background: Color,
+    #[serde(default = "defaults::pad")]
+    pad: bool,
 }
 
 stateful_arc!(Video {
@@ -32,11 +36,18 @@ stateful_arc!(Video {
     framerate: f64,
     duration: Duration,
     position: Arc<Mutex<usize>>,
-    width: Option<u16>,
+    width: Option<f32>,
     looping: bool,
     link: Option<(Sender<()>, Receiver<()>)>,
     background: Color32,
+    pad: bool,
 });
+
+mod defaults {
+    pub fn pad() -> bool {
+        true
+    }
+}
 
 impl Action for Video {
     #[inline(always)]
@@ -103,10 +114,11 @@ impl Action for Video {
                     framerate,
                     duration,
                     position,
-                    width: self.width,
+                    width: self.width.as_f32(),
                     looping: self.looping,
                     link: Some((tx_start, rx_stop)),
                     background: self.background.into(),
+                    pad: self.pad,
                 }))
             }
             _ => Err(eyre!(
@@ -173,26 +185,29 @@ impl StatefulAction for StatefulVideo {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Response> {
         let (texture, size) = self.frames[*self.position.lock().unwrap()];
 
-        ui.output().cursor_icon = CursorIcon::None;
+        let scale = if let Some(width) = self.width {
+            width / size.x
+        } else {
+            1.0
+        };
 
-        CentralPanel::default()
+        let response = CentralPanel::default()
             .frame(Frame::default().fill(self.background))
             .show_inside(ui, |ui| {
-                ui.centered_and_justified(|ui| {
-                    if let Some(width) = self.width {
-                        let scale = width as f32 / size.x;
-                        ui.image(texture, size * scale);
-                    } else {
-                        ui.image(texture, size);
-                    }
-                });
-            });
+                if self.pad {
+                    ui.centered_and_justified(|ui| ui.image(texture, size * scale))
+                        .inner
+                } else {
+                    ui.image(texture, size * scale)
+                }
+            })
+            .response;
 
         ui.ctx().request_repaint();
-        Ok(())
+        Ok(response)
     }
 
     fn debug(&self) -> Vec<(&str, String)> {

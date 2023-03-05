@@ -13,6 +13,7 @@ use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{IoManager, Key, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
+use eframe::egui::Response;
 use eyre::Result;
 use itertools::Itertools;
 use std::any::Any;
@@ -95,8 +96,8 @@ pub trait StatefulAction: Send {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
-        Ok(())
+    ) -> Result<Response> {
+        Ok(ui.label(""))
     }
 
     #[allow(unused_variables)]

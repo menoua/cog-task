@@ -3,12 +3,13 @@
 use crate::action::{Action, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal};
 use crate::resource::{
-    Color, IoManager, ResourceAddr, ResourceManager, ResourceValue, StreamMode, Trigger, Volume,
+    Color, IoManager, OptionalFloat, ResourceAddr, ResourceManager, ResourceValue, StreamMode,
+    Trigger, Volume,
 };
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eframe::egui;
-use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
+use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, Response, TextureId, Vec2};
 use eyre::{eyre, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -23,7 +24,7 @@ use std::time::Duration;
 pub struct Stream {
     src: PathBuf,
     #[serde(default)]
-    width: Option<u16>,
+    width: OptionalFloat,
     #[serde(default)]
     volume: Volume,
     #[serde(default)]
@@ -32,18 +33,27 @@ pub struct Stream {
     trigger: Trigger,
     #[serde(default)]
     background: Color,
+    #[serde(default = "defaults::pad")]
+    pad: bool,
 }
 
 stateful_arc!(Stream {
     frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
     framerate: f64,
-    width: Option<u16>,
+    width: Option<f32>,
     looping: bool,
     link_start: Sender<()>,
     link_stop: Option<Receiver<()>>,
     join_handle: Option<JoinHandle<Result<()>>>,
     background: Color32,
+    pad: bool,
 });
+
+mod defaults {
+    pub fn pad() -> bool {
+        true
+    }
+}
 
 impl Action for Stream {
     #[inline(always)]
@@ -159,12 +169,13 @@ impl Action for Stream {
             done,
             frame,
             framerate,
-            width: self.width,
+            width: self.width.as_f32(),
             looping,
             link_start: tx_start,
             link_stop: Some(rx_stop),
             join_handle: Some(join_handle),
             background: self.background.into(),
+            pad: self.pad,
         }))
     }
 }
@@ -233,32 +244,36 @@ impl StatefulAction for StatefulStream {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
+    ) -> Result<Response> {
         let (texture, size) = self
             .frame
             .lock()
             .unwrap()
             .unwrap_or_else(|| (TextureId::default(), Vec2::splat(1.0)));
 
-        ui.output().cursor_icon = CursorIcon::None;
+        let scale = if let Some(width) = self.width {
+            width / size.x
+        } else {
+            1.0
+        };
 
-        CentralPanel::default()
+        let response = CentralPanel::default()
             .frame(Frame::default().fill(self.background))
             .show_inside(ui, |ui| {
-                ui.centered_and_justified(|ui| {
-                    if let Some(width) = self.width {
-                        let scale = width as f32 / size.x;
-                        ui.image(texture, size * scale);
-                    } else {
-                        ui.image(texture, size);
-                    }
-                });
-            });
+                if self.pad {
+                    ui.centered_and_justified(|ui| ui.image(texture, size * scale))
+                        .inner
+                } else {
+                    ui.image(texture, size * scale)
+                }
+            })
+            .response;
 
         if self.framerate > 0.0 {
             ui.ctx().request_repaint();
         }
-        Ok(())
+
+        Ok(response)
     }
 
     fn debug(&self) -> Vec<(&str, String)> {

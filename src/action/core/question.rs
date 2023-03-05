@@ -9,7 +9,8 @@ use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::{f32_with_precision, f64_with_precision};
 use eframe::egui;
 use eframe::egui::{
-    Checkbox, Color32, RadioButton, ScrollArea, Slider, Stroke, TextEdit, Vec2, Widget,
+    Checkbox, Color32, CursorIcon, RadioButton, Response, ScrollArea, Slider, Stroke, TextEdit,
+    Vec2, Widget,
 };
 use egui_extras::StripBuilder;
 use eyre::{eyre, Result};
@@ -87,8 +88,8 @@ impl StatefulAction for StatefulQuestion {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
-        header_body_controls(ui, |strip| {
+    ) -> Result<Response> {
+        let response = header_body_controls(ui, |strip| {
             strip.empty();
             strip.empty();
             strip.strip(|builder| {
@@ -100,7 +101,9 @@ impl StatefulAction for StatefulQuestion {
             strip.strip(|builder| self.show_controls(builder, sync_writer, async_writer));
         });
 
-        Ok(())
+        ui.ctx().output().cursor_icon = CursorIcon::Default;
+
+        Ok(response)
     }
 }
 

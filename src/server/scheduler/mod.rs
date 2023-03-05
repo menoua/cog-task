@@ -125,6 +125,7 @@ impl Scheduler {
                 .push(SyncSignal::KeyPress(Instant::now(), keys_pressed))
         }
 
+        ui.output().cursor_icon = CursorIcon::None;
         let result = {
             let (tree, state) = &mut *self.atomic.lock().unwrap();
             CentralPanel::default()
@@ -133,8 +134,7 @@ impl Scheduler {
                     if tree.props().visual() {
                         tree.show(ui, &mut self.sync_writer, &mut self.async_writer, state)
                     } else {
-                        ui.output().cursor_icon = CursorIcon::None;
-                        Ok(())
+                        Ok(ui.label(""))
                     }
                 })
                 .inner
@@ -147,7 +147,7 @@ impl Scheduler {
             ));
         }
 
-        result
+        Ok(())
     }
 
     pub fn sync_writer(&mut self) -> &mut QWriter<SyncSignal> {

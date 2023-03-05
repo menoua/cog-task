@@ -3,6 +3,7 @@ use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{IoManager, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
+use eframe::egui::Response;
 use eyre::Result;
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -218,13 +219,13 @@ impl StatefulAction for StatefulPar {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Response> {
         if let Some(c) = self.primary.iter_mut().find(|c| c.props().visual()) {
             c.show(ui, sync_writer, async_writer, state)
         } else if let Some(c) = self.secondary.iter_mut().find(|c| c.props().visual()) {
             c.show(ui, sync_writer, async_writer, state)
         } else {
-            Ok(())
+            Ok(ui.label(""))
         }
     }
 

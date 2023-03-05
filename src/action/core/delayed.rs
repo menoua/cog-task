@@ -3,7 +3,7 @@ use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{IoManager, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
-use eframe::egui::Ui;
+use eframe::egui::{Response, Ui};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -122,11 +122,11 @@ impl StatefulAction for StatefulDelayed {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Response> {
         if self.has_begun {
             self.inner.show(ui, sync_writer, async_writer, state)
         } else {
-            Ok(())
+            Ok(ui.label(""))
         }
     }
 

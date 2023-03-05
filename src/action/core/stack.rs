@@ -5,6 +5,7 @@ use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{IoManager, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
+use eframe::egui::Response;
 use egui_extras::{Size, StripBuilder};
 use eyre::{eyre, Result};
 use itertools::Itertools;
@@ -204,14 +205,14 @@ impl StatefulAction for StatefulStack {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Response> {
         let mut builder = StripBuilder::new(ui).size(Size::remainder());
         for &p in self.proportions.iter() {
             builder = builder.size(Size::relative(p));
         }
         builder = builder.size(Size::remainder());
 
-        match self.direction {
+        let response = match self.direction {
             Direction::Horizontal => builder.horizontal(|mut strip| {
                 strip.empty();
                 for c in self.children.iter_mut() {
@@ -236,7 +237,7 @@ impl StatefulAction for StatefulStack {
             }),
         };
 
-        Ok(())
+        Ok(response)
     }
 
     #[inline]

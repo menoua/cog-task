@@ -1,7 +1,7 @@
 use crate::action::image::Image;
 use crate::action::{Action, StatefulAction};
 use crate::comm::QWriter;
-use crate::resource::{Color, IoManager, ResourceManager};
+use crate::resource::{Color, IoManager, OptionalFloat, ResourceManager};
 use crate::server::{AsyncSignal, Config, SyncSignal};
 use eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -11,7 +11,7 @@ use std::path::PathBuf;
 #[serde(deny_unknown_fields)]
 pub struct Fixation {
     #[serde(default)]
-    width: Option<f32>,
+    width: OptionalFloat,
     #[serde(default)]
     background: Color,
 }
@@ -33,8 +33,9 @@ impl From<&Fixation> for Image {
     fn from(fixation: &Fixation) -> Self {
         Self::new(
             PathBuf::from("fixation.svg"),
-            fixation.width,
+            fixation.width.as_f32(),
             fixation.background,
+            true,
         )
     }
 }

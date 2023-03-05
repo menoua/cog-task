@@ -4,6 +4,7 @@ use crate::resource::{IoManager, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::f64_as_i64;
 use eframe::egui;
+use eframe::egui::Response;
 use eyre::{eyre, Context, Result};
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
@@ -179,7 +180,7 @@ impl StatefulAction for StatefulView {
         sync_writer: &mut QWriter<SyncSignal>,
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
-    ) -> Result<()> {
+    ) -> Result<Response> {
         self.children[self.choice].show(ui, sync_writer, async_writer, state)
     }
 

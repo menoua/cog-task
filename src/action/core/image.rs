@@ -1,9 +1,12 @@
 use crate::action::{Action, Props, StatefulAction, INFINITE, VISUAL};
 use crate::comm::QWriter;
-use crate::resource::{Color, IoManager, ResourceAddr, ResourceManager, ResourceValue};
+use crate::resource::{
+    Color, IoManager, OptionalFloat, ResourceAddr, ResourceManager, ResourceValue,
+};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
-use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, TextureId, Vec2};
+use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, Response, Sense, TextureId, Vec2};
+use egui_extras::{Size, StripBuilder};
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -13,9 +16,11 @@ use std::path::PathBuf;
 pub struct Image {
     src: PathBuf,
     #[serde(default)]
-    width: Option<f32>,
+    width: OptionalFloat,
     #[serde(default)]
     background: Color,
+    #[serde(default = "defaults::pad")]
+    pad: bool,
 }
 
 stateful!(Image {
@@ -23,15 +28,23 @@ stateful!(Image {
     size: Vec2,
     width: Option<f32>,
     background: Color32,
+    pad: bool,
 });
+
+mod defaults {
+    pub fn pad() -> bool {
+        true
+    }
+}
 
 impl Image {
     #[inline(always)]
-    pub fn new(src: PathBuf, width: Option<f32>, background: Color) -> Self {
+    pub fn new(src: PathBuf, width: Option<f32>, background: Color, pad: bool) -> Self {
         Self {
             src,
-            width,
+            width: OptionalFloat::from(width),
             background,
+            pad,
         }
     }
 }
@@ -63,8 +76,9 @@ impl Action for Image {
             done: false,
             handle: texture,
             size,
-            width: self.width,
+            width: self.width.as_f32(),
             background: self.background.into(),
+            pad: self.pad,
         }))
     }
 }
@@ -83,23 +97,26 @@ impl StatefulAction for StatefulImage {
         _sync_writer: &mut QWriter<SyncSignal>,
         _async_writer: &mut QWriter<AsyncSignal>,
         _state: &State,
-    ) -> Result<()> {
-        ui.output().cursor_icon = CursorIcon::None;
+    ) -> Result<Response> {
+        let scale = if let Some(width) = self.width {
+            width / self.size.x
+        } else {
+            1.0
+        };
 
-        CentralPanel::default()
+        let response = CentralPanel::default()
             .frame(Frame::default().fill(self.background))
             .show_inside(ui, |ui| {
-                ui.centered_and_justified(|ui| {
-                    if let Some(width) = self.width {
-                        let scale = width / self.size.x;
-                        ui.image(self.handle, self.size * scale);
-                    } else {
-                        ui.image(self.handle, self.size);
-                    }
-                });
-            });
+                if self.pad {
+                    ui.centered_and_justified(|ui| ui.image(self.handle, self.size * scale))
+                        .inner
+                } else {
+                    ui.image(self.handle, self.size * scale)
+                }
+            })
+            .inner;
 
-        Ok(())
+        Ok(response)
     }
 
     fn debug(&self) -> Vec<(&str, String)> {

@@ -6,9 +6,6 @@ impl Server {
     #[inline]
     pub(crate) fn show_loading(&mut self, ui: &mut egui::Ui) {
         ui.output().cursor_icon = CursorIcon::None;
-
-        ui.centered_and_justified(|ui| {
-            ui.heading("...");
-        });
+        ui.centered_and_justified(|ui| ui.spinner());
     }
 }
