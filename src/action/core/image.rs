@@ -41,7 +41,7 @@ impl Image {
     pub fn new(src: PathBuf, width: Option<f32>, background: Color, pad: bool) -> Self {
         Self {
             src,
-            width: OptionalFloat::from(width),
+            width: width.into(),
             background,
             pad,
         }

@@ -55,11 +55,7 @@ impl Action for Repeat {
     ) -> Result<Box<dyn StatefulAction>> {
         let (tx, rx) = mpsc::channel();
 
-        let iters = if let OptionalUInt::Some(n) = self.iters {
-            Some(n)
-        } else {
-            None
-        };
+        let iters = self.iters.as_ref().copied();
         let prefetch = if let Some(n) = iters {
             self.prefetch.min(n)
         } else {

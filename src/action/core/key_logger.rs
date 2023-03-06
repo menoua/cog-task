@@ -28,7 +28,7 @@ mod defaults {
 
     #[inline(always)]
     pub fn group() -> OptionalString {
-        OptionalString::Some("keypress".to_owned())
+        Some("keypress".to_owned()).into()
     }
 }
 
@@ -45,16 +45,13 @@ impl Action for KeyLogger {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        if self.group.is_none() && self.out_key == 0 {
+        if self.group.as_ref().is_none() && self.out_key == 0 {
             return Err(eyre!(
                 "Both `group` and `out_key` for KeyLogger cannot be empty simultaneously."
             ));
         }
 
-        let group = match &self.group {
-            OptionalString::Some(s) => Some(s.clone()),
-            OptionalString::None => None,
-        };
+        let group = self.group.as_ref().map(|s| s.to_owned());
 
         Ok(Box::new(StatefulKeyLogger {
             done: false,

@@ -93,7 +93,7 @@ impl Action for Stream {
         let volume = self.volume.or(&config.volume()).value();
         let mut stream = stream.cloned(frame.clone(), StreamMode::Normal(self.channel), volume)?;
 
-        if !stream.has_video() && self.width.is_some() {
+        if !stream.has_video() && self.width.as_ref().is_some() {
             return Err(eyre!(
                 "Video-less stream `?` should not be supplied a width"
             ));

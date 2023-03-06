@@ -85,8 +85,8 @@ impl Action for Pointer {
 
     fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         let mut resources = self.inner.resources(config);
-        if let OptionalPath::Some(path) = &self.mask {
-            resources.push(ResourceAddr::Mask(path.clone()));
+        if let Some(path) = self.mask.as_ref() {
+            resources.push(ResourceAddr::Mask(path.to_owned()));
         }
         resources
     }
@@ -99,9 +99,9 @@ impl Action for Pointer {
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        let mask = match &self.mask {
-            OptionalPath::Some(mask) => {
-                let mask = ResourceAddr::Mask(mask.clone());
+        let mask = match self.mask.as_ref() {
+            Some(mask) => {
+                let mask = ResourceAddr::Mask(mask.to_owned());
                 if let ResourceValue::Mask(mask) = res.fetch(&mask)? {
                     if let Some(width) = self.mask_width.as_f32() {
                         Some(mask.scaled(mask.size().x / width))
@@ -112,7 +112,7 @@ impl Action for Pointer {
                     return Err(eyre!("Resource value and address types don't match."));
                 }
             }
-            OptionalPath::None => None,
+            None => None,
         };
 
         Ok(Box::new(StatefulPointer {
