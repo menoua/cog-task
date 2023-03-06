@@ -96,7 +96,7 @@ impl Server {
             initial_window_size: None,
             min_window_size: None,
             max_window_size: None,
-            resizable: false,
+            resizable: true,
             transparent: false,
             mouse_passthrough: false,
             vsync: false,

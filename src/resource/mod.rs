@@ -5,7 +5,6 @@ pub mod function;
 pub mod image;
 pub mod key;
 pub mod logger;
-pub mod mask;
 pub mod optional;
 pub mod stream;
 pub mod text;
@@ -25,6 +24,9 @@ pub use text::*;
 pub use value::*;
 
 use crate::assets::{IMAGE_FIXATION, IMAGE_RUSTACEAN};
+use crate::resource::texture::{
+    texture_from_image, texture_from_image_file, texture_from_svg_file,
+};
 use crate::server::{Config, Env};
 use eframe::egui::mutex::RwLock;
 use eframe::epaint;
@@ -60,21 +62,21 @@ impl ResourceManager {
         map.clear();
 
         // Load default fixation image
-        let src = ResourceAddr::Image("fixation.svg".into());
-        map.entry(src.clone()).or_insert({
-            let tex_manager = tex_manager.clone();
-            let (texture, size) = svg_from_bytes(tex_manager, IMAGE_FIXATION, src.path())?;
-            ResourceValue::Image(texture, size)
-        });
+        map.entry(ResourceAddr::Image("fixation.svg".into()))
+            .or_insert({
+                let tex_manager = tex_manager.clone();
+                let (image, size) = svg_from_bytes(IMAGE_FIXATION)?;
+                texture_from_image(tex_manager, "fixation.svg", image, size).into()
+            });
         let mut default_fixation = true;
 
         // Load default rustacean image
-        let src = ResourceAddr::Image("rustacean.svg".into());
-        map.entry(src.clone()).or_insert({
-            let tex_manager = tex_manager.clone();
-            let (texture, size) = svg_from_bytes(tex_manager, IMAGE_RUSTACEAN, src.path())?;
-            ResourceValue::Image(texture, size)
-        });
+        map.entry(ResourceAddr::Image("rustacean.svg".into()))
+            .or_insert({
+                let tex_manager = tex_manager.clone();
+                let (image, size) = svg_from_bytes(IMAGE_RUSTACEAN)?;
+                texture_from_image(tex_manager, "rustacean.svg", image, size).into()
+            });
         let mut default_rustacean = true;
 
         // Load resources used in new block
@@ -97,52 +99,39 @@ impl ResourceManager {
             }
 
             if is_new {
-                let data = match src.prefix(env.resource()) {
-                    ResourceAddr::Ref(path) => ResourceValue::Ref(path),
-                    ResourceAddr::Text(path) => {
-                        let text = std::fs::read_to_string(&path)
-                            .wrap_err_with(|| eyre!("Failed to load text resource ({path:?})"))?;
-                        ResourceValue::Text(Arc::new(text))
+                let data: ResourceValue = match src.prefix(env.resource()) {
+                    ResourceAddr::Ref(path) => path.into(),
+                    ResourceAddr::Text(path) => std::fs::read_to_string(&path)
+                        .wrap_err_with(|| eyre!("Failed to load text resource ({path:?})"))?
+                        .into(),
+                    ResourceAddr::Image(path) => match src.extension().as_deref() {
+                        Some("svg") => texture_from_svg_file(tex_manager.clone(), &path),
+                        _ => texture_from_image_file(tex_manager.clone(), &path),
                     }
-                    ResourceAddr::Image(path) => {
-                        let tex_manager = tex_manager.clone();
-                        let (texture, size) = match src.extension().as_deref() {
-                            Some("svg") => {
-                                svg_from_file(tex_manager, &path).wrap_err_with(|| {
-                                    eyre!("Failed to load SVG resource ({path:?})")
-                                })?
-                            }
-                            _ => image_from_file(tex_manager, &path).wrap_err_with(|| {
-                                eyre!("Failed to load image resource ({path:?})")
-                            })?,
-                        };
-                        ResourceValue::Image(texture, size)
-                    }
-                    ResourceAddr::Mask(path) => {
-                        ResourceValue::Mask(match src.extension().as_deref() {
-                            Some("svg") => mask_from_svg_file(&path).wrap_err_with(|| {
-                                eyre!("Failed to load SVG resource ({path:?})")
-                            })?,
-                            _ => mask_from_image_file(&path).wrap_err_with(|| {
-                                eyre!("Failed to load image resource ({path:?})")
-                            })?,
-                        })
-                    }
-                    ResourceAddr::Audio(path, channel) => ResourceValue::Audio(
-                        audio_from_file(&path, config)
-                            .wrap_err_with(|| eyre!("Failed to load audio resource ({path:?})"))?
-                            .with_direction(channel)?,
-                    ),
+                    .wrap_err_with(|| eyre!("Failed to load image resource ({path:?})"))?
+                    .into(),
+                    ResourceAddr::Mask(path) => Mask2D::from(
+                        match src.extension().as_deref() {
+                            Some("svg") => svg_from_file(&path),
+                            _ => image_from_file(&path),
+                        }
+                        .wrap_err_with(|| eyre!("Failed to load mask resource ({path:?})"))?,
+                    )
+                    .into(),
+                    ResourceAddr::Audio(path, channel) => audio_from_file(&path, config)
+                        .wrap_err_with(|| eyre!("Failed to load audio resource ({path:?})"))?
+                        .with_direction(channel)?
+                        .into(),
                     ResourceAddr::Video(path) => {
-                        let tex_manager = tex_manager.clone();
-                        let (frames, framerate) = video_from_file(tex_manager, &path, config)
-                            .wrap_err_with(|| eyre!("Failed to load video resource ({path:?})"))?;
-                        ResourceValue::Video(frames, framerate)
+                        video_from_file(tex_manager.clone(), &path, config)
+                            .wrap_err_with(|| eyre!("Failed to load video resource ({path:?})"))?
+                            .into()
                     }
-                    ResourceAddr::Stream(path) => ResourceValue::Stream(
+                    ResourceAddr::Stream(path) => {
                         stream_from_file(tex_manager.clone(), &path, config)
-                            .wrap_err_with(|| eyre!("Failed to load stream resource ({path:?})"))?,
-                    ),
+                            .wrap_err_with(|| eyre!("Failed to load stream resource ({path:?})"))?
+                            .into()
+                    }
                 };
                 println!("+ {src:?} : {data:?}");
                 map.insert(src, data);

@@ -17,6 +17,7 @@ mod ffmpeg;
 mod gst;
 
 pub type FrameBuffer = Arc<Vec<(TextureId, Vec2)>>;
+pub type VideoBuffer = (FrameBuffer, f64);
 
 #[derive(Clone)]
 pub enum Stream {

@@ -72,9 +72,48 @@
                 par(([
                     repeat((
                         inner: par(([
-                            audio((src: "sample-6s.wav", channel: left))
+                            audio((src: "sample-6s.wav"))
                         ], [
-                            audio((src: "sample-6s.wav", channel: right)),
+                            fixation(())
+                        ])),
+                        iters: 100
+                    )),
+                    seq(([
+                        wait((1.5)),
+                        repeat((
+                            inner: audio((src: "sample-6s.wav")),
+                            iters: 100
+                        ))
+                    ])),
+                ], [
+                    timer((out_duration: 1))
+                ])),
+                function((
+                    expr: "round((x - 640.62925) * 100000) / 100",
+                    vars: { "x": 0 },
+                    in_mapping: { 1: "x" },
+                    out_result: 2,
+                    once: true,
+                )),
+                instruction((
+                    text: "Overhead was ${dur}s - 640.62925 = ${diff}ms.",
+                    in_mapping: { 1: "dur", 2: "diff" }
+                )),
+            ]))
+        ),
+
+        (
+            name: "Non-overlapping audio w trigger",
+            config: (
+                time_precision: respect_boundaries
+            ),
+            tree: seq(([
+                par(([
+                    repeat((
+                        inner: par(([
+                            audio((src: "sample-6s.wav", channel: left)),
+                            audio((src: "sample-6s.wav", channel: right))
+                        ], [
                             fixation(())
                         ])),
                         iters: 100

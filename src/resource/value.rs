@@ -1,4 +1,4 @@
-use crate::resource::{AudioBuffer, FrameBuffer, Mask2D, Stream};
+use crate::resource::{AudioBuffer, FrameBuffer, Mask2D, Stream, Texture, VideoBuffer};
 use eframe::egui::{TextureId, Vec2};
 use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
@@ -50,5 +50,47 @@ impl Debug for ResourceValue {
                 )
             }
         }
+    }
+}
+
+impl From<PathBuf> for ResourceValue {
+    fn from(value: PathBuf) -> Self {
+        Self::Ref(value)
+    }
+}
+
+impl From<String> for ResourceValue {
+    fn from(value: String) -> Self {
+        Self::Text(Arc::new(value))
+    }
+}
+
+impl From<Texture> for ResourceValue {
+    fn from(value: Texture) -> Self {
+        Self::Image(value.0, value.1)
+    }
+}
+
+impl From<Mask2D> for ResourceValue {
+    fn from(value: Mask2D) -> Self {
+        Self::Mask(value)
+    }
+}
+
+impl From<AudioBuffer> for ResourceValue {
+    fn from(value: AudioBuffer) -> Self {
+        Self::Audio(value)
+    }
+}
+
+impl From<VideoBuffer> for ResourceValue {
+    fn from(value: VideoBuffer) -> Self {
+        Self::Video(value.0, value.1)
+    }
+}
+
+impl From<Stream> for ResourceValue {
+    fn from(value: Stream) -> Self {
+        Self::Stream(value)
     }
 }

@@ -151,6 +151,39 @@
         ),
 
         (
+            name: "Pointer accuracy",
+            state: { 1: false },
+            tree: switch((
+                default: false,
+                if: rect((
+                    (200, 133.3),
+                    pointer((
+                        inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                        mask: "rustacean.svg",
+                        mask_width: 200,
+                        group: "click",
+                        once: false,
+                        out_hit: 1,
+                    )),
+                    green
+                )),
+                else: rect((
+                    (200, 133.3),
+                    pointer((
+                        inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                        mask: "rustacean.svg",
+                        mask_width: 200,
+                        group: "click",
+                        once: false,
+                        out_hit: 1,
+                    )),
+                    red
+                )),
+                in_control: 1
+            ))
+        ),
+
+        (
             name: "Repeat until keypress",
             tree: par(([
                 until((

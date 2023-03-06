@@ -5,6 +5,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 pub const IMAGE_FIXATION: &[u8] = include_bytes!("images/fixation.svg");
 pub const IMAGE_RUSTACEAN: &[u8] = include_bytes!("images/rustacean.svg");
+// pub const IMAGE_ICON_LOGO: &[u8] = include_bytes!("images/logo.png");
 
 pub const FONT_ICONS_BRANDS: &[u8] = include_bytes!("fonts/fa-6-brands-regular-400.otf");
 pub const FONT_ICONS_REGULAR: &[u8] = include_bytes!("fonts/fa-6-free-regular-400.otf");

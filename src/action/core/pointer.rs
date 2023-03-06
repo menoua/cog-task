@@ -181,11 +181,10 @@ impl StatefulAction for StatefulPointer {
 
         if response.clicked() {
             let time = Instant::now();
-            let coord = if let Some(coord) = response.interact_pointer_pos() {
-                coord - corner
-            } else {
-                return Ok(response);
-            };
+            let coord = response.interact_pointer_pos().ok_or_else(|| {
+                eyre!("Pointer clicked but interact position could not be obtained.")
+            })?;
+            let coord = coord - corner;
 
             let score = if let Some(mask) = &self.mask {
                 mask.value_at(coord)
@@ -223,6 +222,7 @@ impl StatefulAction for StatefulPointer {
                 ))
             }
             if self.out_hit > 0 {
+                println!("{:?}", (self.out_hit, Value::Bool(score > 0.0)));
                 sync_writer.push(SyncSignal::Emit(
                     time,
                     vec![(self.out_hit, Value::Bool(score > 0.0))].into(),
