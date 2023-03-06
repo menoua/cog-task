@@ -13,6 +13,7 @@ use std::thread;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Repeat {
     inner: Box<dyn Action>,
+    #[serde(default)]
     iters: OptionalUInt,
     #[serde(default = "defaults::prefetch")]
     prefetch: u64,

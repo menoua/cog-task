@@ -63,7 +63,7 @@
                     text: "What comes next is a static video repeated 4 times.\nQuickly press Escape twice to cancel the experiment block.",
                 )),
                 repeat((
-                    par(([
+                    inner: par(([
                         stream((
                             src: "../audio_video/data/video.mono.mov",
                             channel: left
@@ -74,7 +74,7 @@
                             channel: right,
                         )),
                     ])),
-                    4
+                    iters: 4
                 ))
             ]))
         ),

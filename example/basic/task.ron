@@ -156,7 +156,7 @@
                 until((
                     in_event: 1,
                     inner: repeat((
-                        seq(([
+                        inner: seq(([
                             timeout((0.5, fixation((width: 50.0)))),
                             timeout((0.5, fixation((width: 150.0)))),
                             timeout((0.5, fixation((width: 600.0)))),

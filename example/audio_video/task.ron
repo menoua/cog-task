@@ -88,13 +88,13 @@
             name: "Scaling",
             tree: seq(([
                 timeout((1.0, fixation(()))),
-                timeout((1.0, fixation((width: Some(50.0))))),
-                timeout((1.0, fixation((width: Some(150.0))))),
-                timeout((1.0, fixation((width: Some(600.0))))),
+                timeout((1.0, fixation((width: 50.0)))),
+                timeout((1.0, fixation((width: 150.0)))),
+                timeout((1.0, fixation((width: 600.0)))),
                 timeout((1.0, image((src: "rustacean.svg", background: transparent)))),
-                timeout((1.0, image((src: "rustacean.svg", background: yellow, width: Some(50.0))))),
-                timeout((1.0, image((src: "rustacean.svg", background: green, width: Some(150.0))))),
-                timeout((1.0, image((src: "rustacean.svg", background: blue, width: Some(600.0))))),
+                timeout((1.0, image((src: "rustacean.svg", background: yellow, width: 50.0)))),
+                timeout((1.0, image((src: "rustacean.svg", background: green, width: 150.0)))),
+                timeout((1.0, image((src: "rustacean.svg", background: blue, width: 600.0)))),
             ]))
         ),
 
@@ -112,7 +112,7 @@
                 par(([
                     audio((src: "sample-6s.wav"))
                 ], [
-                    image((src: "rustacean.svg", width: Some(400.0)))
+                    image((src: "rustacean.svg", width: 400.0))
                 ])),
                 par(([
                     audio((src: "sample-6s.wav")),
@@ -139,7 +139,7 @@
             ], [
                 audio((src: "sample-6s+.trig.wav", channel: right)),
                 instruction((
-                    text:  "You should be hearing audio from the right speaker only.",
+                    text:  "You should be hearing audio from the left speaker only.",
                     static: true
                 ))
             ]))
@@ -154,7 +154,7 @@
                 audio((src: "sample-6s-with-silence1.wav"))
                 ], [
                 instruction((
-                    text:  "You should be hearing audio from the right speaker only.",
+                    text:  "You should be hearing audio from the left speaker only.",
                     static: true,
                 ))
             ]))
@@ -569,10 +569,10 @@
             ),
             tree: seq(([
                 video((src: "earth-4sec.mp4")),
-                video((src: "earth-4sec.mp4", width: Some(200))),
-                video((src: "earth-4sec.mp4", width: Some(300))),
-                video((src: "earth-4sec.mp4", width: Some(600))),
-                timeout((15, video((src: "giphy.gif", width: Some(600), looping: true)))),
+                video((src: "earth-4sec.mp4", width: 200)),
+                video((src: "earth-4sec.mp4", width: 300)),
+                video((src: "earth-4sec.mp4", width: 600)),
+                timeout((15, video((src: "giphy.gif", width: 600, looping: true)))),
             ]))
         ),
 
@@ -582,9 +582,9 @@
                 stream_backend: gst
             ),
             tree: seq(([
-                stream((src: "earth-4sec.mp4", width: Some(200))),
-                stream((src: "earth-4sec.mp4", width: Some(300))),
-                stream((src: "earth-4sec.mp4", width: Some(600))),
+                stream((src: "earth-4sec.mp4", width: 200)),
+                stream((src: "earth-4sec.mp4", width: 300)),
+                stream((src: "earth-4sec.mp4", width: 600)),
             ]))
         ),
 
@@ -613,7 +613,7 @@
                     text: "What comes next is a static video repeated #{0x01} times.\nQuickly press Escape twice to cancel the experiment block.",
                     params: {}
                 )),
-                stream((src: "big_buck_bunny_720_stereo-720p.mp4", width: Some(1920))),
+                stream((src: "big_buck_bunny_720_stereo-720p.mp4", width: 1920)),
                 stream((src: "big_buck_bunny_720_stereo-720p.mp4")),
                 stream((src: "big_buck_bunny_720_stereo-720p.mp4")),
                 stream((src: "big_buck_bunny_720_stereo-720p.mp4")),

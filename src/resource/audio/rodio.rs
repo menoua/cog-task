@@ -156,11 +156,11 @@ impl Buffer {
 
         let mut samples = vec![];
         for s in self.0 {
-            if channel == AudioChannel::Left {
+            if channel == AudioChannel::Right {
                 samples.push(0);
             }
             samples.push(s);
-            if channel == AudioChannel::Right {
+            if channel == AudioChannel::Left {
                 samples.push(0);
             }
         }

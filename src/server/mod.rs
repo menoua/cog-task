@@ -37,7 +37,7 @@ pub struct Server {
     env: Env,
     task: Task,
     subject: String,
-    scale_factor: f32,
+    scale_factor: u32,
     hold_on_rescale: bool,
     scheduler: Option<Scheduler>,
     page: Page,
@@ -68,7 +68,7 @@ impl Server {
             env,
             task,
             subject: "".to_owned(),
-            scale_factor: 1.0,
+            scale_factor: 100,
             hold_on_rescale: false,
             scheduler: None,
             page: Page::Startup,
@@ -277,7 +277,7 @@ impl App for Server {
             });
 
         if !self.hold_on_rescale {
-            gui::set_fullscreen_scale(ctx, self.scale_factor);
+            gui::set_fullscreen_scale(ctx, self.scale_factor as f32 / 100.0);
         }
         if !matches!(self.page, Page::Activity) {
             ctx.request_repaint_after(Duration::from_millis(250));
