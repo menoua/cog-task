@@ -1,3 +1,4 @@
+use crate::resource::AudioChannel;
 use std::path::{Path, PathBuf};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -5,7 +6,8 @@ pub enum ResourceAddr {
     Ref(PathBuf),
     Text(PathBuf),
     Image(PathBuf),
-    Audio(PathBuf),
+    Mask(PathBuf),
+    Audio(PathBuf, AudioChannel),
     Video(PathBuf),
     Stream(PathBuf),
 }
@@ -17,7 +19,8 @@ impl ResourceAddr {
             ResourceAddr::Ref(p) => p,
             ResourceAddr::Text(p) => p,
             ResourceAddr::Image(p) => p,
-            ResourceAddr::Audio(p) => p,
+            ResourceAddr::Mask(p) => p,
+            ResourceAddr::Audio(p, _) => p,
             ResourceAddr::Video(p) => p,
             ResourceAddr::Stream(p) => p,
         }
@@ -29,7 +32,8 @@ impl ResourceAddr {
             ResourceAddr::Ref(p) => ResourceAddr::Ref(parent.join(p)),
             ResourceAddr::Text(p) => ResourceAddr::Text(parent.join(p)),
             ResourceAddr::Image(p) => ResourceAddr::Image(parent.join(p)),
-            ResourceAddr::Audio(p) => ResourceAddr::Audio(parent.join(p)),
+            ResourceAddr::Mask(p) => ResourceAddr::Mask(parent.join(p)),
+            ResourceAddr::Audio(p, c) => ResourceAddr::Audio(parent.join(p), *c),
             ResourceAddr::Video(p) => ResourceAddr::Video(parent.join(p)),
             ResourceAddr::Stream(p) => ResourceAddr::Stream(parent.join(p)),
         }

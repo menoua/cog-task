@@ -1,4 +1,4 @@
-use crate::resource::{AudioBuffer, FrameBuffer, Stream};
+use crate::resource::{AudioBuffer, FrameBuffer, Mask2D, Stream};
 use eframe::egui::{TextureId, Vec2};
 use std::fmt::{Debug, Formatter};
 use std::path::PathBuf;
@@ -9,6 +9,7 @@ pub enum ResourceValue {
     Ref(PathBuf),
     Text(Arc<String>),
     Image(TextureId, Vec2),
+    Mask(Mask2D),
     Audio(AudioBuffer),
     Video(FrameBuffer, f64),
     Stream(Stream),
@@ -25,6 +26,9 @@ impl Debug for ResourceValue {
             }
             ResourceValue::Image(_, size) => {
                 write!(f, "[Image ({} x {})]", size.x, size.y)
+            }
+            ResourceValue::Mask(mask) => {
+                write!(f, "[Mask ({} x {})]", mask.size().x, mask.size().y)
             }
             ResourceValue::Audio(buffer) => {
                 write!(

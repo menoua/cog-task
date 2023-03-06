@@ -3,6 +3,20 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(untagged)]
+pub enum OptionalInt {
+    Some(i64),
+    None,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum OptionalUInt {
+    Some(u64),
+    None,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
 pub enum OptionalFloat {
     Some(f64),
     None,
@@ -20,6 +34,38 @@ pub enum OptionalString {
 pub enum OptionalPath {
     Some(PathBuf),
     None,
+}
+
+impl Default for OptionalInt {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl OptionalInt {
+    pub fn is_some(&self) -> bool {
+        matches!(self, Self::Some(_))
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+}
+
+impl Default for OptionalUInt {
+    fn default() -> Self {
+        Self::None
+    }
+}
+
+impl OptionalUInt {
+    pub fn is_some(&self) -> bool {
+        matches!(self, Self::Some(_))
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
 }
 
 impl Default for OptionalFloat {

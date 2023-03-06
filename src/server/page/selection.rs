@@ -28,7 +28,8 @@ impl Server {
             self.show_selection_status(ui.ctx());
         }
 
-        if ui.input().key_pressed(egui::Key::Escape) && !matches!(self.status, Progress::None) {
+        if ui.input(|i| i.key_pressed(egui::Key::Escape)) && !matches!(self.status, Progress::None)
+        {
             self.blocks.get_mut(self.active_block.unwrap()).unwrap().1 =
                 std::mem::replace(&mut self.status, Progress::None);
         }
@@ -249,7 +250,7 @@ impl Server {
                             .clicked()
                         {
                             ui.close_menu();
-                            ui.output().copied_text = content.text().trim().to_owned();
+                            ui.output_mut(|o| o.copied_text = content.text().trim().to_owned());
                         }
                     });
                 });

@@ -26,6 +26,5 @@ fn main() -> Result<()> {
 
     let path = PathBuf::from(&args[1]);
 
-    Server::new(path, bin_hash)?.run();
-    Ok(())
+    Server::new(path, bin_hash)?.run()
 }

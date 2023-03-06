@@ -3,8 +3,8 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, DEFAULT, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
 use crate::resource::{
-    AudioSink, IoManager, ResourceAddr, ResourceManager, ResourceValue, TimePrecision, Trigger,
-    Volume,
+    AudioChannel, AudioSink, IoManager, ResourceAddr, ResourceManager, ResourceValue,
+    TimePrecision, Volume,
 };
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
@@ -26,9 +26,9 @@ pub struct Audio {
     #[serde(default)]
     volume: Volume,
     #[serde(default)]
-    looping: bool,
+    channel: AudioChannel,
     #[serde(default)]
-    trigger: Trigger,
+    looping: bool,
     #[serde(default)]
     in_volume: SignalId,
 }
@@ -49,14 +49,7 @@ impl Action for Audio {
 
     #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
-        if let Trigger::Ext(trig) = &self.trigger {
-            vec![
-                ResourceAddr::Audio(self.src.to_owned()),
-                ResourceAddr::Audio(trig.clone()),
-            ]
-        } else {
-            vec![ResourceAddr::Audio(self.src.to_owned())]
-        }
+        vec![ResourceAddr::Audio(self.src.to_owned(), self.channel)]
     }
 
     fn stateful(
@@ -67,26 +60,11 @@ impl Action for Audio {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        let src = ResourceAddr::Audio(self.src.clone());
+        let src = ResourceAddr::Audio(self.src.clone(), self.channel);
         let src = if let ResourceValue::Audio(src) = res.fetch(&src)? {
             src
         } else {
             return Err(eyre!("Resource value and address types don't match."));
-        };
-
-        let src = match (&self.trigger, config.use_trigger().value()) {
-            (Trigger::Ext(trig), true) => {
-                let trig = ResourceAddr::Audio(trig.clone());
-                let trig = if let ResourceValue::Audio(trig) = res.fetch(&trig)? {
-                    trig
-                } else {
-                    return Err(eyre!("Resource value and address types don't match."));
-                };
-
-                src.interlace(trig)?
-            }
-            (Trigger::Int, false) => src.drop_last()?,
-            _ => src,
         };
 
         let duration = src.duration();

@@ -15,7 +15,7 @@ impl Env {
         let root_dir = current_dir().wrap_err("Unable to get current directory.")?;
         let task_name = task_dir.file_name().unwrap().to_str().unwrap().to_owned();
 
-        let output_dir = root_dir.join("output").join(&task_name);
+        let output_dir = root_dir.join("output").join(task_name);
         if !output_dir.is_dir() {
             std::fs::create_dir_all(&output_dir)
                 .wrap_err_with(|| format!("Unable to create output directory: {output_dir:?}"))?;

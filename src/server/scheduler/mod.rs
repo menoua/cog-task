@@ -9,7 +9,7 @@ use crate::comm::QWriter;
 use crate::resource::{LoggerSignal, TAG_ACTION, TAG_CONFIG, TAG_INFO};
 use crate::server::{Config, Info, Server, ServerSignal};
 use eframe::egui;
-use eframe::egui::{CentralPanel, CursorIcon, Frame};
+use eframe::egui::{CentralPanel, CursorIcon, Event, Frame};
 use eyre::Result;
 use serde_cbor::{ser::to_vec, Value};
 use std::collections::{BTreeMap, BTreeSet};
@@ -97,7 +97,7 @@ impl Scheduler {
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui) -> Result<()> {
-        if ui.input().key_pressed(egui::Key::Escape) {
+        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
             let time = SystemTime::now();
             if let Some(t) = self.last_esc.take() {
                 if time.duration_since(t).unwrap() < Duration::from_millis(300) {
@@ -108,24 +108,30 @@ impl Scheduler {
             self.last_esc = Some(time);
         }
 
-        let keys_pressed: BTreeSet<_> = ui
-            .input()
-            .keys_down
-            .iter()
-            .filter_map(|k| {
-                if ui.input().key_pressed(*k) {
-                    Some(k.into())
-                } else {
-                    None
-                }
-            })
-            .collect();
+        let keys_pressed: BTreeSet<_> = ui.input(|i| {
+            i.events
+                .iter()
+                .filter_map(|e| {
+                    if let Event::Key {
+                        key: k,
+                        pressed: true,
+                        repeat: false,
+                        ..
+                    } = e
+                    {
+                        Some(k.into())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        });
         if !keys_pressed.is_empty() {
             self.sync_writer
                 .push(SyncSignal::KeyPress(Instant::now(), keys_pressed))
         }
 
-        ui.output().cursor_icon = CursorIcon::None;
+        ui.output_mut(|o| o.cursor_icon = CursorIcon::None);
         let result = {
             let (tree, state) = &mut *self.atomic.lock().unwrap();
             CentralPanel::default()

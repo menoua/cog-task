@@ -2,7 +2,7 @@ use crate::resource::{FrameBuffer, MediaStream, StreamMode};
 use crate::server::Config;
 use crate::util::spin_sleeper;
 use eframe::egui::mutex::RwLock;
-use eframe::egui::{ColorImage, ImageData, TextureFilter, TextureId, Vec2};
+use eframe::egui::{ColorImage, ImageData, TextureId, TextureOptions, Vec2};
 use eframe::epaint::TextureManager;
 use eyre::{eyre, Context as _, Result};
 use ffmpeg::format::{context::Input, input, Pixel};
@@ -96,30 +96,9 @@ impl MediaStream for Stream {
     fn cloned(
         &self,
         frame: Arc<Mutex<Option<(TextureId, Vec2)>>>,
-        media_mode: StreamMode,
+        _media_mode: StreamMode,
         _volume: f32,
     ) -> Result<Self> {
-        let (_media_mode, audio_chan) = match (media_mode, self.audio_chan) {
-            (StreamMode::SansIntTrigger, 0) => Err(eyre!(
-                "Cannot assume integrated trigger due to missing audio stream: {:?}",
-                self.path
-            )),
-            (StreamMode::SansIntTrigger, 1) => Ok((StreamMode::Muted, 0)),
-            (StreamMode::SansIntTrigger, 2) => Ok((StreamMode::SansIntTrigger, 1)),
-            (StreamMode::SansIntTrigger, _) => Err(eyre!(
-                "Cannot use integrated trigger with multichannel (n = {} > 2) audio: {:?}",
-                self.audio_chan,
-                self.path
-            )),
-            (StreamMode::WithExtTrigger(t), c @ 0..=1) => Ok((StreamMode::WithExtTrigger(t), c)),
-            (StreamMode::WithExtTrigger(_), c) if c > 1 => Err(eyre!(
-                "Cannot add trigger stream to non-mono (n = {}) audio stream: {:?}",
-                self.audio_chan,
-                self.path
-            )),
-            (mode, c) => Ok((mode, c)),
-        }?;
-
         let context = input(&self.path)?;
         // context
         //     .pause()
@@ -202,7 +181,7 @@ impl MediaStream for Stream {
                                         [rgba_frame.width() as _, rgba_frame.height() as _],
                                         rgba_frame.data(0),
                                     )),
-                                    TextureFilter::Linear,
+                                    TextureOptions::LINEAR,
                                 ),
                                 Vec2::new(rgba_frame.width() as _, rgba_frame.height() as _),
                             ));
@@ -246,7 +225,7 @@ impl MediaStream for Stream {
             audio_index: self.audio_index,
             frame_size: self.frame_size,
             frame_rate: self.frame_rate,
-            audio_chan,
+            audio_chan: self.audio_chan,
             audio_rate: self.audio_rate,
             duration: self.duration,
             is_eos,
@@ -386,7 +365,7 @@ impl MediaStream for Stream {
                             [rgba_frame.width() as _, rgba_frame.height() as _],
                             rgba_frame.data(0),
                         )),
-                        TextureFilter::Linear,
+                        TextureOptions::LINEAR,
                     ),
                     Vec2::new(rgba_frame.width() as _, rgba_frame.height() as _),
                 ));

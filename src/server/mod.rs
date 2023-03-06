@@ -18,7 +18,7 @@ use chrono::{DateTime, Local, NaiveDateTime};
 use eframe::egui::CentralPanel;
 use eframe::glow::HasContext;
 use eframe::{egui, App};
-use eyre::{Context, Error, Result};
+use eyre::{eyre, Context, Error, Result};
 use serde_cbor::Value;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -83,12 +83,13 @@ impl Server {
         })
     }
 
-    pub fn run(mut self) {
+    pub fn run(mut self) -> Result<()> {
         let options = eframe::NativeOptions {
             always_on_top: false,
             maximized: true,
             decorated: true,
             fullscreen: true,
+            fullsize_content: true,
             drag_and_drop_support: false,
             icon_data: None,
             initial_window_pos: None,
@@ -97,6 +98,7 @@ impl Server {
             max_window_size: None,
             resizable: false,
             transparent: false,
+            mouse_passthrough: false,
             vsync: false,
             multisampling: 0,
             depth_buffer: 0,
@@ -106,6 +108,9 @@ impl Server {
             follow_system_theme: false,
             default_theme: eframe::Theme::Light,
             run_and_return: false,
+            event_loop_builder: None, // look into this argument at some point
+            shader_version: None,     // look into this argument at some point
+            centered: true,
         };
 
         self.sys_info.renderer = format!("{:#?}", options.renderer);
@@ -123,7 +128,8 @@ impl Server {
                 }
                 Box::new(self)
             }),
-        );
+        )
+        .map_err(|e| eyre!("Failed to run native eframe: {e}"))
     }
 
     #[inline(always)]

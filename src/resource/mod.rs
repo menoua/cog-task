@@ -5,10 +5,10 @@ pub mod function;
 pub mod image;
 pub mod key;
 pub mod logger;
+pub mod mask;
 pub mod optional;
 pub mod stream;
 pub mod text;
-pub mod trigger;
 pub mod value;
 
 pub use crate::resource::image::*;
@@ -18,10 +18,10 @@ pub use color::*;
 pub use function::*;
 pub use key::*;
 pub use logger::*;
+pub use mask::*;
 pub use optional::*;
 pub use stream::*;
 pub use text::*;
-pub use trigger::Trigger;
 pub use value::*;
 
 use crate::assets::{IMAGE_FIXATION, IMAGE_RUSTACEAN};
@@ -118,9 +118,20 @@ impl ResourceManager {
                         };
                         ResourceValue::Image(texture, size)
                     }
-                    ResourceAddr::Audio(path) => ResourceValue::Audio(
+                    ResourceAddr::Mask(path) => {
+                        ResourceValue::Mask(match src.extension().as_deref() {
+                            Some("svg") => mask_from_svg_file(&path).wrap_err_with(|| {
+                                eyre!("Failed to load SVG resource ({path:?})")
+                            })?,
+                            _ => mask_from_image_file(&path).wrap_err_with(|| {
+                                eyre!("Failed to load image resource ({path:?})")
+                            })?,
+                        })
+                    }
+                    ResourceAddr::Audio(path, channel) => ResourceValue::Audio(
                         audio_from_file(&path, config)
-                            .wrap_err_with(|| eyre!("Failed to load audio resource ({path:?})"))?,
+                            .wrap_err_with(|| eyre!("Failed to load audio resource ({path:?})"))?
+                            .with_direction(channel)?,
                     ),
                     ResourceAddr::Video(path) => {
                         let tex_manager = tex_manager.clone();
@@ -128,14 +139,10 @@ impl ResourceManager {
                             .wrap_err_with(|| eyre!("Failed to load video resource ({path:?})"))?;
                         ResourceValue::Video(frames, framerate)
                     }
-                    ResourceAddr::Stream(path) => {
-                        let tex_manager = tex_manager.clone();
-                        ResourceValue::Stream(
-                            stream_from_file(tex_manager, &path, config).wrap_err_with(|| {
-                                eyre!("Failed to load stream resource ({path:?})")
-                            })?,
-                        )
-                    }
+                    ResourceAddr::Stream(path) => ResourceValue::Stream(
+                        stream_from_file(tex_manager.clone(), &path, config)
+                            .wrap_err_with(|| eyre!("Failed to load stream resource ({path:?})"))?,
+                    ),
                 };
                 println!("+ {src:?} : {data:?}");
                 map.insert(src, data);

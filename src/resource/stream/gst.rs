@@ -1,7 +1,7 @@
-use crate::resource::{FrameBuffer, MediaStream, StreamMode};
+use crate::resource::{AudioChannel, FrameBuffer, MediaStream, StreamMode};
 use crate::server::Config;
 use eframe::egui::mutex::RwLock;
-use eframe::egui::{ColorImage, ImageData, TextureFilter, TextureId, Vec2};
+use eframe::egui::{ColorImage, ImageData, TextureId, TextureOptions, Vec2};
 use eframe::epaint::TextureManager;
 use eyre::{eyre, Context, Result};
 use gst::prelude::*;
@@ -10,7 +10,6 @@ use gstreamer_app as gst_app;
 use num_rational::Rational32;
 use num_traits::ToPrimitive;
 use once_cell::sync::OnceCell;
-use std::fmt::Write;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -80,7 +79,7 @@ impl MediaStream for Stream {
             source,
             playbin,
             bus,
-            frame_size: [width as u32, height as u32],
+            frame_size: [width, height],
             frame_rate,
             audio_chan,
             audio_rate,
@@ -97,27 +96,6 @@ impl MediaStream for Stream {
         media_mode: StreamMode,
         volume: f32,
     ) -> Result<Self> {
-        let (media_mode, audio_chan) = match (media_mode, self.audio_chan) {
-            (StreamMode::SansIntTrigger, 0) => Err(eyre!(
-                "Cannot assume integrated trigger due to missing audio stream: {:?}",
-                self.path
-            )),
-            (StreamMode::SansIntTrigger, 1) => Ok((StreamMode::Muted, 0)),
-            (StreamMode::SansIntTrigger, 2) => Ok((StreamMode::SansIntTrigger, 1)),
-            (StreamMode::SansIntTrigger, _) => Err(eyre!(
-                "Cannot use integrated trigger with multichannel (n = {} > 2) audio: {:?}",
-                self.audio_chan,
-                self.path,
-            )),
-            (StreamMode::WithExtTrigger(t), c @ 0..=1) => Ok((StreamMode::WithExtTrigger(t), c)),
-            (StreamMode::WithExtTrigger(_), c) if c > 1 => Err(eyre!(
-                "Cannot add trigger stream to non-mono (n = {}) audio stream: {:?}",
-                self.audio_chan,
-                self.path
-            )),
-            (mode, c) => Ok((mode, c)),
-        }?;
-
         let (source, playbin) = launch(&self.path, &media_mode, volume)?;
         let bus = source.bus().unwrap();
 
@@ -143,7 +121,7 @@ impl MediaStream for Stream {
                                         [width as _, height as _],
                                         map.as_slice(),
                                     )),
-                                    TextureFilter::Linear,
+                                    TextureOptions::LINEAR,
                                 ),
                                 Vec2::new(width as _, height as _),
                             ));
@@ -162,7 +140,7 @@ impl MediaStream for Stream {
             bus,
             frame_size: self.frame_size,
             frame_rate: self.frame_rate,
-            audio_chan,
+            audio_chan: self.audio_chan,
             audio_rate: self.audio_rate,
             duration: self.duration,
             is_eos: self.is_eos,
@@ -273,7 +251,7 @@ impl MediaStream for Stream {
                         [self.frame_size[0] as _, self.frame_size[1] as _],
                         map.as_slice(),
                     )),
-                    TextureFilter::Linear,
+                    TextureOptions::LINEAR,
                 ),
                 Vec2::new(self.frame_size[0] as _, self.frame_size[1] as _),
             ));
@@ -399,26 +377,19 @@ fn pipeline(path: &Path, mode: &StreamMode) -> Result<String> {
             " \
             audio-sink=\"audioconvert ! appsink name=audio_sink caps=audio/x-raw,format=S16LE,layout=interleaved\""
         ),
-        StreamMode::Normal => {},
+        StreamMode::Normal(AudioChannel::Stereo) => {},
+        StreamMode::Normal(AudioChannel::Left) => pipeline.push_str(
+            " \
+            audio-sink=\"audioconvert ! audiopanorama panorama=-1 ! playsink\""
+        ),
+        StreamMode::Normal(AudioChannel::Right) => pipeline.push_str(
+            " \
+            audio-sink=\"audioconvert ! audiopanorama panorama=1 ! playsink\""
+        ),
         StreamMode::Muted => pipeline.push_str(
             " \
             audio-sink=\"audioconvert ! fakesink\""
         ),
-        StreamMode::SansIntTrigger => pipeline.push_str(
-            " \
-            audio-sink=\"audioconvert ! deinterleave name=d ! d.src_0 ! playsink\""
-        ),
-        StreamMode::WithExtTrigger(trigger) => write!(
-            pipeline,
-            " \
-            audio-sink=\"audioconvert ! audiopanorama panorama=-1 ! playsink\" \
-            uridecodebin uri=\"file://{}\" ! audioconvert ! audiopanorama panorama=1 ! playsink",
-            trigger
-                .canonicalize()
-                .wrap_err_with(|| format!("Could not find trigger: {trigger:?}"))?
-                .to_str()
-                .unwrap()
-        ).unwrap(),
     };
 
     Ok(pipeline)
@@ -430,15 +401,7 @@ fn launch(path: &Path, mode: &StreamMode, volume: f32) -> Result<(gst::Bin, gst:
         .downcast::<gst::Bin>()
         .unwrap();
 
-    let playbin = if matches!(mode, StreamMode::WithExtTrigger(_)) {
-        source
-            .by_name("playbin")
-            .unwrap()
-            .downcast::<gst::Bin>()
-            .unwrap()
-    } else {
-        source.clone()
-    };
+    let playbin = source.clone();
 
     playbin.set_property("volume", volume as f64);
 

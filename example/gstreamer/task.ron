@@ -5,7 +5,6 @@
     version: "0.1",
 
     config: (
-        use_trigger: yes,
         volume: 0.75,
         blocks_per_row: 3,
         stream_backend: gst,
@@ -16,19 +15,19 @@
             name: "Cached Video",
             tree: seq(([
                 video((src: "../audio_video/data/earth-4sec.mp4")),
-                video((src: "../audio_video/data/earth-4sec.mp4", width: Some(200))),
-                video((src: "../audio_video/data/earth-4sec.mp4", width: Some(300))),
-                video((src: "../audio_video/data/earth-4sec.mp4", width: Some(600))),
-                timeout((15, video((src: "../audio_video/data/giphy.gif", width: Some(600), looping: true)))),
+                video((src: "../audio_video/data/earth-4sec.mp4", width: 200)),
+                video((src: "../audio_video/data/earth-4sec.mp4", width: 300)),
+                video((src: "../audio_video/data/earth-4sec.mp4", width: 600)),
+                timeout((15, video((src: "../audio_video/data/giphy.gif", width: 600, looping: true)))),
             ]))
         ),
 
         (
             name: "Short Video",
             tree: seq(([
-                stream((src: "../audio_video/data/earth-4sec.mp4", width: Some(200))),
-                stream((src: "../audio_video/data/earth-4sec.mp4", width: Some(300))),
-                stream((src: "../audio_video/data/earth-4sec.mp4", width: Some(600))),
+                stream((src: "../audio_video/data/earth-4sec.mp4", width: 200)),
+                stream((src: "../audio_video/data/earth-4sec.mp4", width: 300)),
+                stream((src: "../audio_video/data/earth-4sec.mp4", width: 600)),
             ]))
         ),
 
@@ -50,7 +49,7 @@
                 instruction((
                     text: "What comes next is a static video repeated 4 times.\nQuickly press Escape twice to cancel the experiment block.",
                 )),
-                stream((src: "../audio_video/data/big_buck_bunny_720_stereo-720p.mp4", width: Some(1920))),
+                stream((src: "../audio_video/data/big_buck_bunny_720_stereo-720p.mp4", width: 1920)),
                 stream((src: "../audio_video/data/big_buck_bunny_720_stereo-720p.mp4")),
                 stream((src: "../audio_video/data/big_buck_bunny_720_stereo-720p.mp4")),
                 stream((src: "../audio_video/data/big_buck_bunny_720_stereo-720p.mp4")),
@@ -59,29 +58,24 @@
 
         (
             name: "Medium Video with Trigger",
-            config: (
-                use_trigger: yes,
-            ),
             tree: seq(([
                 instruction((
                     text: "What comes next is a static video repeated 4 times.\nQuickly press Escape twice to cancel the experiment block.",
                 )),
-                stream((
-                    src: "../audio_video/data/video.mono.mov",
-                    trigger: ext("../audio_video/data/video.mono.trig.wav")
-                )),
-                stream((
-                    src: "../audio_video/data/video.mono.mov",
-                    trigger: ext("../audio_video/data/video.mono.trig.wav")
-                )),
-                stream((
-                    src: "../audio_video/data/video.mono.mov",
-                    trigger: ext("../audio_video/data/video.mono.trig.wav")
-                )),
-                stream((
-                    src: "../audio_video/data/video.mono.mov",
-                    trigger: ext("../audio_video/data/video.mono.trig.wav")
-                )),
+                repeat((
+                    par(([
+                        stream((
+                            src: "../audio_video/data/video.mono.mov",
+                            channel: left
+                        )),
+                    ], [
+                        audio((
+                            src: "../audio_video/data/video.mono.trig.wav",
+                            channel: right,
+                        )),
+                    ])),
+                    4
+                ))
             ]))
         ),
 
@@ -95,9 +89,6 @@
 
         (
             name: "Streamed Audio",
-            config: (
-                use_trigger: yes,
-            ),
             tree: seq(([
                 stream((src: "../audio_video/data/sample-6s.wav")),
                 stream((src: "../audio_video/data/sample-6s.wav", volume: 0.75)),

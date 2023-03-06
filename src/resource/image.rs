@@ -1,5 +1,5 @@
 use eframe::egui::mutex::RwLock;
-use eframe::egui::{ColorImage, ImageData, TextureFilter, Vec2};
+use eframe::egui::{ColorImage, ImageData, TextureOptions, Vec2};
 use eframe::{egui, epaint};
 use egui::TextureId;
 use eyre::{eyre, Context, Result};
@@ -32,7 +32,7 @@ pub fn image_from_bytes(
         tex_manager.write().alloc(
             path.to_str().unwrap().to_owned(),
             ImageData::Color(image),
-            TextureFilter::Nearest,
+            TextureOptions::NEAREST,
         ),
         Vec2::new(size[0] as _, size[1] as _),
     ))
@@ -52,18 +52,18 @@ pub fn svg_from_bytes(
     bytes: &[u8],
     path: &Path,
 ) -> Result<(TextureId, Vec2)> {
-    let mut opt = usvg::Options::default();
-    opt.fontdb.load_system_fonts();
+    let opt = usvg::Options::default();
+    // opt.fontdb.load_system_fonts();
 
-    let rtree = usvg::Tree::from_data(bytes, &opt.to_ref())
+    let rtree = usvg::Tree::from_data(bytes, &opt)
         .wrap_err_with(|| format!("Failed to decode SVG: {path:?}"))?;
-    let orig_size = rtree.svg_node().size;
+    let orig_size = rtree.size;
 
     let [width, height] = [1920, 1080];
     let scale = (width as f64 / orig_size.width()).min(height as f64 / orig_size.height());
     let [width, height] = [
-        (scale * orig_size.width() as f64).round() as _,
-        (scale * orig_size.height() as f64).round() as _,
+        (scale * orig_size.width()).round() as _,
+        (scale * orig_size.height()).round() as _,
     ];
 
     let mut pixmap = tiny_skia::Pixmap::new(width, height)
@@ -83,7 +83,7 @@ pub fn svg_from_bytes(
         tex_manager.write().alloc(
             path.to_str().unwrap().to_owned(),
             ImageData::Color(image),
-            TextureFilter::Nearest,
+            TextureOptions::NEAREST,
         ),
         Vec2::new(orig_size.width() as _, orig_size.height() as _),
     ))

@@ -1,8 +1,10 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{IoManager, OptionalPath, ResourceAddr, ResourceManager};
+use crate::resource::{
+    IoManager, Mask2D, OptionalFloat, OptionalPath, ResourceAddr, ResourceManager, ResourceValue,
+};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
-use eframe::egui::{CursorIcon, Response, Sense, Ui, Vec2};
+use eframe::egui::{CursorIcon, Response, Sense, Ui};
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use serde_cbor::Value;
@@ -12,29 +14,42 @@ use std::time::Instant;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Pointer {
     inner: Box<dyn Action>,
-    // size: [f32; 2],
     #[serde(default)]
     group: String,
+    #[serde(default = "defaults::once")]
+    once: bool,
     #[serde(default)]
     mask: OptionalPath,
+    #[serde(default)]
+    mask_width: OptionalFloat,
     #[serde(default)]
     out_rt: SignalId,
     #[serde(default)]
     out_coord: SignalId,
     #[serde(default)]
     out_accuracy: SignalId,
+    #[serde(default)]
+    out_hit: SignalId,
 }
 
 stateful!(Pointer {
     inner: Box<dyn StatefulAction>,
     // size: Vec2,
-    group: String,
-    mask: OptionalPath,
+    _group: String,
+    once: bool,
+    mask: Option<Mask2D>,
     out_rt: SignalId,
     out_coord: SignalId,
     out_accuracy: SignalId,
+    out_hit: SignalId,
     since: Instant,
 });
+
+mod defaults {
+    pub fn once() -> bool {
+        true
+    }
+}
 
 impl Action for Pointer {
     fn init(self) -> Result<Box<dyn Action>>
@@ -44,6 +59,7 @@ impl Action for Pointer {
         if self.out_rt == 0
             && self.out_coord == 0
             && self.out_accuracy == 0
+            && self.out_hit == 0
             && self.group.is_empty()
         {
             return Err(eyre!(
@@ -63,13 +79,14 @@ impl Action for Pointer {
         signals.insert(self.out_rt);
         signals.insert(self.out_coord);
         signals.insert(self.out_accuracy);
+        signals.insert(self.out_hit);
         signals
     }
 
     fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
         let mut resources = self.inner.resources(config);
         if let OptionalPath::Some(path) = &self.mask {
-            resources.push(ResourceAddr::Image(path.clone()));
+            resources.push(ResourceAddr::Mask(path.clone()));
         }
         resources
     }
@@ -82,17 +99,35 @@ impl Action for Pointer {
         sync_writer: &QWriter<SyncSignal>,
         async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
+        let mask = match &self.mask {
+            OptionalPath::Some(mask) => {
+                let mask = ResourceAddr::Mask(mask.clone());
+                if let ResourceValue::Mask(mask) = res.fetch(&mask)? {
+                    if let Some(width) = self.mask_width.as_f32() {
+                        Some(mask.scaled(mask.size().x / width))
+                    } else {
+                        Some(mask)
+                    }
+                } else {
+                    return Err(eyre!("Resource value and address types don't match."));
+                }
+            }
+            OptionalPath::None => None,
+        };
+
         Ok(Box::new(StatefulPointer {
             done: false,
             inner: self
                 .inner
                 .stateful(io, res, config, sync_writer, async_writer)?,
             // size: Vec2::from(self.size),
-            group: self.group.clone(),
-            mask: self.mask.clone(),
+            _group: self.group.clone(),
+            once: self.once,
+            mask,
             out_rt: self.out_rt,
             out_coord: self.out_coord,
             out_accuracy: self.out_accuracy,
+            out_hit: self.out_hit,
             since: Instant::now(),
         }))
     }
@@ -152,7 +187,14 @@ impl StatefulAction for StatefulPointer {
                 return Ok(response);
             };
 
-            println!("{coord:?}");
+            let score = if let Some(mask) = &self.mask {
+                mask.value_at(coord)
+            } else {
+                1.0
+            };
+
+            #[cfg(debug_assertions)]
+            println!("Clicked {coord:?} -> {score}");
 
             if self.out_rt > 0 {
                 let rt = (time - self.since).as_secs_f32();
@@ -177,15 +219,23 @@ impl StatefulAction for StatefulPointer {
             if self.out_accuracy > 0 {
                 sync_writer.push(SyncSignal::Emit(
                     time,
-                    vec![(self.out_accuracy, Value::Float(0.0))].into(),
+                    vec![(self.out_accuracy, Value::Float(score as f64))].into(),
+                ))
+            }
+            if self.out_hit > 0 {
+                sync_writer.push(SyncSignal::Emit(
+                    time,
+                    vec![(self.out_hit, Value::Bool(score > 0.0))].into(),
                 ))
             }
 
-            self.done = true;
-            sync_writer.push(SyncSignal::UpdateGraph);
+            if self.once && score > 0.0 {
+                self.done = true;
+                sync_writer.push(SyncSignal::UpdateGraph);
+            }
         }
 
-        ui.ctx().output().cursor_icon = CursorIcon::Default;
+        ui.output_mut(|o| o.cursor_icon = CursorIcon::Default);
 
         Ok(response)
     }

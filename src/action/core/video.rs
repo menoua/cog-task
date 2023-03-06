@@ -8,7 +8,7 @@ use crate::resource::{
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eframe::egui;
-use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, Response, TextureId, Vec2};
+use eframe::egui::{CentralPanel, Color32, Frame, Response, TextureId, Vec2};
 use eyre::{eyre, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

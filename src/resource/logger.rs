@@ -126,7 +126,7 @@ impl Logger {
         let path = self.out_dir.join(name);
 
         if let Value::Text(content) = content {
-            fs::write(&path, &content)
+            fs::write(&path, content)
                 .wrap_err_with(|| format!("Failed to write to log file ({path:?})."))?;
         } else {
             let file = File::create(&path)

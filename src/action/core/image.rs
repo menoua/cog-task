@@ -5,8 +5,7 @@ use crate::resource::{
 };
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui;
-use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, Response, Sense, TextureId, Vec2};
-use egui_extras::{Size, StripBuilder};
+use eframe::egui::{CentralPanel, Color32, Frame, Response, TextureId, Vec2};
 use eyre::{eyre, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

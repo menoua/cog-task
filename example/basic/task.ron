@@ -121,6 +121,8 @@
                     (200, 133.3),
                     pointer((
                         inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                        mask: "rustacean.svg",
+                        mask_width: 200,
                         group: "click",
                     )),
                     red
@@ -129,6 +131,8 @@
                     (200, 133.3),
                     pointer((
                         inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                        mask: "rustacean.svg",
+                        mask_width: 200,
                         group: "click",
                     )),
                     blue
@@ -137,6 +141,8 @@
                     (200, 133.3),
                     pointer((
                         inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                        mask: "rustacean.svg",
+                        mask_width: 200,
                         group: "click",
                     )),
                     yellow
