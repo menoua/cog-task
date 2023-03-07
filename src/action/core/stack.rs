@@ -169,30 +169,20 @@ impl StatefulAction for StatefulStack {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Signal> {
-        let mut done = vec![];
         let mut news = vec![];
-        let mut finished = false;
         for (i, c) in self.children.iter_mut().enumerate() {
-            if self.active[i] {
+            if !self.active[i] {
                 continue;
             }
 
             news.extend(c.update(signal, sync_writer, async_writer, state)?);
 
             if c.is_over()? {
-                news.extend(c.stop(sync_writer, async_writer, state)?);
-                done.push(i);
+                *c = Box::<StatefulNil>::default();
+                self.active[i] = false;
             }
         }
-        for i in done.into_iter().rev() {
-            self.children[i] = Box::<StatefulNil>::default();
-            self.active[i] = false;
-        }
-        if self.active.iter().all(|&c| c) {
-            finished = true;
-        }
-
-        if finished {
+        if !self.active.iter().any(|&c| c) {
             self.done = true;
         }
 
@@ -206,7 +196,8 @@ impl StatefulAction for StatefulStack {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Response> {
-        let mut builder = StripBuilder::new(ui).size(Size::remainder());
+        let mut builder = StripBuilder::new(ui).clip(true);
+        builder = builder.size(Size::remainder());
         for &p in self.proportions.iter() {
             builder = builder.size(Size::relative(p));
         }

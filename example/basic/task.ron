@@ -115,6 +115,44 @@
         ),
 
         (
+            name: "Stacked with overflow",
+            tree: seq(([
+                pointer((
+                    inner: horizontal(([
+                        image((src: "rustacean.svg", background: yellow, width: 200.0)),
+                        vertical(([
+                            fixation((background: yellow)),
+                            image((src: "rustacean.svg", width: 200.0)),
+                            fixation((background: blue)),
+                        ], [
+                            0.15, 0.5, 0.15
+                        ])),
+                        image((src: "rustacean.svg", background: blue, width: 200.0)),
+                    ], [
+                        0.3333, 0.3333, 0.3333
+                    ])),
+                    until: click
+                )),
+                pointer((
+                    inner: horizontal(([
+                        image((src: "rustacean.svg", background: yellow, width: 900.0)),
+                        vertical(([
+                            fixation((background: yellow)),
+                            image((src: "rustacean.svg", width: 700.0)),
+                            fixation((background: blue)),
+                        ], [
+                            0.15, 0.5, 0.15
+                        ])),
+                        image((src: "rustacean.svg", background: blue, width: 900.0)),
+                    ], [
+                        0.3333, 0.3333, 0.3333
+                    ])),
+                    until: click
+                ))
+            ]))
+        ),
+
+        (
             name: "Pointer",
             tree: seq(([
                 rect((

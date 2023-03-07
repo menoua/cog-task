@@ -123,11 +123,7 @@ impl StatefulAction for StatefulSeq {
             news.extend(c.update(signal, sync_writer, async_writer, state)?);
 
             if c.is_over()? {
-                news.extend(self.children.pop_front().unwrap().stop(
-                    sync_writer,
-                    async_writer,
-                    state,
-                )?);
+                self.children.pop_front();
 
                 if let Some(c) = self.children.get_mut(0) {
                     news.extend(c.start(sync_writer, async_writer, state)?);

@@ -71,9 +71,10 @@ impl Action for Pointer {
             && self.out_accuracy == 0
             && self.out_hit == 0
             && self.group.is_empty()
+            && matches!(self.until, Until::None)
         {
             return Err(eyre!(
-                "Pointer with no `out_*` signal and no `group` is useless."
+                "Pointer with no `out_*` signal, `group`, or stopping condition is useless."
             ));
         }
 

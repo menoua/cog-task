@@ -179,7 +179,6 @@ impl StatefulAction for StatefulPar {
             news.extend(c.update(signal, sync_writer, async_writer, state)?);
 
             if c.is_over()? {
-                news.extend(c.stop(sync_writer, async_writer, state)?);
                 done.push(i);
             }
         }
@@ -198,7 +197,6 @@ impl StatefulAction for StatefulPar {
             news.extend(c.update(signal, sync_writer, async_writer, state)?);
 
             if c.is_over()? {
-                news.extend(c.stop(sync_writer, async_writer, state)?);
                 done.push(i);
             }
         }
@@ -207,6 +205,11 @@ impl StatefulAction for StatefulPar {
         }
 
         if finished {
+            let children = self.primary.iter_mut().chain(self.secondary.iter_mut());
+            for c in children {
+                news.extend(c.stop(sync_writer, async_writer, state)?);
+            }
+
             self.done = true;
         }
 
