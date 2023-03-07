@@ -122,7 +122,7 @@ impl StatefulAction for StatefulCounter {
             }
         }
 
-        ui.output().cursor_icon = CursorIcon::Default;
+        ui.output_mut(|o| o.cursor_icon = CursorIcon::Default);
 
         Ok(response)
     }

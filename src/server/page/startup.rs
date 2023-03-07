@@ -94,14 +94,14 @@ impl Server {
                         ui.horizontal_centered(|ui| {
                             let response = ui.add(
                                 egui::DragValue::new(&mut self.scale_factor)
-                                    .prefix("x")
-                                    .clamp_range(0.7..=1.15)
-                                    .speed(0.01),
+                                    .suffix("%")
+                                    .clamp_range(70..=115)
+                                    .speed(1),
                             );
 
                             self.hold_on_rescale = response.dragged();
                             if response.secondary_clicked() && !response.has_focus() {
-                                self.scale_factor = 1.0;
+                                self.scale_factor = 100;
                             }
                         });
                     });

@@ -54,7 +54,7 @@ impl Action for Instruction {
     where
         Self: 'static + Sized,
     {
-        match (self.text.is_some(), self.src.is_some()) {
+        match (self.text.as_ref().is_some(), self.src.as_ref().is_some()) {
             (false, false) => Err(eyre!("`text` and `src` cannot both be empty.")),
             (true, true) => Err(eyre!("Only one of `text` and `src` should be set.")),
             _ => Ok(Box::new(self)),
@@ -68,8 +68,8 @@ impl Action for Instruction {
 
     #[inline(always)]
     fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
-        if let OptionalPath::Some(src) = &self.src {
-            vec![ResourceAddr::Text(src.clone())]
+        if let Some(src) = self.src.as_ref() {
+            vec![ResourceAddr::Text(src.to_owned())]
         } else {
             vec![]
         }
@@ -83,13 +83,13 @@ impl Action for Instruction {
         _sync_writer: &QWriter<SyncSignal>,
         _async_writer: &QWriter<AsyncSignal>,
     ) -> Result<Box<dyn StatefulAction>> {
-        let text = if let OptionalPath::Some(src) = &self.src {
-            match res.fetch(&ResourceAddr::Text(src.clone()))? {
+        let text = if let Some(src) = self.src.as_ref() {
+            match res.fetch(&ResourceAddr::Text(src.to_owned()))? {
                 ResourceValue::Text(text) => (*text).clone(),
                 _ => return Err(eyre!("Resource address and value types don't match.")),
             }
-        } else if let OptionalString::Some(text) = &self.text {
-            text.clone()
+        } else if let Some(text) = self.text.as_ref() {
+            text.to_owned()
         } else {
             "".to_owned()
         };
@@ -236,7 +236,7 @@ impl StatefulAction for StatefulInstruction {
         });
 
         if !self.persistent {
-            ui.output().cursor_icon = CursorIcon::Default;
+            ui.output_mut(|o| o.cursor_icon = CursorIcon::Default);
         }
 
         Ok(response)

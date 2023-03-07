@@ -102,7 +102,7 @@ impl Action for Stack {
             children.push(c.stateful(io, res, config, sync_writer, async_writer)?);
         }
 
-        let active = (0..children.len() as usize).map(|_| true).collect();
+        let active = (0..children.len()).map(|_| true).collect();
 
         let proportions = if self.2.is_empty() {
             let count = self.0.len();
@@ -185,7 +185,7 @@ impl StatefulAction for StatefulStack {
             }
         }
         for i in done.into_iter().rev() {
-            self.children[i] = Box::new(StatefulNil::default());
+            self.children[i] = Box::<StatefulNil>::default();
             self.active[i] = false;
         }
         if self.active.iter().all(|&c| c) {

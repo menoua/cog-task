@@ -74,13 +74,13 @@ impl Action for Function {
     where
         Self: 'static + Sized,
     {
-        match (self.expr.is_some(), self.src.is_some()) {
+        match (self.expr.as_ref().is_some(), self.src.as_ref().is_some()) {
             (false, false) => Err(eyre!("`expr` and `src` cannot both be empty."))?,
             (true, true) => Err(eyre!("Only one of `expr` and `src` should be set."))?,
             _ => {}
         };
 
-        if self.init_expr.is_some() && self.init_src.is_some() {
+        if self.init_expr.as_ref().is_some() && self.init_src.as_ref().is_some() {
             return Err(eyre!(
                 "Only one of `init_expr` and `init_src` should be set."
             ));
@@ -124,11 +124,11 @@ impl Action for Function {
 
     fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
         let mut resources = vec![];
-        if let OptionalPath::Some(src) = &self.src {
-            resources.push(ResourceAddr::Text(src.clone()));
+        if let Some(src) = self.src.as_ref() {
+            resources.push(ResourceAddr::Text(src.to_owned()));
         }
-        if let OptionalPath::Some(src) = &self.init_src {
-            resources.push(ResourceAddr::Text(src.clone()));
+        if let Some(src) = self.init_src.as_ref() {
+            resources.push(ResourceAddr::Text(src.to_owned()));
         }
         resources
     }
@@ -143,26 +143,26 @@ impl Action for Function {
     ) -> Result<Box<dyn StatefulAction>> {
         let interpreter = self.interpreter.or(&config.interpreter());
 
-        let init = if let OptionalPath::Some(src) = &self.init_src {
-            match res.fetch(&ResourceAddr::Text(src.clone()))? {
+        let init = if let Some(src) = self.init_src.as_ref() {
+            match res.fetch(&ResourceAddr::Text(src.to_owned()))? {
                 ResourceValue::Text(expr) => (*expr).clone(),
                 _ => return Err(eyre!("Resource address and value types don't match.")),
             }
-        } else if let OptionalString::Some(expr) = &self.init_expr {
-            expr.clone()
+        } else if let Some(expr) = self.init_expr.as_ref() {
+            expr.to_owned()
         } else {
             "".to_owned()
         }
         .trim()
         .to_owned();
 
-        let expr = if let OptionalPath::Some(src) = &self.src {
-            match res.fetch(&ResourceAddr::Text(src.clone()))? {
+        let expr = if let Some(src) = self.src.as_ref() {
+            match res.fetch(&ResourceAddr::Text(src.to_owned()))? {
                 ResourceValue::Text(expr) => (*expr).clone(),
                 _ => return Err(eyre!("Resource address and value types don't match.")),
             }
-        } else if let OptionalString::Some(expr) = &self.expr {
-            expr.clone()
+        } else if let Some(expr) = self.expr.as_ref() {
+            expr.to_owned()
         } else {
             "".to_owned()
         }

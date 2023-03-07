@@ -2,10 +2,9 @@
 
 (
     name: "Audio",
-    version: "0.1",
+    version: "0.2",
 
     config: (
-        use_trigger: yes,
         volume: 0.75,
         blocks_per_row: 3,
     ),
@@ -60,15 +59,18 @@
         (
             name: "Separate trigger",
             config: (
-                use_trigger: yes,
                 log_format: yaml,
             ),
             tree: par(([
                 audio((
                     src: "../../audio_video/data/sample-6s+.wav",
-                    trigger: ext("../../audio_video/data/sample-6s+.trig.wav"),
+                    channel: left,
                 ))
             ], [
+                audio((
+                    src: "../../audio_video/data/sample-6s+.trig.wav",
+                    channel: right,
+                )),
                 instruction((
                     text:  "You should be hearing audio from the right speaker only.",
                     static: true
@@ -79,11 +81,10 @@
         (
             name: "Embedded trigger",
             config: (
-                use_trigger: yes,
                 log_format: ron,
             ),
             tree: par(([
-                audio((src: "../../audio_video/data/sample-6s-with-silence1.wav", trigger: int))
+                audio((src: "../../audio_video/data/sample-6s-with-silence1.wav"))
                 ], [
                 instruction((
                     text:  "You should be hearing audio from the right speaker only.",

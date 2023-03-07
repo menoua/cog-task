@@ -1,6 +1,6 @@
 use crate::action::{Action, ActionSignal, Props, StatefulAction, INFINITE};
 use crate::comm::{QWriter, Signal, SignalId};
-use crate::resource::{IoManager, ResourceAddr, ResourceManager};
+use crate::resource::{IoManager, OptionalUInt, ResourceAddr, ResourceManager};
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use eframe::egui::{Response, Ui};
 use eyre::{eyre, Context, Result};
@@ -11,34 +11,38 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Repeat(
-    Box<dyn Action>,
-    #[serde(default = "defaults::prefetch")] usize,
-);
+pub struct Repeat {
+    inner: Box<dyn Action>,
+    #[serde(default)]
+    iters: OptionalUInt,
+    #[serde(default = "defaults::prefetch")]
+    prefetch: u64,
+}
 
 stateful!(Repeat {
     inner: Box<dyn StatefulAction>,
+    iters: Option<u64>,
     queue: Arc<Mutex<VecDeque<Box<dyn StatefulAction>>>>,
     link: Sender<()>,
 });
 
 mod defaults {
-    pub fn prefetch() -> usize {
-        2
+    pub fn prefetch() -> u64 {
+        3
     }
 }
 
 impl Action for Repeat {
     fn in_signals(&self) -> BTreeSet<SignalId> {
-        self.0.in_signals()
+        self.inner.in_signals()
     }
 
     fn out_signals(&self) -> BTreeSet<SignalId> {
-        self.0.out_signals()
+        self.inner.out_signals()
     }
 
     fn resources(&self, config: &Config) -> Vec<ResourceAddr> {
-        self.0.resources(config)
+        self.inner.resources(config)
     }
 
     fn stateful(
@@ -51,10 +55,17 @@ impl Action for Repeat {
     ) -> Result<Box<dyn StatefulAction>> {
         let (tx, rx) = mpsc::channel();
 
-        let mut queue = VecDeque::new();
-        for _ in 0..self.1 {
+        let iters = self.iters.as_ref().copied();
+        let prefetch = if let Some(n) = iters {
+            self.prefetch.min(n)
+        } else {
+            self.prefetch
+        };
+
+        let mut queue = VecDeque::with_capacity(prefetch as usize);
+        for _ in 0..prefetch {
             queue.push_back(
-                self.0
+                self.inner
                     .stateful(io, res, config, sync_writer, async_writer)?,
             );
         }
@@ -63,8 +74,8 @@ impl Action for Repeat {
 
         {
             let queue = queue.clone();
-            let blueprint =
-                serde_cbor::to_vec(&self.0).wrap_err("Failed to serialize action blueprint.")?;
+            let blueprint = serde_cbor::to_vec(&self.inner)
+                .wrap_err("Failed to serialize action blueprint.")?;
 
             let res = res.clone();
             let config = config.clone();
@@ -116,8 +127,9 @@ impl Action for Repeat {
         Ok(Box::new(StatefulRepeat {
             done: false,
             inner: self
-                .0
+                .inner
                 .stateful(io, res, config, sync_writer, async_writer)?,
+            iters,
             queue,
             link: tx,
         }))
@@ -128,7 +140,11 @@ impl StatefulAction for StatefulRepeat {
     impl_stateful!();
 
     fn props(&self) -> Props {
-        (self.inner.props().bits() | INFINITE).into()
+        if self.iters.is_none() {
+            (self.inner.props().bits() | INFINITE).into()
+        } else {
+            self.inner.props()
+        }
     }
 
     fn start(
@@ -137,7 +153,14 @@ impl StatefulAction for StatefulRepeat {
         async_writer: &mut QWriter<AsyncSignal>,
         state: &State,
     ) -> Result<Signal> {
-        self.inner.start(sync_writer, async_writer, state)
+        if let Some(0) = self.iters {
+            self.done = true;
+            sync_writer.push(SyncSignal::UpdateGraph);
+            Ok(Signal::none())
+        } else {
+            self.iters = self.iters.map(|n| n - 1);
+            self.inner.start(sync_writer, async_writer, state)
+        }
     }
 
     fn update(
@@ -154,6 +177,12 @@ impl StatefulAction for StatefulRepeat {
         );
 
         if self.inner.is_over()? {
+            if let Some(0) = self.iters {
+                self.done = true;
+                sync_writer.push(SyncSignal::UpdateGraph);
+                return Ok(news.into());
+            }
+
             if let Some(inner) = self.queue.lock().unwrap().pop_front() {
                 self.inner = inner;
                 news.extend(self.inner.start(sync_writer, async_writer, state)?);
@@ -166,6 +195,8 @@ impl StatefulAction for StatefulRepeat {
             if self.link.send(()).is_err() {
                 return Err(eyre!("Action prefetcher did not respond to request."));
             }
+
+            self.iters = self.iters.map(|n| n - 1);
         }
 
         Ok(news.into())

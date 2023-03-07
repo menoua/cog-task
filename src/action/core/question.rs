@@ -101,7 +101,7 @@ impl StatefulAction for StatefulQuestion {
             strip.strip(|builder| self.show_controls(builder, sync_writer, async_writer));
         });
 
-        ui.ctx().output().cursor_icon = CursorIcon::Default;
+        ui.output_mut(|o| o.cursor_icon = CursorIcon::Default);
 
         Ok(response)
     }

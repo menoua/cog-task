@@ -75,7 +75,7 @@ pub fn style_ui(ui: &mut egui::Ui, style: Style) {
             ui.spacing_mut().item_spacing = Vec2::splat(10.0);
             ui.spacing_mut().button_padding = Vec2::splat(10.0);
             ui.visuals_mut().widgets.inactive.bg_fill = Color32::TRANSPARENT;
-            ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::none();
+            ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::NONE;
             ui.visuals_mut().widgets.inactive.rounding = rounding;
             ui.visuals_mut().widgets.hovered.bg_fill =
                 Rgba::from(Color32::LIGHT_GRAY).multiply(0.2).into();
@@ -86,7 +86,7 @@ pub fn style_ui(ui: &mut egui::Ui, style: Style) {
             ui.visuals_mut().widgets.active.bg_stroke = Stroke::new(3.0, Color32::DARK_GRAY);
             ui.visuals_mut().widgets.active.rounding = rounding;
             ui.visuals_mut().widgets.noninteractive.bg_fill = Color32::TRANSPARENT;
-            ui.visuals_mut().widgets.noninteractive.bg_stroke = Stroke::none();
+            ui.visuals_mut().widgets.noninteractive.bg_stroke = Stroke::NONE;
             ui.visuals_mut().widgets.noninteractive.rounding = rounding;
         }
         Style::SelectButton => {
@@ -178,12 +178,12 @@ pub fn style_ui(ui: &mut egui::Ui, style: Style) {
             ui.spacing_mut().button_padding = Vec2::new(30.0, 15.0);
             ui.visuals_mut().widgets.inactive.rounding = rounding;
             ui.visuals_mut().widgets.inactive.bg_fill = Color32::TRANSPARENT;
-            ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::none();
+            ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::NONE;
             ui.visuals_mut().widgets.inactive.fg_stroke = Stroke::new(2.0, Color32::LIGHT_GRAY);
             ui.visuals_mut().widgets.hovered.rounding = rounding;
             ui.visuals_mut().widgets.hovered.bg_fill =
                 Rgba::from(Color32::LIGHT_GRAY).multiply(0.2).into();
-            ui.visuals_mut().widgets.hovered.bg_stroke = Stroke::none();
+            ui.visuals_mut().widgets.hovered.bg_stroke = Stroke::NONE;
             ui.visuals_mut().widgets.hovered.fg_stroke = Stroke::new(4.0, Color32::LIGHT_GRAY);
             ui.visuals_mut().widgets.active.rounding = rounding;
             ui.visuals_mut().widgets.active.bg_fill =
@@ -287,7 +287,7 @@ pub fn set_fullscreen_scale(ctx: &egui::Context, scale: f32) {
     static mut RESCALE_TIMER: Option<Arc<Mutex<Instant>>> = None;
 
     let curr = ctx.pixels_per_point();
-    let size = ctx.input().screen_rect().size();
+    let size = ctx.input(|i| i.screen_rect().size());
     let mut scale = (size.x / SCREEN_SIZE.x).min(size.y / SCREEN_SIZE.y) * scale;
     scale = f32_with_precision(scale, 6);
 

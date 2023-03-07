@@ -1,3 +1,4 @@
+use crate::resource::AudioChannel;
 use crate::server::Config;
 use eframe::egui::mutex::RwLock;
 use eframe::egui::{TextureId, Vec2};
@@ -6,7 +7,7 @@ use eyre::{eyre, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -16,6 +17,7 @@ mod ffmpeg;
 mod gst;
 
 pub type FrameBuffer = Arc<Vec<(TextureId, Vec2)>>;
+pub type VideoBuffer = (FrameBuffer, f64);
 
 #[derive(Clone)]
 pub enum Stream {
@@ -76,10 +78,8 @@ where
 #[derive(Debug, Clone)]
 pub enum StreamMode {
     Query,
-    Normal,
+    Normal(AudioChannel),
     Muted,
-    SansIntTrigger,
-    WithExtTrigger(PathBuf),
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]

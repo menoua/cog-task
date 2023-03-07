@@ -1,5 +1,6 @@
 use cog_task::launcher::Launcher;
+use eyre::Result;
 
-fn main() {
-    Launcher::default().run();
+fn main() -> Result<()> {
+    Launcher::default().run()
 }

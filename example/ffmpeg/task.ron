@@ -5,7 +5,6 @@
     version: "0.1",
 
     config: (
-        use_trigger: yes,
         volume: 0.75,
         blocks_per_row: 3,
         stream_backend: ffmpeg,
@@ -61,29 +60,30 @@
 
         (
             name: "Medium Video with Trigger",
-            config: (
-                use_trigger: yes,
-            ),
             tree: seq(([
                 instruction((
                     text: "What comes next is a static video repeated 4 times.\nQuickly press Escape twice to cancel the experiment block.",
                 )),
-                stream((
-                    src: "../audio_video/data/video.mono.mov",
-                    trigger: ext("../audio_video/data/video.mono.trig.wav")
-                )),
-                stream((
-                    src: "../audio_video/data/video.mono.mov",
-                    trigger: ext("../audio_video/data/video.mono.trig.wav")
-                )),
-                stream((
-                    src: "../audio_video/data/video.mono.mov",
-                    trigger: ext("../audio_video/data/video.mono.trig.wav")
-                )),
-                stream((
-                    src: "../audio_video/data/video.mono.mov",
-                    trigger: ext("../audio_video/data/video.mono.trig.wav")
-                )),
+                par(([
+                    stream((src: "../audio_video/data/video.mono.mov", channel: left)),
+                ], [
+                    audio((src: "../audio_video/data/video.mono.trig.wav", channel: right))
+                ])),
+                par(([
+                    stream((src: "../audio_video/data/video.mono.mov", channel: left)),
+                ], [
+                    audio((src: "../audio_video/data/video.mono.trig.wav", channel: right))
+                ])),
+                par(([
+                    stream((src: "../audio_video/data/video.mono.mov", channel: left)),
+                ], [
+                    audio((src: "../audio_video/data/video.mono.trig.wav", channel: right))
+                ])),
+                par(([
+                    stream((src: "../audio_video/data/video.mono.mov", channel: left)),
+                ], [
+                    audio((src: "../audio_video/data/video.mono.trig.wav", channel: right))
+                ])),
             ]))
         ),
 
@@ -97,9 +97,6 @@
 
         (
             name: "Streamed Audio",
-            config: (
-                use_trigger: yes,
-            ),
             tree: seq(([
                 stream((src: "../audio_video/data/sample-6s.wav")),
                 stream((src: "../audio_video/data/sample-6s.wav", volume: 0.75)),

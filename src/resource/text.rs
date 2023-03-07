@@ -3,8 +3,6 @@ use eframe::egui::Ui;
 use egui_demo_lib::easy_mark::easy_mark;
 use eyre::{eyre, Result};
 use regex::Regex;
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 
 pub fn parse_text(ui: &mut Ui, text: &str) -> Result<()> {
     let re = Regex::new(r"^!!<([[:alpha:]][[:word:]]*)>[ \t]*\n?([ \t]*\n)?").unwrap();

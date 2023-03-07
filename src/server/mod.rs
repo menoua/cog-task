@@ -18,7 +18,7 @@ use chrono::{DateTime, Local, NaiveDateTime};
 use eframe::egui::CentralPanel;
 use eframe::glow::HasContext;
 use eframe::{egui, App};
-use eyre::{Context, Error, Result};
+use eyre::{eyre, Context, Error, Result};
 use serde_cbor::Value;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -37,7 +37,7 @@ pub struct Server {
     env: Env,
     task: Task,
     subject: String,
-    scale_factor: f32,
+    scale_factor: u32,
     hold_on_rescale: bool,
     scheduler: Option<Scheduler>,
     page: Page,
@@ -68,7 +68,7 @@ impl Server {
             env,
             task,
             subject: "".to_owned(),
-            scale_factor: 1.0,
+            scale_factor: 100,
             hold_on_rescale: false,
             scheduler: None,
             page: Page::Startup,
@@ -83,20 +83,22 @@ impl Server {
         })
     }
 
-    pub fn run(mut self) {
+    pub fn run(mut self) -> Result<()> {
         let options = eframe::NativeOptions {
             always_on_top: false,
             maximized: true,
             decorated: true,
             fullscreen: true,
+            fullsize_content: true,
             drag_and_drop_support: false,
             icon_data: None,
             initial_window_pos: None,
             initial_window_size: None,
             min_window_size: None,
             max_window_size: None,
-            resizable: false,
+            resizable: true,
             transparent: false,
+            mouse_passthrough: false,
             vsync: false,
             multisampling: 0,
             depth_buffer: 0,
@@ -106,6 +108,9 @@ impl Server {
             follow_system_theme: false,
             default_theme: eframe::Theme::Light,
             run_and_return: false,
+            event_loop_builder: None, // look into this argument at some point
+            shader_version: None,     // look into this argument at some point
+            centered: true,
         };
 
         self.sys_info.renderer = format!("{:#?}", options.renderer);
@@ -123,7 +128,8 @@ impl Server {
                 }
                 Box::new(self)
             }),
-        );
+        )
+        .map_err(|e| eyre!("Failed to run native eframe: {e}"))
     }
 
     #[inline(always)]
@@ -271,7 +277,7 @@ impl App for Server {
             });
 
         if !self.hold_on_rescale {
-            gui::set_fullscreen_scale(ctx, self.scale_factor);
+            gui::set_fullscreen_scale(ctx, self.scale_factor as f32 / 100.0);
         }
         if !matches!(self.page, Page::Activity) {
             ctx.request_repaint_after(Duration::from_millis(250));

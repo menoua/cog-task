@@ -10,6 +10,7 @@ use eframe::glow::HasContext;
 use eframe::{egui, App, Storage};
 use egui::widget_text::RichText;
 use egui_extras::{Size, StripBuilder};
+use eyre::{eyre, Result};
 use heck::ToTitleCase;
 use itertools::Itertools;
 use native_dialog::FileDialog;
@@ -147,12 +148,13 @@ impl Launcher {
         "CogTask Launcher"
     }
 
-    pub fn run(mut self) {
+    pub fn run(mut self) -> Result<()> {
         let options = eframe::NativeOptions {
             always_on_top: false,
             maximized: false,
             decorated: true,
             fullscreen: false,
+            fullsize_content: false,
             drag_and_drop_support: false,
             icon_data: None,
             initial_window_pos: None,
@@ -161,6 +163,7 @@ impl Launcher {
             max_window_size: None,
             resizable: false,
             transparent: false,
+            mouse_passthrough: false,
             vsync: true,
             multisampling: 0,
             depth_buffer: 0,
@@ -170,6 +173,9 @@ impl Launcher {
             follow_system_theme: false,
             default_theme: eframe::Theme::Light,
             run_and_return: false,
+            event_loop_builder: None,
+            shader_version: None,
+            centered: true,
         };
 
         self.sys_info.renderer = format!("{:#?}", options.renderer);
@@ -196,7 +202,8 @@ impl Launcher {
 
                 Box::new(self)
             }),
-        );
+        )
+        .map_err(|e| eyre!("Failed to run native eframe: {e}"))
     }
 
     fn process(&mut self, msg: LauncherSignal) {
@@ -225,7 +232,7 @@ impl App for Launcher {
             self.process(message);
         }
 
-        if ctx.input().key_pressed(egui::Key::Escape) {
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
             self.status = Status::None;
         }
 
@@ -254,7 +261,7 @@ impl Launcher {
 
         egui::CentralPanel::default().frame(frame).show(ctx, |ui| {
             if self.busy {
-                ui.output().cursor_icon = CursorIcon::NotAllowed;
+                ui.output_mut(|o| o.cursor_icon = CursorIcon::NotAllowed);
             }
 
             ui.add_enabled_ui(!self.busy, |ui| {
@@ -490,7 +497,7 @@ impl Launcher {
                     .clicked()
                 {
                     ui.close_menu();
-                    ui.output().copied_text = content.trim().to_owned();
+                    ui.output_mut(|o| o.copied_text = content.trim().to_owned());
                 }
             });
         });

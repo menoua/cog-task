@@ -3,13 +3,13 @@
 use crate::action::{Action, Props, StatefulAction, DEFAULT, INFINITE, VISUAL};
 use crate::comm::{QWriter, Signal};
 use crate::resource::{
-    Color, IoManager, OptionalFloat, ResourceAddr, ResourceManager, ResourceValue, StreamMode,
-    Trigger, Volume,
+    AudioChannel, Color, IoManager, OptionalFloat, ResourceAddr, ResourceManager, ResourceValue,
+    StreamMode, Volume,
 };
 use crate::server::{AsyncSignal, Config, State, SyncSignal};
 use crate::util::spin_sleeper;
 use eframe::egui;
-use eframe::egui::{CentralPanel, Color32, CursorIcon, Frame, Response, TextureId, Vec2};
+use eframe::egui::{CentralPanel, Color32, Frame, Response, TextureId, Vec2};
 use eyre::{eyre, Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -28,9 +28,9 @@ pub struct Stream {
     #[serde(default)]
     volume: Volume,
     #[serde(default)]
-    looping: bool,
+    channel: AudioChannel,
     #[serde(default)]
-    trigger: Trigger,
+    looping: bool,
     #[serde(default)]
     background: Color,
     #[serde(default = "defaults::pad")]
@@ -56,18 +56,6 @@ mod defaults {
 }
 
 impl Action for Stream {
-    #[inline(always)]
-    fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
-        if let Trigger::Ext(trig) = &self.trigger {
-            vec![
-                ResourceAddr::Stream(self.src.clone()),
-                ResourceAddr::Ref(trig.clone()),
-            ]
-        } else {
-            vec![ResourceAddr::Stream(self.src.clone())]
-        }
-    }
-
     #[inline]
     fn init(self) -> Result<Box<dyn Action>> {
         if let Volume::Value(vol) = self.volume {
@@ -79,6 +67,11 @@ impl Action for Stream {
         }
 
         Ok(Box::new(self))
+    }
+
+    #[inline(always)]
+    fn resources(&self, _config: &Config) -> Vec<ResourceAddr> {
+        vec![ResourceAddr::Stream(self.src.clone())]
     }
 
     fn stateful(
@@ -96,26 +89,11 @@ impl Action for Stream {
             return Err(eyre!("Resource value and address types don't match."));
         };
 
-        let use_trigger = config.use_trigger().value();
-        let media_mode = match (&self.trigger, use_trigger) {
-            (Trigger::Ext(trig), true) => {
-                let trig = ResourceAddr::Ref(trig.clone());
-                let trig = if let ResourceValue::Ref(trig) = res.fetch(&trig)? {
-                    trig
-                } else {
-                    return Err(eyre!("Resource value and address types don't match."));
-                };
-                StreamMode::WithExtTrigger(trig)
-            }
-            (Trigger::Int, false) => StreamMode::SansIntTrigger,
-            _ => StreamMode::Normal,
-        };
-
         let frame = Arc::new(Mutex::new(None));
         let volume = self.volume.or(&config.volume()).value();
-        let mut stream = stream.cloned(frame.clone(), media_mode, volume)?;
+        let mut stream = stream.cloned(frame.clone(), StreamMode::Normal(self.channel), volume)?;
 
-        if !stream.has_video() && self.width.is_some() {
+        if !stream.has_video() && self.width.as_ref().is_some() {
             return Err(eyre!(
                 "Video-less stream `?` should not be supplied a width"
             ));

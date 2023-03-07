@@ -121,7 +121,10 @@
                     (200, 133.3),
                     pointer((
                         inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                        mask: "rustacean.svg",
+                        mask_width: 200,
                         group: "click",
+                        until: hit,
                     )),
                     red
                 )),
@@ -129,7 +132,10 @@
                     (200, 133.3),
                     pointer((
                         inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                        mask: "rustacean.svg",
+                        mask_width: 200,
                         group: "click",
+                        until: hit,
                     )),
                     blue
                 )),
@@ -137,11 +143,49 @@
                     (200, 133.3),
                     pointer((
                         inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                        mask: "rustacean.svg",
+                        mask_width: 200,
                         group: "click",
+                        until: hit,
                     )),
                     yellow
                 ))
             ]))
+        ),
+
+        (
+            name: "Pointer accuracy",
+            state: { 1: false },
+            tree: repeat((
+                inner: switch((
+                    default: false,
+                    if: rect((
+                        (200, 133.3),
+                        pointer((
+                            inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                            mask: "rustacean.svg",
+                            mask_width: 200,
+                            group: "click",
+                            until: click,
+                            out_hit: 1,
+                        )),
+                        green
+                    )),
+                    else: rect((
+                        (200, 133.3),
+                        pointer((
+                            inner: image((src: "rustacean.svg", width: 200.0, pad: false)),
+                            mask: "rustacean.svg",
+                            mask_width: 200,
+                            group: "click",
+                            until: click,
+                            out_hit: 1,
+                        )),
+                        red
+                    )),
+                    in_control: 1
+                ))
+            ))
         ),
 
         (
@@ -150,7 +194,7 @@
                 until((
                     in_event: 1,
                     inner: repeat((
-                        seq(([
+                        inner: seq(([
                             timeout((0.5, fixation((width: 50.0)))),
                             timeout((0.5, fixation((width: 150.0)))),
                             timeout((0.5, fixation((width: 600.0)))),

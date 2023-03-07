@@ -8,6 +8,14 @@ use std::time::Duration;
 #[cfg(feature = "rodio")]
 mod rodio;
 
+#[derive(Debug, Copy, Clone, Deserialize, Serialize, PartialEq, Eq, Hash)]
+#[serde(rename_all = "snake_case")]
+pub enum AudioChannel {
+    Stereo,
+    Left,
+    Right,
+}
+
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum AudioBackend {
@@ -43,6 +51,12 @@ impl AudioDevice {
             #[cfg(feature = "rodio")]
             AudioDevice::Rodio(_) => rodio::Device::new().map(AudioDevice::Rodio),
         }
+    }
+}
+
+impl Default for AudioChannel {
+    fn default() -> Self {
+        AudioChannel::Stereo
     }
 }
 
@@ -121,35 +135,6 @@ impl From<f32> for Volume {
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-pub enum UseTrigger {
-    Inherit,
-    Yes,
-    No,
-}
-
-impl Default for UseTrigger {
-    #[inline(always)]
-    fn default() -> Self {
-        UseTrigger::Inherit
-    }
-}
-
-impl UseTrigger {
-    pub fn or(&self, other: &Self) -> Self {
-        if let Self::Inherit = self {
-            *other
-        } else {
-            *self
-        }
-    }
-
-    pub fn value(&self) -> bool {
-        !matches!(self, UseTrigger::No)
-    }
-}
-
-#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
 pub enum TimePrecision {
     Inherit,
     RespectIntervals,
@@ -208,21 +193,33 @@ impl AudioBuffer {
         }
     }
 
-    pub fn interlace(self, other: AudioBuffer) -> Result<AudioBuffer> {
+    pub fn interlaced(self, other: AudioBuffer) -> Result<AudioBuffer> {
         match (self, other) {
             #[cfg(feature = "rodio")]
             (AudioBuffer::Rodio(x), AudioBuffer::Rodio(y)) => {
-                x.interlace(y).map(AudioBuffer::Rodio)
+                x.interlaced(y).map(AudioBuffer::Rodio)
             }
             (_, _) => Err(eyre!("Cannot interlace audio buffers of different types.")),
         }
     }
 
-    pub fn drop_last(self) -> Result<AudioBuffer> {
+    pub fn with_direction(self, channel: AudioChannel) -> Result<AudioBuffer> {
+        if channel == AudioChannel::Stereo {
+            return Ok(self);
+        }
+
+        if self.channels() > 1 {
+            return Err(eyre!(
+                "Setting directional audio output only supported for mono audio buffer."
+            ));
+        }
+
         match self {
-            AudioBuffer::None => Err(eyre!("Cannot interlace audio buffers of different types.")),
             #[cfg(feature = "rodio")]
-            AudioBuffer::Rodio(x) => x.drop_last().map(AudioBuffer::Rodio),
+            AudioBuffer::Rodio(x) => x.with_direction(channel).map(AudioBuffer::Rodio),
+            _ => Err(eyre!(
+                "Cannot set channel for audio buffer with backend=None."
+            )),
         }
     }
 }

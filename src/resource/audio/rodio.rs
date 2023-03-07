@@ -1,3 +1,4 @@
+use crate::resource::AudioChannel;
 use crate::server::Config;
 use eyre::{eyre, Context, Result};
 use rodio::buffer::SamplesBuffer;
@@ -77,18 +78,11 @@ impl Buffer {
         .wrap_err_with(|| format!("Failed to decode audio file: {path:?}"))?;
 
         let sample_rate = decoder.sample_rate();
-        let in_channels = decoder.channels() as i16;
-        let out_channels = in_channels;
-
-        let mut c = -1;
-        let mut samples = vec![];
-        for s in decoder {
-            c = (c + 1) % in_channels;
-            samples.push(s);
-        }
+        let channels = decoder.channels() as i16;
+        let samples: Vec<_> = decoder.collect();
 
         Ok(Self(
-            SamplesBuffer::new(out_channels as u16, sample_rate, samples).buffered(),
+            SamplesBuffer::new(channels as u16, sample_rate, samples).buffered(),
         ))
     }
 
@@ -107,33 +101,40 @@ impl Buffer {
         self.0.channels()
     }
 
-    pub fn interlace(self, mut other: Self) -> Result<Self> {
+    pub fn interlaced(mut self, mut other: Self) -> Result<Self> {
         let sample_rate = self.0.sample_rate();
         let in_channels = self.0.channels() as i16;
-        let out_channels = in_channels + 1;
+        let other_channels = other.0.channels() as i16;
+        let out_channels = in_channels + other_channels;
 
         if other.0.sample_rate() != sample_rate {
             return Err(eyre!(
-                "Trigger (?) has different sampling rate than corresponding audio"
+                "Cannot interlace audio buffers with different sampling rates: {}, {}",
+                sample_rate,
+                other.0.sample_rate(),
             ));
-        }
-        if other.0.channels() != 1 {
-            return Err(eyre!("Trigger (?) should have exactly 1 channel"));
         }
 
         let mut c = -1;
         let mut samples = vec![];
-        for s in self.0 {
-            c = (c + 1) % in_channels;
-            samples.push(s);
-            if c == in_channels - 1 {
-                if let Some(s) = other.0.next() {
-                    samples.push(s);
-                }
+        let mut status = 0;
+        loop {
+            c = (c + 1) % out_channels;
+            if c == 0 && status == 3 {
+                break;
             }
-        }
-        if other.0.next().is_some() {
-            return Err(eyre!("Trigger for (?) is longer than itself."));
+
+            samples.push(if c < in_channels {
+                self.0.next().unwrap_or_else(|| {
+                    status |= 1;
+                    0
+                })
+            } else {
+                other.0.next().unwrap_or_else(|| {
+                    status |= 2;
+                    0
+                })
+            });
         }
 
         Ok(Self(
@@ -141,27 +142,31 @@ impl Buffer {
         ))
     }
 
-    pub fn drop_last(self) -> Result<Self> {
-        let sample_rate = self.0.sample_rate();
-        let in_channels = self.0.channels() as i16;
-        let out_channels = in_channels - 1;
-        if out_channels == 0 {
-            return Err(eyre!(
-                "Audio with internal trigger should have at least one channel."
-            ));
-        }
+    pub fn with_direction(self, channel: AudioChannel) -> Result<Self> {
+        let sample_rate = self.sample_rate();
+        let out_channels = match (self.channels(), channel) {
+            (1, _) => 2,
+            (c, AudioChannel::Left | AudioChannel::Right) => {
+                return Err(eyre!(
+                    "Audio with single output channel cannot have more than one channel ({c})."
+                ));
+            }
+            (c, AudioChannel::Stereo) => c,
+        };
 
-        let mut c = -1;
         let mut samples = vec![];
         for s in self.0 {
-            c = (c + 1) % in_channels;
-            if c < in_channels - 1 {
-                samples.push(s);
+            if channel == AudioChannel::Right {
+                samples.push(0);
+            }
+            samples.push(s);
+            if channel == AudioChannel::Left {
+                samples.push(0);
             }
         }
 
         Ok(Self(
-            SamplesBuffer::new(out_channels as u16, sample_rate, samples).buffered(),
+            SamplesBuffer::new(out_channels, sample_rate, samples).buffered(),
         ))
     }
 }
