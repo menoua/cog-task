@@ -28,6 +28,10 @@ This application is written in [Rust](https://www.rust-lang.org/) using the [egu
 
 There are many more types of actions, which are not properly documented yet. But feel free to explore the [types](https://github.com/menoua/cog-task/tree/master/src/action/core) (each file corresponds to an action with the same name), or check out (and run) the multiple [examples](https://github.com/menoua/cog-task/tree/master/example).
 
+Some measured delays (on 2019 MacBook Pro):
+- Up to 0.2 ms error in timer-based events (`Wait`, `Delayed`, `Timeout`).
+- Up to 0.4 ms for `Action` change overhead, depending on system load.
+- Around 5-6 ms overhead for playing audio using the `rodio` backend.
 
 ## Installation
 
