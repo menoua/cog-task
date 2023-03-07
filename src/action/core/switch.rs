@@ -22,6 +22,7 @@ pub struct Switch {
     in_control: SignalId,
 }
 
+#[derive(Debug, Clone, Copy)]
 enum Decision {
     Temporary(bool),
     Final(bool),

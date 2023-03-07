@@ -57,8 +57,6 @@ pub fn svg_from_bytes(bytes: &[u8]) -> Result<(ColorImage, Vec2)> {
 
     let image = ColorImage::from_rgba_unmultiplied([width as _, height as _], pixmap.data());
 
-    println!("{orig_size:?} -- [{width}, {height}]");
-
     Ok((
         image,
         Vec2::new(orig_size.width() as _, orig_size.height() as _),

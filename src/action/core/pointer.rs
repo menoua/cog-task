@@ -16,8 +16,8 @@ pub struct Pointer {
     inner: Box<dyn Action>,
     #[serde(default)]
     group: String,
-    #[serde(default = "defaults::once")]
-    once: bool,
+    #[serde(default)]
+    until: Until,
     #[serde(default)]
     mask: OptionalPath,
     #[serde(default)]
@@ -36,7 +36,7 @@ stateful!(Pointer {
     inner: Box<dyn StatefulAction>,
     // size: Vec2,
     _group: String,
-    once: bool,
+    until: Until,
     mask: Option<Mask2D>,
     out_rt: SignalId,
     out_coord: SignalId,
@@ -45,9 +45,19 @@ stateful!(Pointer {
     since: Instant,
 });
 
-mod defaults {
-    pub fn once() -> bool {
-        true
+#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+enum Until {
+    None,
+    Hit,
+    Hits(u32),
+    Click,
+    Clicks(u32),
+}
+
+impl Default for Until {
+    fn default() -> Self {
+        Self::None
     }
 }
 
@@ -122,7 +132,7 @@ impl Action for Pointer {
                 .stateful(io, res, config, sync_writer, async_writer)?,
             // size: Vec2::from(self.size),
             _group: self.group.clone(),
-            once: self.once,
+            until: self.until,
             mask,
             out_rt: self.out_rt,
             out_coord: self.out_coord,
@@ -195,41 +205,55 @@ impl StatefulAction for StatefulPointer {
             #[cfg(debug_assertions)]
             println!("Clicked {coord:?} -> {score}");
 
+            let mut signals = vec![];
             if self.out_rt > 0 {
                 let rt = (time - self.since).as_secs_f32();
-                sync_writer.push(SyncSignal::Emit(
-                    time,
-                    vec![(self.out_rt, Value::Float(rt as f64))].into(),
-                ))
+                signals.push((self.out_rt, Value::Float(rt as f64)));
             }
             if self.out_coord > 0 {
-                sync_writer.push(SyncSignal::Emit(
-                    time,
-                    vec![(
-                        self.out_coord,
-                        Value::Array(vec![
-                            Value::Float(coord.x as f64),
-                            Value::Float(coord.y as f64),
-                        ]),
-                    )]
-                    .into(),
-                ))
+                signals.push((
+                    self.out_coord,
+                    Value::Array(vec![
+                        Value::Float(coord.x as f64),
+                        Value::Float(coord.y as f64),
+                    ]),
+                ));
             }
             if self.out_accuracy > 0 {
-                sync_writer.push(SyncSignal::Emit(
-                    time,
-                    vec![(self.out_accuracy, Value::Float(score as f64))].into(),
-                ))
+                signals.push((self.out_accuracy, Value::Float(score as f64)));
             }
             if self.out_hit > 0 {
-                println!("{:?}", (self.out_hit, Value::Bool(score > 0.0)));
-                sync_writer.push(SyncSignal::Emit(
-                    time,
-                    vec![(self.out_hit, Value::Bool(score > 0.0))].into(),
-                ))
+                signals.push((self.out_hit, Value::Bool(score > 0.0)));
             }
 
-            if self.once && score > 0.0 {
+            sync_writer.push(SyncSignal::Emit(time, signals.into()));
+
+            let mut is_done = false;
+            self.until = match (self.until, score) {
+                (Until::Hit, s) if s > 0.0 => {
+                    is_done = true;
+                    Until::Hit
+                }
+                (Until::Hits(n), s) if s > 0.0 => {
+                    if n == 1 {
+                        is_done = true;
+                    }
+                    Until::Hits(n.saturating_sub(1))
+                }
+                (Until::Click, _) => {
+                    is_done = true;
+                    Until::Click
+                }
+                (Until::Clicks(n), _) => {
+                    if n == 1 {
+                        is_done = true;
+                    }
+                    Until::Clicks(n.saturating_sub(1))
+                }
+                (until, _) => until,
+            };
+
+            if is_done {
                 self.done = true;
                 sync_writer.push(SyncSignal::UpdateGraph);
             }
