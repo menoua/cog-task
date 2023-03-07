@@ -154,7 +154,6 @@ impl Launcher {
             maximized: false,
             decorated: true,
             fullscreen: false,
-            fullsize_content: false,
             drag_and_drop_support: false,
             icon_data: None,
             initial_window_pos: None,
@@ -176,6 +175,7 @@ impl Launcher {
             event_loop_builder: None,
             shader_version: None,
             centered: true,
+            ..
         };
 
         self.sys_info.renderer = format!("{:#?}", options.renderer);

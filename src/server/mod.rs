@@ -89,7 +89,7 @@ impl Server {
             maximized: true,
             decorated: true,
             fullscreen: true,
-            fullsize_content: true,
+            // fullsize_content: true, //TODO this is exclusive to macOS
             drag_and_drop_support: false,
             icon_data: None,
             initial_window_pos: None,
@@ -111,6 +111,7 @@ impl Server {
             event_loop_builder: None, // look into this argument at some point
             shader_version: None,     // look into this argument at some point
             centered: true,
+            ..
         };
 
         self.sys_info.renderer = format!("{:#?}", options.renderer);
