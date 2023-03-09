@@ -32,6 +32,7 @@ Some measured delays (on 2019 MacBook Pro):
 - Up to 0.2 ms error in timer-based events (`Wait`, `Delayed`, `Timeout`).
 - Up to 0.4 ms for `Action` change overhead, depending on system load.
 - Around 5-6 ms overhead for playing audio using the `rodio` backend.
+- Around 40-50 ms overhead for streaming audio using the `gstreamer` backend.
 
 ## Installation
 
