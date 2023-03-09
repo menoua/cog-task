@@ -1,5 +1,6 @@
 ## To-do
 
+- [ ] The `rodio` backend does not support playback of audio with more than two channels through macOS's "Aggregate Device" which combines different output devices into a single virtual device with more channels.
 - [ ] Add Pointer action which wraps its internal element and records the position of the click. If an optional mask image is provided, it will measure if click was within mask. Sends out reaction_time, accuracy, and position.
 - [ ] Introduce global variables at the `Server` level which populate the state of scheduler at start, and are written back to Server only after successful completion.
 - [ ] Introduce "requires" attribute to `Block` which means a block can only run after the required blocks. This shouldn't be used for order since it can't be circumvented if necessary.
